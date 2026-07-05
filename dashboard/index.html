@@ -1549,6 +1549,7 @@ tbody tr.data-row.expanded {
 
         <div class="catalog-summary" id="catalogSummary"></div>
         <div class="catalog-list" id="catalogList"></div>
+        <div class="pager" id="catalogPager"></div>
       </div>
     </section>
   </main>
@@ -1754,6 +1755,8 @@ tbody tr.data-row.expanded {
   });
   var catalogFilter = "all";
   var catalogCategory = "all";
+  var catalogPage = 0;
+  var catalogPageSize = 8;
   var catalogDirty = {};
 
   var els = {
@@ -1774,6 +1777,7 @@ tbody tr.data-row.expanded {
     catalogCategory: document.getElementById("catalogCategory"),
     catalogSummary: document.getElementById("catalogSummary"),
     catalogList: document.getElementById("catalogList"),
+    catalogPager: document.getElementById("catalogPager"),
     exportCatalog: document.getElementById("exportCatalog"),
     sessionModal: document.getElementById("sessionModal"),
     sessionModalClose: document.getElementById("sessionModalClose"),
@@ -1790,7 +1794,7 @@ tbody tr.data-row.expanded {
   bindEvents();
   renderSkills(true);
   renderLogs(true);
-  renderCatalog();
+  renderCatalog(true);
 
   function bindEvents() {
     document.querySelectorAll("[data-view-button]").forEach(function (button) {
@@ -1830,10 +1834,12 @@ tbody tr.data-row.expanded {
       renderLogs(true);
     });
 
-    els.catalogSearch.addEventListener("input", renderCatalog);
+    els.catalogSearch.addEventListener("input", function () {
+      renderCatalog(true);
+    });
     els.catalogCategory.addEventListener("change", function () {
       catalogCategory = els.catalogCategory.value || "all";
-      renderCatalog();
+      renderCatalog(true);
     });
 
     document.querySelectorAll("[data-catalog-filter]").forEach(function (button) {
@@ -1842,7 +1848,7 @@ tbody tr.data-row.expanded {
         document.querySelectorAll("[data-catalog-filter]").forEach(function (item) {
           item.classList.toggle("active", item === button);
         });
-        renderCatalog();
+        renderCatalog(true);
       });
     });
 
@@ -2057,15 +2063,20 @@ tbody tr.data-row.expanded {
     }).join("");
   }
 
-  function renderCatalog() {
+  function renderCatalog(resetPage) {
     var rows = filteredCatalogRows();
     renderCatalogSummary(rows.length);
+    if (resetPage) catalogPage = 0;
+    var pages = pageCount(rows.length, catalogPageSize);
+    catalogPage = clamp(catalogPage, 0, pages - 1);
     if (!rows.length) {
       els.catalogList.innerHTML = '<div class="empty-state">没有匹配的技能字典项</div>';
+      els.catalogPager.innerHTML = "";
       return;
     }
 
-    els.catalogList.innerHTML = rows.map(function (row) {
+    var slice = rows.slice(catalogPage * catalogPageSize, (catalogPage + 1) * catalogPageSize);
+    els.catalogList.innerHTML = slice.map(function (row) {
       var catalog = catalogBySkill[row.skill] || {};
       var className = "catalog-item" + (catalogDirty[row.skill] ? " edited" : "") + (!isTranslated(row) ? " missing" : "");
       var calls = getCount(row);
@@ -2083,6 +2094,11 @@ tbody tr.data-row.expanded {
         + '</div>'
         + '</article>';
     }).join("");
+
+    renderPager(els.catalogPager, rows.length, catalogPage, catalogPageSize, function (nextPage) {
+      catalogPage = nextPage;
+      renderCatalog(false);
+    });
   }
 
   function exportCatalogJson() {
