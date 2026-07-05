@@ -106,9 +106,13 @@ button {
 
 .sidebar {
   min-width: 0;
-  position: sticky;
+  position: fixed;
   top: 0;
+  left: 0;
+  bottom: 0;
+  width: 248px;
   height: 100vh;
+  box-sizing: border-box;
   padding: 22px 18px;
   border-right: 1px solid var(--border);
   background: color-mix(in srgb, var(--surface) 88%, transparent);
@@ -116,6 +120,8 @@ button {
   flex-direction: column;
   justify-content: space-between;
   gap: 24px;
+  overflow-y: auto;
+  z-index: 20;
 }
 
 .brand {
@@ -267,6 +273,7 @@ button {
 }
 
 .main {
+  grid-column: 2;
   min-width: 0;
   padding: 22px;
 }
@@ -1414,8 +1421,10 @@ tbody tr.data-row.expanded {
 
   .sidebar {
     position: static;
+    width: auto;
     height: auto;
     padding: 14px;
+    overflow: visible;
   }
 
   .brand {
@@ -1433,6 +1442,7 @@ tbody tr.data-row.expanded {
   }
 
   .main {
+    grid-column: auto;
     padding: 14px;
   }
 
