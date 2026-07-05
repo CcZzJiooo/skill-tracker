@@ -1062,6 +1062,132 @@ tbody tr.data-row.expanded {
   border-color: color-mix(in srgb, var(--accent) 52%, var(--border));
 }
 
+.governance-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.05fr) minmax(320px, 0.95fr);
+  gap: 12px;
+  margin-top: 12px;
+}
+
+.insight-list {
+  display: grid;
+  gap: 8px;
+}
+
+.insight-row,
+.chain-row,
+.health-row {
+  min-width: 0;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: color-mix(in srgb, var(--surface-2) 72%, transparent);
+  padding: 10px;
+}
+
+.chain-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 120px;
+  gap: 12px;
+  align-items: center;
+}
+
+.chain-path,
+.health-head,
+.risk-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  min-width: 0;
+}
+
+.chain-node,
+.risk-tag {
+  display: inline-flex;
+  max-width: 100%;
+  min-height: 24px;
+  align-items: center;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text);
+  background: var(--surface);
+  padding: 3px 7px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+}
+
+.chain-arrow {
+  color: var(--accent);
+  font-family: var(--font-mono);
+}
+
+.chain-meta,
+.health-meta,
+.risk-meta {
+  margin-top: 7px;
+  color: var(--dim);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.score-ring {
+  width: 44px;
+  height: 44px;
+  flex: 0 0 auto;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  color: var(--text);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 800;
+  background:
+    radial-gradient(circle at center, var(--surface) 57%, transparent 59%),
+    conic-gradient(var(--score-color, var(--accent)) calc(var(--score) * 1%), var(--surface-3) 0);
+}
+
+.health-row {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 12px;
+  align-items: start;
+}
+
+.risk-row {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 10px;
+  background: var(--surface);
+}
+
+.risk-row.high {
+  border-color: color-mix(in srgb, var(--danger) 45%, var(--border));
+  background: color-mix(in srgb, var(--danger) 7%, var(--surface));
+}
+
+.risk-row.medium {
+  border-color: color-mix(in srgb, var(--accent-2) 40%, var(--border));
+}
+
+.risk-row.low {
+  border-color: color-mix(in srgb, var(--accent-3) 34%, var(--border));
+}
+
+.mini-track {
+  width: 100%;
+  height: 8px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background: var(--surface-3);
+  overflow: hidden;
+}
+
+.mini-fill {
+  height: 100%;
+  width: 0%;
+  background: var(--accent);
+}
+
 .pager {
   min-height: 58px;
   display: flex;
@@ -1259,6 +1385,10 @@ tbody tr.data-row.expanded {
     grid-template-columns: 1fr;
   }
 
+  .governance-grid {
+    grid-template-columns: 1fr;
+  }
+
   .catalog-summary {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
@@ -1362,6 +1492,11 @@ tbody tr.data-row.expanded {
     gap: 4px;
   }
 
+  .chain-row,
+  .health-row {
+    grid-template-columns: 1fr;
+  }
+
   .catalog-summary {
     grid-template-columns: 1fr;
   }
@@ -1416,6 +1551,10 @@ tbody tr.data-row.expanded {
         <button type="button" data-view-button="catalog">
           <span class="nav-index">03</span>
           <span class="nav-label"><strong>技能字典</strong><span>CN catalog</span></span>
+        </button>
+        <button type="button" data-view-button="governance">
+          <span class="nav-index">04</span>
+          <span class="nav-label"><strong>治理洞察</strong><span>Governance</span></span>
         </button>
       </nav>
     </div>
@@ -1566,6 +1705,69 @@ tbody tr.data-row.expanded {
         <div class="catalog-summary" id="catalogSummary"></div>
         <div class="catalog-list" id="catalogList"></div>
         <div class="pager" id="catalogPager"></div>
+      </div>
+    </section>
+
+    <section class="view-panel" id="view-governance" aria-labelledby="governanceHeading">
+      <div class="section" style="margin-top: 18px;">
+        <div class="section-head">
+          <div class="section-title">
+            <h3 id="governanceHeading">治理洞察</h3>
+            <p>从调用链路、健康评分、重复技能和冲突风险判断 skill 体系是否可维护</p>
+          </div>
+        </div>
+
+        <div class="catalog-summary" id="governanceSummary"></div>
+      </div>
+
+      <div class="governance-grid">
+        <section class="section" aria-labelledby="flowHeading">
+          <div class="section-head">
+            <div class="section-title">
+              <h3 id="flowHeading">调用链路图谱</h3>
+              <p>同一会话内相邻 skill 的高频流转</p>
+            </div>
+          </div>
+          <div class="section-body">
+            <div class="insight-list" id="flowList"></div>
+          </div>
+        </section>
+
+        <section class="section" aria-labelledby="healthHeading">
+          <div class="section-head">
+            <div class="section-title">
+              <h3 id="healthHeading">健康评分</h3>
+              <p>优先展示低分或需要治理的 skill</p>
+            </div>
+          </div>
+          <div class="section-body">
+            <div class="insight-list" id="healthList"></div>
+          </div>
+        </section>
+
+        <section class="section" aria-labelledby="duplicateHeading">
+          <div class="section-head">
+            <div class="section-title">
+              <h3 id="duplicateHeading">重复/相似检测</h3>
+              <p>基于名称、描述、触发词和分类的相似度指纹</p>
+            </div>
+          </div>
+          <div class="section-body">
+            <div class="insight-list" id="duplicateList"></div>
+          </div>
+        </section>
+
+        <section class="section" aria-labelledby="conflictHeading">
+          <div class="section-head">
+            <div class="section-title">
+              <h3 id="conflictHeading">冲突风险检测</h3>
+              <p>找出同场调用中的流程张力、重复风暴和治理风险</p>
+            </div>
+          </div>
+          <div class="section-body">
+            <div class="insight-list" id="conflictList"></div>
+          </div>
+        </section>
       </div>
     </section>
   </main>
@@ -1782,6 +1984,11 @@ tbody tr.data-row.expanded {
     toolBadges: document.getElementById("toolBadges"),
     metricsGrid: document.getElementById("metricsGrid"),
     trendList: document.getElementById("trendList"),
+    governanceSummary: document.getElementById("governanceSummary"),
+    flowList: document.getElementById("flowList"),
+    healthList: document.getElementById("healthList"),
+    duplicateList: document.getElementById("duplicateList"),
+    conflictList: document.getElementById("conflictList"),
     modeNote: document.getElementById("modeNote"),
     skillSearch: document.getElementById("skillSearch"),
     skillTableBody: document.getElementById("skillTableBody"),
@@ -1812,6 +2019,7 @@ tbody tr.data-row.expanded {
   renderSkills(true);
   renderLogs(true);
   renderCatalog(true);
+  renderGovernance();
 
   function bindEvents() {
     document.querySelectorAll("[data-view-button]").forEach(function (button) {
@@ -2034,6 +2242,297 @@ tbody tr.data-row.expanded {
       buttons.push('<button type="button" data-tool-filter="' + escapeAttr(tool) + '">' + escapeHtml(tool) + '</button>');
     });
     els.toolFilters.innerHTML = buttons.join("");
+  }
+
+  function renderGovernance() {
+    var model = buildGovernanceModel();
+    renderGovernanceSummary(model);
+    renderFlowList(model.transitions);
+    renderHealthList(model.health);
+    renderDuplicateList(model.duplicates);
+    renderConflictList(model.conflicts);
+  }
+
+  function buildGovernanceModel() {
+    var transitions = buildSkillTransitions();
+    var duplicates = findDuplicateSkillPairs();
+    var conflicts = detectConflictSignals(duplicates);
+    var health = buildHealthScores(duplicates);
+    return {
+      transitions: transitions,
+      duplicates: duplicates,
+      conflicts: conflicts,
+      health: health
+    };
+  }
+
+  function renderGovernanceSummary(model) {
+    var avgHealth = model.health.length
+      ? Math.round(model.health.reduce(function (sum, row) { return sum + row.score; }, 0) / model.health.length)
+      : 0;
+    var highConflicts = model.conflicts.filter(function (item) { return item.severity === "high"; }).length;
+    var cards = [
+      { label: "平均健康分", value: avgHealth },
+      { label: "链路模式", value: model.transitions.length },
+      { label: "相似技能对", value: model.duplicates.length },
+      { label: "高风险信号", value: highConflicts }
+    ];
+    els.governanceSummary.innerHTML = cards.map(function (card) {
+      return '<div class="catalog-stat"><span>' + escapeHtml(card.label) + '</span><strong>' + formatNum(card.value) + '</strong></div>';
+    }).join("");
+  }
+
+  function renderFlowList(transitions) {
+    if (!transitions.length) {
+      els.flowList.innerHTML = '<div class="empty-state">暂无足够的会话链路数据</div>';
+      return;
+    }
+    var maxCount = transitions.reduce(function (max, row) { return Math.max(max, row.count); }, 0);
+    els.flowList.innerHTML = transitions.slice(0, 12).map(function (row) {
+      var pct = maxCount ? Math.max(3, row.count / maxCount * 100) : 0;
+      return '<div class="chain-row">'
+        + '<div><div class="chain-path">'
+        + '<span class="chain-node">' + escapeHtml(row.from) + '</span>'
+        + '<span class="chain-arrow">→</span>'
+        + '<span class="chain-node">' + escapeHtml(row.to) + '</span>'
+        + '</div><div class="chain-meta">出现在 ' + formatNum(row.sessionCount) + ' 个会话，代表常见 skill 调用路径。</div></div>'
+        + '<div><div class="trend-value">' + formatNum(row.count) + '</div><div class="mini-track"><div class="mini-fill" style="width:' + pct.toFixed(2) + '%"></div></div></div>'
+        + '</div>';
+    }).join("");
+  }
+
+  function renderHealthList(healthRows) {
+    if (!healthRows.length) {
+      els.healthList.innerHTML = '<div class="empty-state">暂无健康评分数据</div>';
+      return;
+    }
+    els.healthList.innerHTML = healthRows.slice(0, 12).map(function (row) {
+      return '<div class="health-row">'
+        + '<div class="score-ring" style="--score:' + row.score + ';--score-color:' + scoreColor(row.score) + '">' + row.score + '</div>'
+        + '<div><div class="health-head"><span class="chain-node">' + escapeHtml(row.skill) + '</span><span class="catalog-pill">' + escapeHtml(row.category) + '</span></div>'
+        + '<div class="health-meta">' + escapeHtml(row.reasons.join("；") || "状态正常") + '</div></div>'
+        + '</div>';
+    }).join("");
+  }
+
+  function renderDuplicateList(duplicates) {
+    if (!duplicates.length) {
+      els.duplicateList.innerHTML = '<div class="empty-state">没有发现明显重复技能</div>';
+      return;
+    }
+    els.duplicateList.innerHTML = duplicates.slice(0, 12).map(function (row) {
+      return '<div class="risk-row medium">'
+        + '<div class="risk-head"><span class="risk-tag">' + escapeHtml(row.a) + '</span><span class="chain-arrow">≈</span><span class="risk-tag">' + escapeHtml(row.b) + '</span></div>'
+        + '<div class="risk-meta">相似度 ' + Math.round(row.score * 100) + '%，共同分类：' + escapeHtml(row.category) + '。建议检查是否可合并、改名或补充触发边界。</div>'
+        + '</div>';
+    }).join("");
+  }
+
+  function renderConflictList(conflicts) {
+    if (!conflicts.length) {
+      els.conflictList.innerHTML = '<div class="empty-state">暂未发现冲突风险</div>';
+      return;
+    }
+    els.conflictList.innerHTML = conflicts.slice(0, 12).map(function (row) {
+      return '<div class="risk-row ' + escapeAttr(row.severity) + '">'
+        + '<div class="risk-head"><span class="catalog-pill">' + escapeHtml(row.label) + '</span><strong>' + escapeHtml(row.title) + '</strong></div>'
+        + '<div class="risk-meta">' + escapeHtml(row.detail) + '</div>'
+        + '</div>';
+    }).join("");
+  }
+
+  function buildSkillTransitions() {
+    var bySession = {};
+    logRows.forEach(function (row, index) {
+      if (!row.session || row.dedup === false) return;
+      if (!bySession[row.session]) bySession[row.session] = [];
+      bySession[row.session].push({ row: row, index: index });
+    });
+
+    var transitions = {};
+    Object.keys(bySession).forEach(function (session) {
+      var sequence = bySession[session].sort(function (a, b) {
+        var at = Date.parse(a.row.time || "") || 0;
+        var bt = Date.parse(b.row.time || "") || 0;
+        return at - bt || a.index - b.index;
+      }).map(function (item) { return item.row.skill; }).filter(Boolean);
+      var compact = [];
+      sequence.forEach(function (skill) {
+        if (compact[compact.length - 1] !== skill) compact.push(skill);
+      });
+      for (var i = 1; i < compact.length; i += 1) {
+        var from = compact[i - 1];
+        var to = compact[i];
+        if (from === to) continue;
+        var key = from + "→" + to;
+        if (!transitions[key]) transitions[key] = { from: from, to: to, count: 0, sessions: {} };
+        transitions[key].count += 1;
+        transitions[key].sessions[session] = true;
+      }
+    });
+
+    return Object.keys(transitions).map(function (key) {
+      var item = transitions[key];
+      return {
+        from: item.from,
+        to: item.to,
+        count: item.count,
+        sessionCount: Object.keys(item.sessions).length
+      };
+    }).sort(function (a, b) {
+      return b.count - a.count || a.from.localeCompare(b.from);
+    });
+  }
+
+  function buildHealthScores(duplicates) {
+    var maxCount = skillRows.reduce(function (max, row) { return Math.max(max, Number(row.dedupCount || 0)); }, 0);
+    var latestTime = logRows.reduce(function (max, row) {
+      var parsed = Date.parse(row.time || "");
+      return isNaN(parsed) ? max : Math.max(max, parsed);
+    }, 0);
+    var duplicateRisk = {};
+    duplicates.forEach(function (pair) {
+      duplicateRisk[pair.a] = Math.max(duplicateRisk[pair.a] || 0, pair.score);
+      duplicateRisk[pair.b] = Math.max(duplicateRisk[pair.b] || 0, pair.score);
+    });
+
+    return skillRows.map(function (row) {
+      var catalog = catalogBySkill[row.skill] || {};
+      var raw = Number(row.rawCount || 0);
+      var dedup = Number(row.dedupCount || 0);
+      var usageScore = maxCount ? Math.min(25, dedup / maxCount * 25) : 0;
+      var translationScore = isTranslated(row) ? 20 : 0;
+      var metadataScore = 0;
+      if (row.category) metadataScore += 5;
+      if (usefulOriginalDesc(row.desc) || catalog.english_desc) metadataScore += 5;
+      if (normalizeTriggers(catalog.triggers).length) metadataScore += 5;
+      if (catalog.source_path) metadataScore += 5;
+      var lastUsed = latestSkillTime(row.skill);
+      var recencyScore = 0;
+      if (lastUsed && latestTime) {
+        var days = Math.max(0, Math.round((latestTime - lastUsed) / 86400000));
+        recencyScore = days <= 7 ? 20 : days <= 30 ? 12 : 6;
+      }
+      var efficiencyScore = raw ? Math.max(0, Math.min(15, dedup / raw * 15)) : 4;
+      var penalty = Math.round((duplicateRisk[row.skill] || 0) * 10);
+      var score = clamp(Math.round(usageScore + translationScore + metadataScore + recencyScore + efficiencyScore - penalty), 0, 100);
+      var reasons = [];
+      if (!dedup) reasons.push("未被调用");
+      if (!isTranslated(row)) reasons.push("缺中文说明");
+      if (!normalizeTriggers(catalog.triggers).length) reasons.push("缺触发词");
+      if (raw > dedup && raw - dedup >= 5) reasons.push("重复读取 " + formatNum(raw - dedup) + " 次");
+      if (duplicateRisk[row.skill]) reasons.push("疑似与其他 skill 重叠");
+      if (!catalog.source_path) reasons.push("缺来源路径");
+      return {
+        skill: row.skill,
+        category: row.category,
+        score: score,
+        reasons: reasons
+      };
+    }).sort(function (a, b) {
+      return a.score - b.score || a.skill.localeCompare(b.skill);
+    });
+  }
+
+  function findDuplicateSkillPairs() {
+    var pairs = [];
+    var tokenCache = {};
+    catalogRows.forEach(function (row) {
+      tokenCache[row.skill] = tokenSet(skillFingerprintText(row));
+    });
+    for (var i = 0; i < catalogRows.length; i += 1) {
+      for (var j = i + 1; j < catalogRows.length; j += 1) {
+        var a = catalogRows[i];
+        var b = catalogRows[j];
+        var score = jaccard(tokenCache[a.skill], tokenCache[b.skill]);
+        var sameCategory = a.category && a.category === b.category;
+        if (score >= 0.22 || (sameCategory && score >= 0.16)) {
+          pairs.push({
+            a: a.skill,
+            b: b.skill,
+            category: sameCategory ? a.category : a.category + " / " + b.category,
+            score: score
+          });
+        }
+      }
+    }
+    return pairs.sort(function (a, b) {
+      return b.score - a.score || a.a.localeCompare(b.a);
+    });
+  }
+
+  function detectConflictSignals(duplicates) {
+    var signals = [];
+    var repeatRisks = skillRows.filter(function (row) {
+      return row.rawCount >= 10 && row.rawCount - row.dedupCount >= 8;
+    }).sort(function (a, b) {
+      return (b.rawCount - b.dedupCount) - (a.rawCount - a.dedupCount);
+    });
+    repeatRisks.slice(0, 5).forEach(function (row) {
+      signals.push({
+        severity: row.rawCount - row.dedupCount > 20 ? "high" : "medium",
+        label: "重复风暴",
+        title: row.skill,
+        detail: "原始读取 " + formatNum(row.rawCount) + " 次，去重后 " + formatNum(row.dedupCount) + " 次，说明该 skill 可能被工具反复读取。"
+      });
+    });
+
+    duplicates.slice(0, 5).forEach(function (pair) {
+      signals.push({
+        severity: pair.score >= 0.34 ? "high" : "medium",
+        label: "功能重叠",
+        title: pair.a + " / " + pair.b,
+        detail: "指纹相似度 " + Math.round(pair.score * 100) + "%。如果两个 skill 触发场景接近，可能导致选择不稳定。"
+      });
+    });
+
+    var sessionTensions = detectSessionTensions();
+    sessionTensions.slice(0, 5).forEach(function (item) {
+      signals.push(item);
+    });
+
+    return signals.sort(function (a, b) {
+      return severityRank(b.severity) - severityRank(a.severity);
+    });
+  }
+
+  function detectSessionTensions() {
+    var sessions = {};
+    logRows.forEach(function (row) {
+      if (!row.session || row.dedup === false) return;
+      if (!sessions[row.session]) sessions[row.session] = {};
+      sessions[row.session][row.skill] = true;
+    });
+
+    var counts = {};
+    Object.keys(sessions).forEach(function (session) {
+      var skills = Object.keys(sessions[session]);
+      var hasCompression = skills.some(function (skill) { return /caveman|compress|compression/i.test(skill); });
+      var hasRigor = skills.some(function (skill) { return /tdd|diagnose|review|architecture|guidelines|test/i.test(skill); });
+      var hasMedia = skills.some(function (skill) { return /video|audio|music|tts|speech|image|media/i.test(skill); });
+      var hasResearch = skills.some(function (skill) { return /research|paper|academic|recall|memory/i.test(skill); });
+      if (hasCompression && hasRigor) counts["compression-rigor"] = (counts["compression-rigor"] || 0) + 1;
+      if (hasMedia && hasResearch) counts["media-research"] = (counts["media-research"] || 0) + 1;
+    });
+
+    var signals = [];
+    if (counts["compression-rigor"]) {
+      signals.push({
+        severity: counts["compression-rigor"] >= 3 ? "high" : "medium",
+        label: "流程张力",
+        title: "压缩模式与严谨工程流程同场",
+        detail: "有 " + formatNum(counts["compression-rigor"]) + " 个会话同时出现压缩表达类 skill 与 TDD/诊断/评审类 skill。建议明确优先级，避免压缩指令削弱验证要求。"
+      });
+    }
+    if (counts["media-research"]) {
+      signals.push({
+        severity: "low",
+        label: "跨域混用",
+        title: "媒体生成与研究记忆类 skill 同场",
+        detail: "有 " + formatNum(counts["media-research"]) + " 个会话跨越媒体生成与研究/记忆类 skill。可检查是否需要拆分任务上下文。"
+      });
+    }
+    return signals;
   }
 
   function renderCatalogCategoryOptions() {
@@ -2465,6 +2964,60 @@ tbody tr.data-row.expanded {
       return value.split(/[,;|]/).map(function (item) { return item.trim(); }).filter(Boolean);
     }
     return [];
+  }
+
+  function latestSkillTime(skill) {
+    return logRows.reduce(function (max, row) {
+      if (row.skill !== skill) return max;
+      var parsed = Date.parse(row.time || "");
+      return isNaN(parsed) ? max : Math.max(max, parsed);
+    }, 0);
+  }
+
+  function skillFingerprintText(row) {
+    var catalog = catalogBySkill[row.skill] || {};
+    return [
+      row.skill.replace(/-/g, " "),
+      row.category,
+      row.desc,
+      row.zhDesc,
+      catalog.english_desc || "",
+      normalizeTriggers(catalog.triggers).join(" ")
+    ].join(" ");
+  }
+
+  function tokenSet(text) {
+    var stop = {
+      "the": true, "and": true, "for": true, "with": true, "using": true,
+      "skill": true, "skills": true, "agent": true, "agents": true,
+      "guide": true, "use": true, "when": true, "user": true, "task": true
+    };
+    var tokens = String(text || "").toLowerCase().split(/[^a-z0-9\u4e00-\u9fff]+/).filter(function (token) {
+      return token.length > 1 && !stop[token];
+    });
+    var set = {};
+    tokens.forEach(function (token) { set[token] = true; });
+    return set;
+  }
+
+  function jaccard(a, b) {
+    var keys = {};
+    Object.keys(a).forEach(function (key) { keys[key] = true; });
+    Object.keys(b).forEach(function (key) { keys[key] = true; });
+    var union = Object.keys(keys).length;
+    if (!union) return 0;
+    var intersection = Object.keys(a).filter(function (key) { return b[key]; }).length;
+    return intersection / union;
+  }
+
+  function scoreColor(score) {
+    if (score < 45) return "var(--danger)";
+    if (score < 70) return "var(--accent-2)";
+    return "var(--accent)";
+  }
+
+  function severityRank(value) {
+    return value === "high" ? 3 : value === "medium" ? 2 : 1;
   }
 
   function escapeHtml(value) {
