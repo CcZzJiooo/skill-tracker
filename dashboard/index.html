@@ -896,6 +896,163 @@ tbody tr.data-row.expanded {
   color: var(--dim);
 }
 
+.catalog-summary {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+  padding: 14px;
+  border-bottom: 1px solid var(--border);
+}
+
+.catalog-stat {
+  min-width: 0;
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+}
+
+.catalog-stat span {
+  display: block;
+  color: var(--dim);
+  font-size: 11px;
+}
+
+.catalog-stat strong {
+  display: block;
+  margin-top: 6px;
+  color: var(--text);
+  font-family: var(--font-mono);
+  font-size: 22px;
+}
+
+.select-wrap select {
+  min-height: 39px;
+  width: 170px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface-2);
+  color: var(--text);
+  padding: 0 10px;
+  font: inherit;
+}
+
+.action-button {
+  min-height: 39px;
+  border: 1px solid color-mix(in srgb, var(--accent) 45%, var(--border));
+  border-radius: var(--radius);
+  background: color-mix(in srgb, var(--accent) 12%, var(--surface-2));
+  color: var(--text);
+  cursor: pointer;
+  padding: 0 12px;
+  font-weight: 700;
+}
+
+.action-button:hover {
+  border-color: color-mix(in srgb, var(--accent) 72%, var(--border));
+  background: color-mix(in srgb, var(--accent) 18%, var(--surface-2));
+}
+
+.catalog-list {
+  display: grid;
+  gap: 0;
+}
+
+.catalog-item {
+  display: grid;
+  grid-template-columns: minmax(220px, 0.85fr) minmax(260px, 1.15fr);
+  gap: 18px;
+  padding: 18px;
+  border-top: 1px solid var(--border);
+}
+
+.catalog-item:first-child {
+  border-top: 0;
+}
+
+.catalog-item.edited {
+  background: color-mix(in srgb, var(--accent-3) 6%, transparent);
+}
+
+.catalog-item.missing {
+  background: color-mix(in srgb, var(--danger) 5%, transparent);
+}
+
+.catalog-meta {
+  min-width: 0;
+  display: grid;
+  gap: 10px;
+  align-content: start;
+}
+
+.catalog-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  flex-wrap: wrap;
+}
+
+.catalog-title strong {
+  color: var(--text);
+  font-family: var(--font-mono);
+  font-size: 13px;
+}
+
+.catalog-pill {
+  display: inline-flex;
+  min-height: 21px;
+  align-items: center;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--muted);
+  padding: 2px 7px;
+  font-size: 11px;
+}
+
+.catalog-desc,
+.catalog-source {
+  margin: 0;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.55;
+}
+
+.catalog-source {
+  color: var(--dim);
+  font-family: var(--font-mono);
+  word-break: break-all;
+}
+
+.catalog-edit {
+  min-width: 0;
+  display: grid;
+  gap: 8px;
+}
+
+.catalog-edit label {
+  color: var(--dim);
+  font-size: 11px;
+}
+
+.catalog-edit textarea {
+  min-height: 84px;
+  resize: vertical;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface-2);
+  color: var(--text);
+  padding: 10px 12px;
+  font: inherit;
+  line-height: 1.55;
+}
+
+.catalog-edit textarea:focus {
+  outline: 2px solid color-mix(in srgb, var(--accent) 38%, transparent);
+  outline-offset: 1px;
+  border-color: color-mix(in srgb, var(--accent) 52%, var(--border));
+}
+
 .pager {
   min-height: 58px;
   display: flex;
@@ -1093,6 +1250,14 @@ tbody tr.data-row.expanded {
     grid-template-columns: 1fr;
   }
 
+  .catalog-summary {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .catalog-item {
+    grid-template-columns: 1fr;
+  }
+
   .toolbar.compact-toolbar {
     flex-wrap: wrap;
   }
@@ -1184,6 +1349,19 @@ tbody tr.data-row.expanded {
     gap: 4px;
   }
 
+  .catalog-summary {
+    grid-template-columns: 1fr;
+  }
+
+  .catalog-item {
+    padding: 14px;
+  }
+
+  .select-wrap select,
+  .action-button {
+    width: 100%;
+  }
+
   .search-wrap {
     min-width: 100%;
     max-width: none;
@@ -1221,6 +1399,10 @@ tbody tr.data-row.expanded {
         <button type="button" data-view-button="log">
           <span class="nav-index">02</span>
           <span class="nav-label"><strong>调用日志</strong><span>Audit stream</span></span>
+        </button>
+        <button type="button" data-view-button="catalog">
+          <span class="nav-index">03</span>
+          <span class="nav-label"><strong>技能字典</strong><span>CN catalog</span></span>
         </button>
       </nav>
     </div>
@@ -1337,6 +1519,36 @@ tbody tr.data-row.expanded {
         </div>
 
         <div class="pager" id="logPager"></div>
+      </div>
+    </section>
+
+    <section class="view-panel" id="view-catalog" aria-labelledby="catalogHeading">
+      <div class="section" style="margin-top: 18px;">
+        <div class="section-head">
+          <div class="section-title">
+            <h3 id="catalogHeading">技能字典</h3>
+            <p>维护每个 skill 的中文功能说明，导出后可替换 skill_catalog.json</p>
+          </div>
+          <div class="toolbar">
+            <div class="segmented" role="group" aria-label="Catalog filters">
+              <button type="button" class="active" data-catalog-filter="all">全部</button>
+              <button type="button" data-catalog-filter="missing">缺失说明</button>
+              <button type="button" data-catalog-filter="edited">已编辑</button>
+            </div>
+            <label class="select-wrap">
+              <span class="sr-only">分类筛选</span>
+              <select id="catalogCategory" aria-label="分类筛选"></select>
+            </label>
+            <label class="search-wrap">
+              <span class="sr-only">搜索技能字典</span>
+              <input id="catalogSearch" type="search" placeholder="搜索 skill / 中文说明">
+            </label>
+            <button type="button" class="action-button" id="exportCatalog">导出 JSON</button>
+          </div>
+        </div>
+
+        <div class="catalog-summary" id="catalogSummary"></div>
+        <div class="catalog-list" id="catalogList"></div>
       </div>
     </section>
   </main>
@@ -1483,6 +1695,30 @@ tbody tr.data-row.expanded {
     return b.dedupCount - a.dedupCount || a.skill.localeCompare(b.skill);
   });
 
+  var skillRowByName = {};
+  skillRows.forEach(function (row) {
+    skillRowByName[row.skill] = row;
+  });
+
+  (window.SKILL_CATALOG || []).forEach(function (catalog) {
+    if (!catalog || !catalog.skill || skillRowByName[catalog.skill]) return;
+    var row = {
+      skill: String(catalog.skill),
+      count: 0,
+      rawCount: 0,
+      dedupCount: 0,
+      hasCollectorCounts: true,
+      desc: String(catalog.english_desc || ""),
+      category: String(catalog.category || "通用技能"),
+      zhDesc: String(catalog.zh_desc || ZH_DESC[catalog.skill] || "")
+    };
+    skillRows.push(row);
+    skillRowByName[row.skill] = row;
+  });
+  skillRows.sort(function (a, b) {
+    return b.dedupCount - a.dedupCount || a.skill.localeCompare(b.skill);
+  });
+
   var logRows = (window.SKILL_LOG || []).map(function (row) {
     return {
       skill: String(row.skill || ""),
@@ -1513,6 +1749,12 @@ tbody tr.data-row.expanded {
   var logPageSize = 18;
   var filteredSkills = [];
   var filteredLogs = [];
+  var catalogRows = skillRows.slice().sort(function (a, b) {
+    return a.skill.localeCompare(b.skill);
+  });
+  var catalogFilter = "all";
+  var catalogCategory = "all";
+  var catalogDirty = {};
 
   var els = {
     generatedAt: document.getElementById("generatedAt"),
@@ -1528,6 +1770,11 @@ tbody tr.data-row.expanded {
     logSearch: document.getElementById("logSearch"),
     logTableBody: document.getElementById("logTableBody"),
     logPager: document.getElementById("logPager"),
+    catalogSearch: document.getElementById("catalogSearch"),
+    catalogCategory: document.getElementById("catalogCategory"),
+    catalogSummary: document.getElementById("catalogSummary"),
+    catalogList: document.getElementById("catalogList"),
+    exportCatalog: document.getElementById("exportCatalog"),
     sessionModal: document.getElementById("sessionModal"),
     sessionModalClose: document.getElementById("sessionModalClose"),
     sessionModalId: document.getElementById("sessionModalId"),
@@ -1539,9 +1786,11 @@ tbody tr.data-row.expanded {
   renderMetrics();
   renderTrend();
   renderToolFilters();
+  renderCatalogCategoryOptions();
   bindEvents();
   renderSkills(true);
   renderLogs(true);
+  renderCatalog();
 
   function bindEvents() {
     document.querySelectorAll("[data-view-button]").forEach(function (button) {
@@ -1580,6 +1829,41 @@ tbody tr.data-row.expanded {
     els.logSearch.addEventListener("input", function () {
       renderLogs(true);
     });
+
+    els.catalogSearch.addEventListener("input", renderCatalog);
+    els.catalogCategory.addEventListener("change", function () {
+      catalogCategory = els.catalogCategory.value || "all";
+      renderCatalog();
+    });
+
+    document.querySelectorAll("[data-catalog-filter]").forEach(function (button) {
+      button.addEventListener("click", function () {
+        catalogFilter = button.getAttribute("data-catalog-filter") || "all";
+        document.querySelectorAll("[data-catalog-filter]").forEach(function (item) {
+          item.classList.toggle("active", item === button);
+        });
+        renderCatalog();
+      });
+    });
+
+    els.catalogList.addEventListener("input", function (event) {
+      var field = event.target.getAttribute("data-catalog-field");
+      if (field !== "zh_desc") return;
+      var skill = decodeURIComponent(event.target.getAttribute("data-skill") || "");
+      var row = skillRowByName[skill];
+      if (!row) return;
+      row.zhDesc = event.target.value;
+      catalogDirty[skill] = true;
+      var item = event.target.closest(".catalog-item");
+      item.classList.add("edited");
+      item.classList.toggle("missing", !isTranslated(row));
+      translatedSkills = skillRows.filter(function (item) { return isTranslated(item); }).length;
+      renderCatalogSummary(filteredCatalogRows().length);
+      renderMetrics();
+      renderSkills(false);
+    });
+
+    els.exportCatalog.addEventListener("click", exportCatalogJson);
 
     els.skillTableBody.addEventListener("click", function (event) {
       var button = event.target.closest("[data-expand-skill]");
@@ -1728,6 +2012,103 @@ tbody tr.data-row.expanded {
     els.toolFilters.innerHTML = buttons.join("");
   }
 
+  function renderCatalogCategoryOptions() {
+    var categories = unique(catalogRows.map(function (row) { return row.category; })).sort();
+    els.catalogCategory.innerHTML = '<option value="all">全部分类</option>' + categories.map(function (category) {
+      return '<option value="' + escapeAttr(category) + '">' + escapeHtml(category) + '</option>';
+    }).join("");
+  }
+
+  function filteredCatalogRows() {
+    var query = els.catalogSearch.value.trim().toLowerCase();
+    return catalogRows.filter(function (row) {
+      if (catalogCategory !== "all" && row.category !== catalogCategory) return false;
+      if (catalogFilter === "missing" && isTranslated(row)) return false;
+      if (catalogFilter === "edited" && !catalogDirty[row.skill]) return false;
+      if (query) {
+        var catalog = catalogBySkill[row.skill] || {};
+        var searchable = [
+          row.skill,
+          row.category,
+          row.zhDesc,
+          row.desc,
+          catalog.english_desc || "",
+          normalizeTriggers(catalog.triggers).join(" ")
+        ].join(" ").toLowerCase();
+        if (searchable.indexOf(query) === -1) return false;
+      }
+      return true;
+    });
+  }
+
+  function renderCatalogSummary(visibleCount) {
+    var translated = catalogRows.filter(isTranslated).length;
+    var missing = catalogRows.length - translated;
+    var edited = Object.keys(catalogDirty).length;
+    var cards = [
+      { label: "字典技能", value: catalogRows.length },
+      { label: "中文已覆盖", value: translated },
+      { label: "缺失说明", value: missing },
+      { label: "当前筛选", value: visibleCount }
+    ];
+    if (edited) cards[3] = { label: "已编辑", value: edited };
+    els.catalogSummary.innerHTML = cards.map(function (card) {
+      return '<div class="catalog-stat"><span>' + escapeHtml(card.label) + '</span><strong>' + formatNum(card.value) + '</strong></div>';
+    }).join("");
+  }
+
+  function renderCatalog() {
+    var rows = filteredCatalogRows();
+    renderCatalogSummary(rows.length);
+    if (!rows.length) {
+      els.catalogList.innerHTML = '<div class="empty-state">没有匹配的技能字典项</div>';
+      return;
+    }
+
+    els.catalogList.innerHTML = rows.map(function (row) {
+      var catalog = catalogBySkill[row.skill] || {};
+      var className = "catalog-item" + (catalogDirty[row.skill] ? " edited" : "") + (!isTranslated(row) ? " missing" : "");
+      var calls = getCount(row);
+      var originalDesc = usefulOriginalDesc(row.desc) ? row.desc : (catalog.english_desc || "No original description.");
+      var sourcePath = catalog.source_path || "collector output";
+      return '<article class="' + className + '">'
+        + '<div class="catalog-meta">'
+        + '<div class="catalog-title"><strong>' + escapeHtml(row.skill) + '</strong><span class="catalog-pill">' + escapeHtml(row.category) + '</span><span class="catalog-pill">' + formatNum(calls) + ' calls</span></div>'
+        + '<p class="catalog-desc">' + escapeHtml(originalDesc) + '</p>'
+        + '<p class="catalog-source">' + escapeHtml(sourcePath) + '</p>'
+        + '</div>'
+        + '<div class="catalog-edit">'
+        + '<label for="catalog-' + encodeURIComponent(row.skill) + '">中文功能说明</label>'
+        + '<textarea id="catalog-' + encodeURIComponent(row.skill) + '" data-catalog-field="zh_desc" data-skill="' + encodeURIComponent(row.skill) + '">' + escapeHtml(row.zhDesc) + '</textarea>'
+        + '</div>'
+        + '</article>';
+    }).join("");
+  }
+
+  function exportCatalogJson() {
+    var payload = catalogRows.map(function (row) {
+      var catalog = catalogBySkill[row.skill] || {};
+      return {
+        skill: row.skill,
+        category: row.category,
+        zh_desc: row.zhDesc,
+        english_desc: catalog.english_desc || row.desc || "",
+        triggers: normalizeTriggers(catalog.triggers),
+        source_path: catalog.source_path || ""
+      };
+    });
+    var json = JSON.stringify(payload, null, 2) + "\n";
+    var blob = new Blob([json], { type: "application/json;charset=utf-8" });
+    var url = URL.createObjectURL(blob);
+    var link = document.createElement("a");
+    link.href = url;
+    link.download = "skill_catalog.json";
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    setTimeout(function () { URL.revokeObjectURL(url); }, 0);
+  }
+
   function renderSkills(resetPage) {
     var query = els.skillSearch.value.trim().toLowerCase();
     filteredSkills = sortedSkillRows().filter(function (row) {
@@ -1847,7 +2228,8 @@ tbody tr.data-row.expanded {
       + '<div class="session-timeline">'
       + rows.map(function (row) {
         var catalog = catalogBySkill[row.skill] || {};
-        var zhDesc = catalog.zh_desc || ZH_DESC[row.skill] || "";
+        var skillRow = skillRowByName[row.skill] || {};
+        var zhDesc = skillRow.zhDesc || catalog.zh_desc || ZH_DESC[row.skill] || "";
         return '<div class="timeline-row">'
           + '<div class="time-cell">' + escapeHtml(formatDate(row.time)) + '</div>'
           + '<div><span class="tool-tag ' + toolClass(row.tool) + '">' + escapeHtml(row.tool) + '</span></div>'
@@ -1963,6 +2345,18 @@ tbody tr.data-row.expanded {
   function usefulOriginalDesc(value) {
     var text = String(value || "").trim();
     return text.length > 1 && text !== "|" && text !== ">";
+  }
+
+  function isTranslated(row) {
+    return String(row.zhDesc || "").trim().length > 0;
+  }
+
+  function normalizeTriggers(value) {
+    if (Array.isArray(value)) return value;
+    if (typeof value === "string" && value.trim()) {
+      return value.split(/[,;|]/).map(function (item) { return item.trim(); }).filter(Boolean);
+    }
+    return [];
   }
 
   function escapeHtml(value) {
