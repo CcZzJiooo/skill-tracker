@@ -1180,6 +1180,80 @@ tbody tr.data-row.expanded {
   border-color: color-mix(in srgb, var(--accent-3) 34%, var(--border));
 }
 
+.action-toolbar {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+}
+
+.action-card {
+  display: grid;
+  gap: 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: color-mix(in srgb, var(--surface-2) 72%, transparent);
+  padding: 14px;
+}
+
+.action-card.p0 {
+  border-color: color-mix(in srgb, var(--danger) 54%, var(--border));
+}
+
+.action-card.p1 {
+  border-color: color-mix(in srgb, var(--accent-2) 48%, var(--border));
+}
+
+.action-card.p2 {
+  border-color: color-mix(in srgb, var(--accent-3) 38%, var(--border));
+}
+
+.action-head {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: center;
+}
+
+.priority-badge {
+  min-width: 38px;
+  min-height: 28px;
+  display: inline-grid;
+  place-items: center;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+  font-family: var(--font-mono);
+  font-weight: 800;
+  font-size: 12px;
+}
+
+.action-title {
+  min-width: 0;
+  color: var(--text);
+  font-size: 14px;
+  font-weight: 750;
+}
+
+.action-kind {
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.action-body {
+  display: grid;
+  gap: 7px;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.6;
+}
+
+.action-body strong {
+  color: var(--text);
+}
+
 .mini-track {
   width: 100%;
   height: 8px;
@@ -1503,8 +1577,13 @@ tbody tr.data-row.expanded {
   }
 
   .chain-row,
-  .health-row {
+  .health-row,
+  .action-head {
     grid-template-columns: 1fr;
+  }
+
+  .action-toolbar {
+    justify-content: stretch;
   }
 
   .catalog-summary {
@@ -1565,6 +1644,10 @@ tbody tr.data-row.expanded {
         <button type="button" data-view-button="governance">
           <span class="nav-index">04</span>
           <span class="nav-label"><strong>治理洞察</strong><span>Governance</span></span>
+        </button>
+        <button type="button" data-view-button="actions">
+          <span class="nav-index">05</span>
+          <span class="nav-label"><strong>行动方案</strong><span>Action lab</span></span>
         </button>
       </nav>
     </div>
@@ -1778,6 +1861,26 @@ tbody tr.data-row.expanded {
             <div class="insight-list" id="conflictList"></div>
           </div>
         </section>
+      </div>
+    </section>
+
+    <section class="view-panel" id="view-actions" aria-labelledby="actionsHeading">
+      <div class="section" style="margin-top: 18px;">
+        <div class="section-head">
+          <div class="section-title">
+            <h3 id="actionsHeading">行动方案</h3>
+            <p>把治理洞察自动转成可执行任务，可导出为 GitHub issue 草稿</p>
+          </div>
+          <div class="action-toolbar">
+            <button type="button" class="action-button" id="exportActionIssues">导出 Issues</button>
+            <button type="button" class="action-button" id="exportActionJson">导出 JSON</button>
+          </div>
+        </div>
+
+        <div class="catalog-summary" id="actionSummary"></div>
+        <div class="section-body">
+          <div class="insight-list" id="actionList"></div>
+        </div>
       </div>
     </section>
   </main>
@@ -1999,6 +2102,10 @@ tbody tr.data-row.expanded {
     healthList: document.getElementById("healthList"),
     duplicateList: document.getElementById("duplicateList"),
     conflictList: document.getElementById("conflictList"),
+    actionSummary: document.getElementById("actionSummary"),
+    actionList: document.getElementById("actionList"),
+    exportActionIssues: document.getElementById("exportActionIssues"),
+    exportActionJson: document.getElementById("exportActionJson"),
     modeNote: document.getElementById("modeNote"),
     skillSearch: document.getElementById("skillSearch"),
     skillTableBody: document.getElementById("skillTableBody"),
@@ -2030,6 +2137,7 @@ tbody tr.data-row.expanded {
   renderLogs(true);
   renderCatalog(true);
   renderGovernance();
+  renderActionLab();
 
   function bindEvents() {
     document.querySelectorAll("[data-view-button]").forEach(function (button) {
@@ -2102,10 +2210,14 @@ tbody tr.data-row.expanded {
       renderCatalogSummary(filteredCatalogRows().length);
       renderMetrics();
       renderSkills(false);
+      renderGovernance();
+      renderActionLab();
     });
 
     els.exportCatalog.addEventListener("click", exportCatalogJson);
     els.exportAnonymous.addEventListener("click", exportAnonymousReport);
+    els.exportActionIssues.addEventListener("click", exportActionIssues);
+    els.exportActionJson.addEventListener("click", exportActionJson);
 
     els.skillTableBody.addEventListener("click", function (event) {
       var button = event.target.closest("[data-expand-skill]");
@@ -2349,6 +2461,167 @@ tbody tr.data-row.expanded {
         + '<div class="risk-meta">' + escapeHtml(row.detail) + '</div>'
         + '</div>';
     }).join("");
+  }
+
+  function renderActionLab() {
+    var actions = buildActionItems(buildGovernanceModel());
+    renderActionSummary(actions);
+    if (!actions.length) {
+      els.actionList.innerHTML = '<div class="empty-state">暂无需要处理的治理任务</div>';
+      return;
+    }
+    els.actionList.innerHTML = actions.slice(0, 24).map(function (action) {
+      return '<article class="action-card ' + escapeAttr(action.priority.toLowerCase()) + '">'
+        + '<div class="action-head">'
+        + '<span class="priority-badge">' + escapeHtml(action.priority) + '</span>'
+        + '<div class="action-title">' + escapeHtml(action.title) + '</div>'
+        + '<span class="action-kind">' + escapeHtml(action.kind) + '</span>'
+        + '</div>'
+        + '<div class="action-body">'
+        + '<div><strong>证据：</strong>' + escapeHtml(action.evidence) + '</div>'
+        + '<div><strong>建议：</strong>' + escapeHtml(action.recommendation) + '</div>'
+        + '<div><strong>验收：</strong>' + escapeHtml(action.acceptance) + '</div>'
+        + '</div>'
+        + '</article>';
+    }).join("");
+  }
+
+  function renderActionSummary(actions) {
+    var counts = { P0: 0, P1: 0, P2: 0 };
+    actions.forEach(function (action) {
+      counts[action.priority] = (counts[action.priority] || 0) + 1;
+    });
+    var cards = [
+      { label: "行动任务", value: actions.length },
+      { label: "P0 阻断", value: counts.P0 },
+      { label: "P1 高优先", value: counts.P1 },
+      { label: "P2 改进项", value: counts.P2 }
+    ];
+    els.actionSummary.innerHTML = cards.map(function (card) {
+      return '<div class="catalog-stat"><span>' + escapeHtml(card.label) + '</span><strong>' + formatNum(card.value) + '</strong></div>';
+    }).join("");
+  }
+
+  function buildActionItems(model) {
+    var actions = [];
+
+    model.conflicts.forEach(function (conflict) {
+      actions.push({
+        key: "conflict:" + conflict.label + ":" + conflict.title,
+        priority: conflict.severity === "high" ? "P0" : conflict.severity === "medium" ? "P1" : "P2",
+        kind: "治理风险",
+        title: "处理 " + conflict.label + "：" + conflict.title,
+        evidence: conflict.detail,
+        recommendation: conflict.label === "功能重叠"
+          ? "比较两个 skill 的触发词和中文说明，决定合并、改名或明确边界。"
+          : "检查相关 skill 的触发条件、读取频率和会话上下文，减少重复加载或流程冲突。",
+        acceptance: "风险项从治理洞察中消失，或降级为 P2 以下并有明确说明。"
+      });
+    });
+
+    model.duplicates.slice(0, 10).forEach(function (pair) {
+      actions.push({
+        key: "duplicate:" + pair.a + ":" + pair.b,
+        priority: pair.score >= 0.34 ? "P0" : "P1",
+        kind: "重复治理",
+        title: "确认是否合并相似 skill：" + pair.a + " / " + pair.b,
+        evidence: "指纹相似度 " + Math.round(pair.score * 100) + "%，分类为 " + pair.category + "。",
+        recommendation: "保留更清晰的 skill，另一个改名、删除或收窄触发词；同时更新中文说明。",
+        acceptance: "相似度下降，或 README/skill_catalog 中记录两者明确分工。"
+      });
+    });
+
+    model.health.filter(function (row) { return row.score < 45; }).slice(0, 12).forEach(function (row) {
+      actions.push({
+        key: "health:" + row.skill,
+        priority: row.score < 35 ? "P0" : "P1",
+        kind: "健康修复",
+        title: "提升低健康 skill：" + row.skill,
+        evidence: "健康分 " + row.score + "；" + (row.reasons.join("；") || "缺少可解释信号") + "。",
+        recommendation: "补齐中文说明、触发词、来源路径，或删除长期未调用且功能重复的 skill。",
+        acceptance: "健康分提升到 70 以上，或该 skill 被归档/合并。"
+      });
+    });
+
+    catalogRows.filter(function (row) { return !isTranslated(row); }).slice(0, 12).forEach(function (row) {
+      actions.push({
+        key: "translation:" + row.skill,
+        priority: row.dedupCount > 0 ? "P1" : "P2",
+        kind: "中文本地化",
+        title: "补全中文功能说明：" + row.skill,
+        evidence: "该 skill 当前没有中文说明，调用次数为 " + formatNum(row.dedupCount) + "。",
+        recommendation: "在技能字典页填写一句面向用户的中文功能说明，并导出 skill_catalog.json。",
+        acceptance: "中文覆盖率达到 100%，搜索可用中文命中该 skill。"
+      });
+    });
+
+    buildSkillTransitions().slice(0, 5).forEach(function (flow) {
+      if (flow.count < 3) return;
+      actions.push({
+        key: "workflow:" + flow.from + ":" + flow.to,
+        priority: flow.sessionCount >= 10 ? "P1" : "P2",
+        kind: "工作流固化",
+        title: "固化高频 skill 链路：" + flow.from + " → " + flow.to,
+        evidence: "该链路出现 " + formatNum(flow.count) + " 次，覆盖 " + formatNum(flow.sessionCount) + " 个会话。",
+        recommendation: "在 README 或 catalog 中记录该链路的适用场景，后续可做 workflow preset。",
+        acceptance: "用户能从文档或 UI 直接理解这条链路何时使用。"
+      });
+    });
+
+    return dedupeActions(actions).sort(function (a, b) {
+      return priorityRank(a.priority) - priorityRank(b.priority) || a.title.localeCompare(b.title);
+    });
+  }
+
+  function dedupeActions(actions) {
+    var seen = {};
+    return actions.filter(function (action) {
+      if (seen[action.key]) return false;
+      seen[action.key] = true;
+      return true;
+    });
+  }
+
+  function exportActionIssues() {
+    var actions = buildActionItems(buildGovernanceModel());
+    var markdown = buildIssuesMarkdown(actions);
+    downloadText("skill-tracker-governance-issues.md", markdown, "text/markdown;charset=utf-8");
+  }
+
+  function exportActionJson() {
+    var actions = buildActionItems(buildGovernanceModel());
+    downloadJson("skill-tracker-governance-actions.json", {
+      schema: "skill-tracker-governance-actions@1",
+      generated_at: new Date().toISOString(),
+      source_generated_at: window.GENERATED_AT || null,
+      actions: actions
+    });
+  }
+
+  function buildIssuesMarkdown(actions) {
+    var lines = [
+      "# Skill Tracker Governance Issues",
+      "",
+      "Generated at: " + new Date().toISOString(),
+      "Source data: " + (window.GENERATED_AT || "--"),
+      "",
+      "This file is generated from local telemetry. Review before publishing.",
+      ""
+    ];
+    actions.forEach(function (action, index) {
+      lines.push("## " + (index + 1) + ". [" + action.priority + "] " + action.title);
+      lines.push("");
+      lines.push("- Type: " + action.kind);
+      lines.push("- Evidence: " + action.evidence);
+      lines.push("- Recommendation: " + action.recommendation);
+      lines.push("- Acceptance: " + action.acceptance);
+      lines.push("");
+    });
+    return lines.join("\n") + "\n";
+  }
+
+  function priorityRank(priority) {
+    return priority === "P0" ? 0 : priority === "P1" ? 1 : 2;
   }
 
   function buildSkillTransitions() {
@@ -2715,7 +2988,11 @@ tbody tr.data-row.expanded {
 
   function downloadJson(filename, payload) {
     var json = JSON.stringify(payload, null, 2) + "\n";
-    var blob = new Blob([json], { type: "application/json;charset=utf-8" });
+    downloadText(filename, json, "application/json;charset=utf-8");
+  }
+
+  function downloadText(filename, text, type) {
+    var blob = new Blob([text], { type: type || "text/plain;charset=utf-8" });
     var url = URL.createObjectURL(blob);
     var link = document.createElement("a");
     link.href = url;
