@@ -1,0 +1,1980 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Skill Tracker Dashboard</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%230d0e0c'/%3E%3Cpath d='M10 12h44v40H10z' rx='8' fill='%23b8ff5a'/%3E%3Cpath d='M54 12v40H10z' fill='%23ffd36b'/%3E%3Cpath d='M10 52 54 12' stroke='%230d0e0c' stroke-width='5'/%3E%3C/svg%3E">
+<script src="demo_data.js"></script>
+<script src="skill_catalog.js"></script>
+<script src="skill_data.js"></script>
+<script src="skill_log.js"></script>
+<style>
+:root {
+  color-scheme: dark;
+  --bg: #0d0e0c;
+  --bg-pattern: rgba(255, 255, 255, 0.025);
+  --surface: #151712;
+  --surface-2: #1d2019;
+  --surface-3: #25291f;
+  --surface-hover: #2b3024;
+  --border: rgba(239, 236, 216, 0.11);
+  --border-strong: rgba(239, 236, 216, 0.2);
+  --text: #f4f0df;
+  --muted: #b9b59f;
+  --dim: #7d7b6a;
+  --faint: #575548;
+  --accent: #b9f35a;
+  --accent-2: #f0b85a;
+  --accent-3: #78d8c7;
+  --danger: #ff7b6e;
+  --shadow: 0 22px 55px rgba(0, 0, 0, 0.28);
+  --radius: 8px;
+  --radius-sm: 5px;
+  --font-ui: Inter, "SF Pro Display", "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --font-mono: "JetBrains Mono", "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+  --motion: 160ms ease;
+  --tool-antigravity: #b9f35a;
+  --tool-claudecode: #d97752;
+  --tool-codex: #55a7ff;
+  --tool-cursor: #79e5d6;
+  --tool-windsurf: #a98cff;
+  --tool-default: #a9a58f;
+}
+
+[data-theme="light"] {
+  color-scheme: light;
+  --bg: #f5f2e8;
+  --bg-pattern: rgba(18, 18, 14, 0.04);
+  --surface: #ffffff;
+  --surface-2: #ece8dc;
+  --surface-3: #ddd7c7;
+  --surface-hover: #e6e1d2;
+  --border: rgba(28, 28, 20, 0.11);
+  --border-strong: rgba(28, 28, 20, 0.22);
+  --text: #181914;
+  --muted: #575545;
+  --dim: #807b67;
+  --faint: #aaa28b;
+  --accent: #577d17;
+  --accent-2: #aa6f00;
+  --accent-3: #007f75;
+  --danger: #bd382e;
+  --shadow: 0 20px 50px rgba(71, 66, 45, 0.13);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  min-height: 100%;
+  overflow-y: auto;
+  scrollbar-gutter: stable;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  background:
+    linear-gradient(90deg, var(--bg-pattern) 1px, transparent 1px),
+    linear-gradient(180deg, var(--bg-pattern) 1px, transparent 1px),
+    var(--bg);
+  background-size: 44px 44px;
+  color: var(--text);
+  font-family: var(--font-ui);
+  font-size: 14px;
+  line-height: 1.45;
+  overflow-x: hidden;
+}
+
+button,
+input {
+  font: inherit;
+}
+
+button {
+  color: inherit;
+}
+
+.app-shell {
+  min-height: 100vh;
+  min-width: 0;
+  display: grid;
+  grid-template-columns: 248px minmax(0, 1fr);
+}
+
+.sidebar {
+  min-width: 0;
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  padding: 22px 18px;
+  border-right: 1px solid var(--border);
+  background: color-mix(in srgb, var(--surface) 88%, transparent);
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 24px;
+}
+
+.brand {
+  display: grid;
+  gap: 16px;
+}
+
+.brand-mark {
+  width: 38px;
+  height: 38px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius);
+  background:
+    linear-gradient(135deg, var(--accent) 0 46%, transparent 46% 54%, var(--accent-2) 54%),
+    var(--surface-2);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.04);
+}
+
+.brand-copy {
+  display: grid;
+  gap: 2px;
+}
+
+.brand-copy h1 {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 750;
+}
+
+.brand-copy p {
+  margin: 0;
+  color: var(--dim);
+  font-size: 12px;
+}
+
+.nav {
+  display: grid;
+  gap: 8px;
+  margin-top: 10px;
+  min-width: 0;
+}
+
+.nav button {
+  width: 100%;
+  min-width: 0;
+  min-height: 44px;
+  border: 1px solid transparent;
+  border-radius: var(--radius);
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+  display: grid;
+  grid-template-columns: 34px 1fr;
+  align-items: center;
+  gap: 10px;
+  padding: 8px;
+  text-align: left;
+  transition: background var(--motion), border-color var(--motion), color var(--motion);
+}
+
+.nav button:hover {
+  background: var(--surface-2);
+  color: var(--text);
+}
+
+.nav button.active {
+  background: var(--surface-3);
+  border-color: var(--border-strong);
+  color: var(--text);
+}
+
+.nav-index {
+  width: 30px;
+  height: 28px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--dim);
+  display: grid;
+  place-items: center;
+  font-family: var(--font-mono);
+  font-size: 11px;
+}
+
+.nav button.active .nav-index {
+  border-color: color-mix(in srgb, var(--accent) 48%, var(--border));
+  color: var(--accent);
+}
+
+.nav-label {
+  display: grid;
+  gap: 1px;
+  min-width: 0;
+}
+
+.nav-label strong {
+  font-size: 13px;
+  font-weight: 720;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.nav-label span {
+  color: var(--dim);
+  font-size: 11px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sidebar-foot {
+  display: grid;
+  gap: 12px;
+  padding-top: 18px;
+  border-top: 1px solid var(--border);
+}
+
+.generation {
+  display: grid;
+  gap: 4px;
+}
+
+.generation span {
+  color: var(--dim);
+  font-size: 11px;
+}
+
+.generation strong {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 520;
+  color: var(--muted);
+  overflow-wrap: anywhere;
+}
+
+.theme-toggle {
+  min-height: 38px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface-2);
+  color: var(--text);
+  cursor: pointer;
+  transition: background var(--motion), border-color var(--motion);
+}
+
+.theme-toggle:hover {
+  background: var(--surface-hover);
+  border-color: var(--border-strong);
+}
+
+.main {
+  min-width: 0;
+  padding: 22px;
+}
+
+.topbar {
+  min-width: 0;
+  min-height: 76px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: color-mix(in srgb, var(--surface) 91%, transparent);
+  box-shadow: var(--shadow);
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 20px;
+  padding: 18px 20px;
+}
+
+.page-title {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.eyebrow {
+  margin: 0;
+  color: var(--accent);
+  font-family: var(--font-mono);
+  font-size: 12px;
+}
+
+.page-title h2 {
+  margin: 0;
+  font-size: 22px;
+  font-weight: 760;
+}
+
+.tool-strip {
+  min-width: 0;
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.tool-chip,
+.tool-tag {
+  --tool-color: var(--tool-default);
+  border: 1px solid color-mix(in srgb, var(--tool-color) 42%, var(--border));
+  background: color-mix(in srgb, var(--tool-color) 13%, transparent);
+  color: color-mix(in srgb, var(--tool-color) 78%, var(--text));
+}
+
+.tool-chip {
+  max-width: 100%;
+  min-width: 0;
+  min-height: 30px;
+  border-radius: var(--radius-sm);
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 9px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  white-space: nowrap;
+}
+
+.tool-chip::before,
+.tool-tag::before {
+  content: "";
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--tool-color);
+}
+
+.tool-Antigravity { --tool-color: var(--tool-antigravity); }
+.tool-ClaudeCode { --tool-color: var(--tool-claudecode); }
+.tool-Codex { --tool-color: var(--tool-codex); }
+.tool-Cursor { --tool-color: var(--tool-cursor); }
+.tool-Windsurf { --tool-color: var(--tool-windsurf); }
+
+.view-panel {
+  display: none;
+}
+
+.view-panel.active {
+  display: block;
+}
+
+.metrics-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+  margin: 12px 0;
+}
+
+.dashboard-controls {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 18px;
+}
+
+.mode-note {
+  color: var(--dim);
+  font-size: 12px;
+}
+
+.metric-card {
+  min-height: 126px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+  box-shadow: var(--shadow);
+  padding: 16px;
+  display: grid;
+  align-content: space-between;
+  gap: 14px;
+  position: relative;
+  overflow: hidden;
+}
+
+.metric-card::before {
+  content: "";
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 3px;
+  background: var(--metric-accent, var(--accent));
+}
+
+.metric-label {
+  color: var(--dim);
+  font-size: 12px;
+}
+
+.metric-value {
+  font-family: var(--font-mono);
+  font-size: 30px;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.metric-sub {
+  color: var(--muted);
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
+
+.content-grid {
+  display: grid;
+  grid-template-columns: minmax(340px, 0.82fr) minmax(0, 1.18fr);
+  gap: 12px;
+  align-items: start;
+}
+
+.trend-section {
+  align-self: start;
+}
+
+.section {
+  min-width: 0;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: color-mix(in srgb, var(--surface) 94%, transparent);
+  box-shadow: var(--shadow);
+  overflow: hidden;
+}
+
+.section-head {
+  min-height: 58px;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 14px 16px;
+}
+
+.section-head.compact {
+  align-items: center;
+}
+
+.section-title {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.section-title h3 {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 740;
+}
+
+.section-title p {
+  margin: 0;
+  color: var(--dim);
+  font-size: 12px;
+}
+
+.section-title.compact-title {
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: baseline;
+  column-gap: 14px;
+  row-gap: 0;
+}
+
+.section-title.compact-title p {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.section-body {
+  padding: 16px;
+}
+
+.trend-list {
+  display: grid;
+  gap: 9px;
+}
+
+.trend-row {
+  display: grid;
+  grid-template-columns: minmax(116px, 0.72fr) minmax(0, 1fr) 58px;
+  align-items: center;
+  gap: 10px;
+  min-height: 24px;
+}
+
+.trend-name {
+  min-width: 0;
+  color: var(--text);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.trend-track,
+.pct-track {
+  height: 8px;
+  border-radius: var(--radius-sm);
+  background: var(--surface-3);
+  overflow: hidden;
+  border: 1px solid var(--border);
+}
+
+.trend-fill,
+.pct-fill {
+  height: 100%;
+  width: 0%;
+  background: var(--accent);
+  border-radius: var(--radius-sm);
+}
+
+.trend-row:nth-child(3n + 2) .trend-fill { background: var(--accent-2); }
+.trend-row:nth-child(3n + 3) .trend-fill { background: var(--accent-3); }
+
+.trend-value,
+.pct-value,
+.count-cell,
+.time-cell,
+.session-cell {
+  font-family: var(--font-mono);
+}
+
+.trend-value {
+  color: var(--muted);
+  font-size: 12px;
+  text-align: right;
+}
+
+.toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.toolbar.compact-toolbar {
+  flex: 0 0 auto;
+  justify-content: flex-end;
+  flex-wrap: nowrap;
+}
+
+.metric-mode {
+  display: inline-flex;
+  gap: 3px;
+  padding: 3px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface-2);
+}
+
+.metric-mode button {
+  min-height: 30px;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+  padding: 5px 10px;
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.metric-mode button.active {
+  background: var(--text);
+  color: var(--bg);
+}
+
+.segmented {
+  display: inline-flex;
+  gap: 3px;
+  padding: 3px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface-2);
+}
+
+.segmented button {
+  min-height: 31px;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+  padding: 5px 10px;
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.segmented button:hover {
+  color: var(--text);
+}
+
+.segmented button.active {
+  background: var(--text);
+  color: var(--bg);
+}
+
+.search-wrap {
+  min-width: 240px;
+  max-width: 320px;
+  flex: 1;
+  position: relative;
+}
+
+.compact-toolbar .search-wrap {
+  flex: 0 0 300px;
+  min-width: 260px;
+  max-width: 300px;
+}
+
+.search-wrap::before {
+  content: "";
+  position: absolute;
+  left: 12px;
+  top: 50%;
+  width: 10px;
+  height: 10px;
+  border: 1.5px solid var(--dim);
+  border-radius: 50%;
+  transform: translateY(-55%);
+}
+
+.search-wrap::after {
+  content: "";
+  position: absolute;
+  left: 21px;
+  top: 23px;
+  width: 6px;
+  height: 1.5px;
+  background: var(--dim);
+  transform: rotate(45deg);
+}
+
+.search-wrap input {
+  width: 100%;
+  min-height: 38px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface-2);
+  color: var(--text);
+  outline: none;
+  padding: 8px 12px 8px 34px;
+}
+
+.search-wrap input:focus {
+  border-color: color-mix(in srgb, var(--accent) 50%, var(--border-strong));
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 14%, transparent);
+}
+
+.table-wrap {
+  width: 100%;
+  overflow: auto;
+}
+
+table {
+  width: 100%;
+  min-width: 640px;
+  border-collapse: collapse;
+}
+
+.log-table {
+  min-width: 760px;
+}
+
+caption {
+  height: 0;
+  overflow: hidden;
+}
+
+th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: var(--surface);
+  color: var(--dim);
+  font-size: 11px;
+  font-weight: 700;
+  text-align: left;
+  padding: 11px 14px;
+  border-bottom: 1px solid var(--border);
+}
+
+th small {
+  display: block;
+  margin-top: 2px;
+  color: var(--faint);
+  font-size: 10px;
+  font-weight: 500;
+}
+
+td {
+  padding: 13px 14px;
+  border-bottom: 1px solid var(--border);
+  color: var(--muted);
+  vertical-align: middle;
+}
+
+tbody tr.data-row {
+  transition: background var(--motion);
+}
+
+tbody tr.data-row:hover,
+tbody tr.data-row.expanded {
+  background: var(--surface-2);
+}
+
+.skill-name {
+  color: var(--text);
+  font-family: var(--font-mono);
+  font-weight: 620;
+}
+
+.skill-name.zero {
+  color: var(--faint);
+}
+
+.skill-cell {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.skill-summary {
+  color: var(--dim);
+  font-size: 12px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.count-cell {
+  color: var(--text);
+  font-weight: 640;
+}
+
+.pct-cell {
+  display: grid;
+  grid-template-columns: minmax(84px, 1fr) 72px;
+  align-items: center;
+  gap: 12px;
+}
+
+.pct-value {
+  color: var(--muted);
+  font-size: 12px;
+  text-align: right;
+}
+
+.expand-btn {
+  width: 28px;
+  height: 28px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--dim);
+  cursor: pointer;
+  display: grid;
+  place-items: center;
+}
+
+.expand-btn:hover {
+  color: var(--text);
+  border-color: var(--border-strong);
+}
+
+.chevron {
+  width: 7px;
+  height: 7px;
+  border-right: 1.5px solid currentColor;
+  border-bottom: 1.5px solid currentColor;
+  transform: rotate(-45deg);
+  transition: transform var(--motion);
+}
+
+.data-row.expanded .chevron {
+  transform: rotate(45deg);
+}
+
+.drawer-row td {
+  padding: 0;
+  background: color-mix(in srgb, var(--surface-2) 74%, transparent);
+}
+
+.drawer {
+  border-left: 3px solid var(--accent);
+  padding: 14px 18px;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.65;
+}
+
+.drawer-grid {
+  display: grid;
+  gap: 12px;
+}
+
+.drawer-section {
+  display: grid;
+  gap: 4px;
+}
+
+.drawer-label {
+  display: block;
+  color: var(--text);
+  font-size: 12px;
+  font-weight: 740;
+}
+
+.drawer-text {
+  color: var(--muted);
+}
+
+.drawer-text.original {
+  color: var(--dim);
+}
+
+.tool-filter {
+  max-width: 100%;
+  overflow: auto;
+}
+
+.tool-tag {
+  width: fit-content;
+  border-radius: var(--radius-sm);
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 4px 8px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+}
+
+.log-skill {
+  color: var(--text);
+  font-family: var(--font-mono);
+  font-weight: 600;
+}
+
+.time-cell,
+.session-cell {
+  color: var(--muted);
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.session-short {
+  color: var(--text);
+  font-family: var(--font-mono);
+  font-size: 12px;
+}
+
+.session-link {
+  border: 0;
+  background: transparent;
+  color: var(--text);
+  cursor: pointer;
+  padding: 0;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  text-decoration: underline;
+  text-decoration-color: transparent;
+  text-underline-offset: 3px;
+}
+
+.session-link:hover {
+  text-decoration-color: var(--accent);
+}
+
+.session-hint {
+  color: var(--dim);
+  font-family: var(--font-ui);
+  font-size: 11px;
+}
+
+.empty-state {
+  padding: 34px 16px;
+  text-align: center;
+  color: var(--dim);
+}
+
+.pager {
+  min-height: 58px;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  flex-wrap: wrap;
+  border-top: 1px solid var(--border);
+  padding: 10px 14px;
+  color: var(--dim);
+  font-size: 12px;
+}
+
+.pager button,
+.pager input {
+  min-height: 32px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
+  color: var(--text);
+}
+
+.pager button {
+  min-width: 34px;
+  cursor: pointer;
+  padding: 5px 9px;
+}
+
+.pager button:hover:not(:disabled) {
+  background: var(--surface-hover);
+  border-color: var(--border-strong);
+}
+
+.pager button:disabled {
+  cursor: default;
+  opacity: 0.42;
+}
+
+.pager input {
+  width: 58px;
+  padding: 5px 7px;
+  text-align: center;
+  font-family: var(--font-mono);
+}
+
+.pager-jump {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-left: 6px;
+}
+
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background: rgba(0, 0, 0, 0.58);
+}
+
+.modal-backdrop.active {
+  display: flex;
+}
+
+.session-modal {
+  width: min(920px, 100%);
+  max-height: min(760px, calc(100vh - 48px));
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius);
+  background: var(--surface);
+  box-shadow: var(--shadow);
+  overflow: hidden;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+}
+
+.modal-head {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: center;
+  padding: 16px;
+  border-bottom: 1px solid var(--border);
+}
+
+.modal-title {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.modal-title h3 {
+  margin: 0;
+  font-size: 16px;
+}
+
+.modal-title p {
+  margin: 0;
+  color: var(--dim);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.modal-close {
+  width: 34px;
+  height: 34px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
+  cursor: pointer;
+}
+
+.modal-body {
+  min-height: 0;
+  overflow: auto;
+  padding: 16px;
+  display: grid;
+  gap: 14px;
+}
+
+.session-summary {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.summary-item {
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface-2);
+  padding: 10px;
+}
+
+.summary-item span {
+  display: block;
+  color: var(--dim);
+  font-size: 11px;
+}
+
+.summary-item strong {
+  display: block;
+  margin-top: 4px;
+  color: var(--text);
+  font-family: var(--font-mono);
+  font-size: 14px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.session-timeline {
+  display: grid;
+  gap: 8px;
+}
+
+.timeline-row {
+  display: grid;
+  grid-template-columns: 150px 120px minmax(0, 1fr);
+  gap: 12px;
+  align-items: center;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 9px 10px;
+  background: color-mix(in srgb, var(--surface-2) 72%, transparent);
+}
+
+.timeline-row .skill-summary {
+  margin-top: 2px;
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+@media (max-width: 1180px) {
+  .metrics-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .content-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .toolbar.compact-toolbar {
+    flex-wrap: wrap;
+  }
+
+  .compact-toolbar .search-wrap {
+    flex: 1 1 260px;
+    max-width: none;
+  }
+}
+
+@media (max-width: 780px) {
+  .app-shell {
+    grid-template-columns: 1fr;
+  }
+
+  .sidebar {
+    position: static;
+    height: auto;
+    padding: 14px;
+  }
+
+  .brand {
+    grid-template-columns: 38px 1fr;
+    align-items: center;
+  }
+
+  .nav {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .sidebar-foot {
+    grid-template-columns: 1fr;
+    align-items: stretch;
+  }
+
+  .main {
+    padding: 14px;
+  }
+
+  .topbar {
+    grid-template-columns: 1fr;
+  }
+
+  .tool-strip {
+    width: 100%;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    justify-content: stretch;
+  }
+
+  .tool-chip {
+    justify-content: center;
+    overflow: hidden;
+  }
+
+  .metrics-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .dashboard-controls {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .section-head,
+  .toolbar {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .section-title.compact-title {
+    grid-template-columns: 1fr;
+  }
+
+  .section-title.compact-title p {
+    white-space: normal;
+  }
+
+  .toolbar.compact-toolbar {
+    flex-direction: column;
+  }
+
+  .session-summary {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .timeline-row {
+    grid-template-columns: 1fr;
+    gap: 4px;
+  }
+
+  .search-wrap {
+    min-width: 100%;
+    max-width: none;
+  }
+
+  .trend-row {
+    grid-template-columns: 1fr;
+    gap: 6px;
+  }
+
+  .trend-value {
+    text-align: left;
+  }
+}
+
+</style>
+</head>
+<body>
+<div class="app-shell">
+  <aside class="sidebar">
+    <div>
+      <div class="brand">
+        <div class="brand-mark" aria-hidden="true"></div>
+        <div class="brand-copy">
+          <h1>Skill Tracker</h1>
+          <p>AI coding skill telemetry</p>
+        </div>
+      </div>
+
+      <nav class="nav" aria-label="Dashboard views">
+        <button type="button" class="active" data-view-button="stats">
+          <span class="nav-index">01</span>
+          <span class="nav-label"><strong>统计总览</strong><span>Skill usage</span></span>
+        </button>
+        <button type="button" data-view-button="log">
+          <span class="nav-index">02</span>
+          <span class="nav-label"><strong>调用日志</strong><span>Audit stream</span></span>
+        </button>
+      </nav>
+    </div>
+
+    <div class="sidebar-foot">
+      <div class="generation">
+        <span>Last generated</span>
+        <strong id="generatedAt">--</strong>
+      </div>
+      <button type="button" class="theme-toggle" id="themeToggle" aria-pressed="true">Dark</button>
+    </div>
+  </aside>
+
+  <main class="main">
+    <header class="topbar">
+      <div class="page-title">
+        <p class="eyebrow">LOCAL OBSERVABILITY</p>
+        <h2 id="pageHeading">AI Skill Usage Analytics</h2>
+      </div>
+      <div class="tool-strip" id="toolBadges" aria-label="Detected tools"></div>
+    </header>
+
+    <section class="view-panel active" id="view-stats" aria-labelledby="statsHeading">
+      <div class="dashboard-controls">
+        <div class="metric-mode" role="group" aria-label="统计口径">
+          <button type="button" class="active" data-count-mode="dedup">去重调用</button>
+          <button type="button" data-count-mode="raw">原始读取</button>
+        </div>
+        <div class="mode-note" id="modeNote">同一工具、同一会话、同一 skill 在短时间内重复读取只算一次。</div>
+      </div>
+      <div class="metrics-grid" id="metricsGrid"></div>
+
+      <div class="content-grid">
+        <section class="section trend-section" aria-labelledby="trendHeading">
+          <div class="section-head">
+            <div class="section-title">
+              <h3 id="trendHeading">活跃技能排行</h3>
+              <p>按调用次数排序的 Top 20</p>
+            </div>
+          </div>
+          <div class="section-body">
+            <div class="trend-list" id="trendList"></div>
+          </div>
+        </section>
+
+        <section class="section" aria-labelledby="statsHeading">
+          <div class="section-head compact">
+            <div class="section-title compact-title">
+              <h3 id="statsHeading">技能明细</h3>
+              <p>搜索技能名或中文功能说明，展开查看完整翻译</p>
+            </div>
+            <div class="toolbar compact-toolbar">
+              <div class="segmented" role="group" aria-label="Skill filters">
+                <button type="button" class="active" data-skill-filter="all">全部</button>
+                <button type="button" data-skill-filter="active">已调用</button>
+                <button type="button" data-skill-filter="zero">未调用</button>
+              </div>
+              <label class="search-wrap">
+                <span class="sr-only">搜索技能</span>
+                <input id="skillSearch" type="search" placeholder="搜索技能 / 中文功能">
+              </label>
+            </div>
+          </div>
+
+          <div class="table-wrap">
+            <table>
+              <caption>Skill usage table</caption>
+              <thead>
+                <tr>
+                  <th style="width: 39%;">Skill / 中文功能</th>
+                  <th style="width: 15%;">Calls</th>
+                  <th style="width: 38%;">Share</th>
+                  <th style="width: 8%;">Open</th>
+                </tr>
+              </thead>
+              <tbody id="skillTableBody"></tbody>
+            </table>
+          </div>
+
+          <div class="pager" id="skillPager"></div>
+        </section>
+      </div>
+    </section>
+
+    <section class="view-panel" id="view-log" aria-labelledby="logHeading">
+      <div class="section" style="margin-top: 18px;">
+        <div class="section-head">
+          <div class="section-title">
+            <h3 id="logHeading">调用日志</h3>
+            <p>按来源工具过滤的完整记录</p>
+          </div>
+          <div class="toolbar">
+            <div class="segmented tool-filter" id="toolFilters" role="group" aria-label="Tool filters"></div>
+            <label class="search-wrap">
+              <span class="sr-only">搜索日志技能</span>
+              <input id="logSearch" type="search" placeholder="搜索日志技能">
+            </label>
+          </div>
+        </div>
+
+        <div class="table-wrap">
+          <table class="log-table">
+            <caption>Skill call log table</caption>
+            <thead>
+              <tr>
+                <th style="width: 24%;">Time</th>
+                <th style="width: 18%;">Tool</th>
+                <th style="width: 38%;">Skill</th>
+                <th style="width: 20%;" title="同一次 AI 工具会话的唯一标识，用来追踪这条技能调用来自哪轮对话。">会话ID<small>同一次工具对话</small></th>
+              </tr>
+            </thead>
+            <tbody id="logTableBody"></tbody>
+          </table>
+        </div>
+
+        <div class="pager" id="logPager"></div>
+      </div>
+    </section>
+  </main>
+</div>
+
+<div class="modal-backdrop" id="sessionModal" aria-hidden="true">
+  <section class="session-modal" role="dialog" aria-modal="true" aria-labelledby="sessionModalTitle">
+    <div class="modal-head">
+      <div class="modal-title">
+        <h3 id="sessionModalTitle">会话详情</h3>
+        <p id="sessionModalId">--</p>
+      </div>
+      <button type="button" class="modal-close" id="sessionModalClose" aria-label="关闭">×</button>
+    </div>
+    <div class="modal-body" id="sessionModalBody"></div>
+  </section>
+</div>
+
+<script>
+(function () {
+  "use strict";
+
+  var ZH_DESC = {
+    "academic-paper": "学术论文写作流水线，支持选题、提纲、正文、摘要、文献综述、修订、引用检查、格式转换和 AI 使用披露。",
+    "academic-paper-reviewer": "多视角学术论文评审，模拟主编、同行评审和反方审稿人，给出方法、论证、贡献与可发表性意见。",
+    "academic-pipeline": "端到端学术研究流程编排，把研究、写作、诚信检查、评审、修订和最终交付串成完整流水线。",
+    "acestep": "使用 ACE-Step 生成音乐、伴奏、人声、翻唱或分轨素材，适合视频配乐和音频制作。",
+    "agentmemory-mcp-tools": "AgentMemory MCP 工具地图，说明每个记忆工具的用途、参数和适用场景。",
+    "agentmemory-rest-api": "AgentMemory HTTP REST API 指南，用于在 MCP 不可用时通过 REST 接入记忆服务。",
+    "agents": "构建 ElevenLabs 实时语音 Agent，可用于客服、语音助手和可对话角色。",
+    "ai-video-gen": "从文本或图片生成 AI 视频片段，适合短片、B-roll、动态背景和视觉素材。",
+    "avatar-video": "创建 AI 数字人或头像视频，控制人物、口播、脚本和画面表现。",
+    "beautiful-mermaid": "把 Mermaid 图表渲染成 SVG 或 PNG，用于流程图、架构图和说明文档。",
+    "bfl-api": "BFL FLUX API 集成指南，覆盖图像生成接口、异步轮询、错误处理、限流和 Webhook。",
+    "canvas-procedural-animation": "用 p5.js 或 Canvas 制作程序化动画，例如粒子、天气、走路循环和环境动态效果。",
+    "cavecrew": "判断任务是否适合派发给子 Agent，并用极简压缩格式协调和回收结果。",
+    "caveman": "超压缩沟通模式，用极少 token 表达技术信息，适合低成本高密度协作。",
+    "caveman-commit": "生成极简 Git 提交信息，遵循 Conventional Commits，并压缩到很短的主题行。",
+    "caveman-compress": "把记忆文件或说明文档压缩成高密度格式，保留关键技术事实以节省上下文。",
+    "caveman-help": "列出 caveman 系列模式、技能和命令的快速参考说明。",
+    "caveman-review": "生成极简代码审查意见，突出位置、问题和修复建议。",
+    "caveman-stats": "统计当前对话 token 使用量和压缩节省效果。",
+    "character-animation-qa": "检查本地角色动画质量，包括 schema 校验、浏览器预览、抽帧检查和 ffmpeg 验证。",
+    "character-rigging": "设计数据驱动的 2D 角色骨架，包括部件、枢轴、层级、约束和可复用姿态。",
+    "commit-history": "查看与 Agent 会话关联的 Git 提交记录，可按仓库或分支筛选。",
+    "d3-viz": "用 D3.js 创建定制化数据可视化，包括图表、网络图、地图和复杂 SVG 交互。",
+    "deep-research": "多 Agent 深度研究流水线，覆盖问题定义、资料检索、事实核查、综合分析和研究报告。",
+    "diagnose": "规范化疑难问题诊断流程，从复现、最小化、假设、插桩到修复和回归验证。",
+    "doubao-tts": "使用火山引擎豆包语音生成中文或多语种配音，并可输出字幕级时间戳。",
+    "elevenlabs": "使用 ElevenLabs 生成配音、音效和音乐，适合视频、播客、游戏和交互音频。",
+    "faceswap": "通过 HeyGen 把源图片人脸替换到目标视频中，实现 AI 换脸。",
+    "ffmpeg": "用 FFmpeg 处理视频和音频，包括转码、裁剪、压缩、抽音轨、改尺寸和格式转换。",
+    "find-skills": "帮助发现、选择和安装合适的 Agent 技能，适合用户问“有没有技能能做某事”的场景。",
+    "flux-best-practices": "BFL FLUX 图像生成最佳实践，覆盖提示词、图生图、多参考、颜色、排版和模型差异。",
+    "forget": "从 AgentMemory 删除指定记忆，先展示待删除内容，再等待用户确认。",
+    "framer-motion": "在 React 中使用 Framer Motion 实现动效，尤其是迪士尼动画原则相关交互。",
+    "grok-media": "xAI Grok 图像和视频生成指南，覆盖认证、接口、提示词、编辑和参考图视频。",
+    "gsap": "GSAP 动画能力入口，用于识别或承接通用 GSAP 动效任务。",
+    "gsap-core": "GSAP 核心 API 指南，包括 to、from、fromTo、缓动、时长、stagger 和响应式动效。",
+    "gsap-frameworks": "GSAP 在 Vue、Svelte、Nuxt 等非 React 框架中的生命周期、作用域和清理模式。",
+    "gsap-performance": "GSAP 性能优化指南，强调 transform、避免布局抖动、will-change 和流畅帧率。",
+    "gsap-plugins": "GSAP 插件使用指南，包括 ScrollTo、Flip、Draggable、SplitText、SVG 和物理类插件。",
+    "gsap-react": "GSAP 在 React 中的使用方式，包括 useGSAP、refs、gsap.context 和组件卸载清理。",
+    "gsap-scrolltrigger": "GSAP ScrollTrigger 指南，用于滚动联动、pin、scrub、视差和滚动触发动画。",
+    "gsap-timeline": "GSAP 时间线指南，用于编排复杂动画顺序、嵌套时间线和播放控制。",
+    "gsap-utils": "GSAP 工具函数指南，包括 clamp、mapRange、normalize、random、snap、toArray 和 pipe。",
+    "handoff": "恢复当前项目最近一次 Agent 会话，优先接上未完成的问题和上下文。",
+    "heygen": "HeyGen 旧版视频生成入口，目前通常由 create-video、avatar-video 或相关视频技能替代。",
+    "hyperframes": "创建 HTML 视频合成，包括字幕、转场、配音、音频反应视觉、标题卡和动画组件。",
+    "hyperframes-cli": "HyperFrames 命令行工具指南，覆盖初始化、校验、预览、渲染、转录、TTS 和诊断。",
+    "hyperframes-registry": "安装并接入 HyperFrames 注册表组件或区块，把外部组件合并到视频工程中。",
+    "improve-codebase-architecture": "扫描代码库架构改进机会，识别耦合、模块边界、可测试性和重构切入点。",
+    "karpathy-guidelines": "Karpathy 风格工程守则，避免过度设计、隐藏假设和不可验证的大改动。",
+    "last30days": "研究某话题最近 30 天的真实讨论，汇总 Reddit、X、YouTube、GitHub、HN 等平台信号。",
+    "lottie-bodymovin": "使用 Lottie 或 Bodymovin 动画，适合从 After Effects 导出并应用动画原则。",
+    "ltx2": "使用 LTX-2.3 生成文本到视频或图片到视频片段，适合动态素材和 B-roll。",
+    "manimce-best-practices": "Manim Community Edition 最佳实践，覆盖场景结构、动画、LaTeX、相机和渲染。",
+    "manim-composer": "把模糊的数学或科学视频想法拆成逐场景 Manim 教学动画计划。",
+    "manimgl-best-practices": "ManimGL 最佳实践，面向 3Blue1Brown 风格交互场景和 OpenGL 渲染。",
+    "music": "使用 ElevenLabs Music API 生成纯音乐、带歌词歌曲、背景音乐、广告曲或 jingles。",
+    "playwright-recording": "用 Playwright 录制浏览器交互视频，适合产品演示、流程录屏和 UI walkthrough。",
+    "pose-library-design": "设计可复用 2D 角色姿态库、动作循环和表情状态，用于数据驱动动画。",
+    "recall": "从 AgentMemory 搜索过往观察、会话和知识，使用关键词、向量和图混合检索。",
+    "recap": "按时间汇总最近 N 次 Agent 会话，快速回顾项目近期做过什么。",
+    "remember": "把重要洞察、决定或经验保存到 AgentMemory，方便未来检索和复用。",
+    "remotion": "Remotion 项目模式指南，覆盖自定义转场、共享组件和视频工程约定。",
+    "remotion-best-practices": "Remotion 视频创作最佳实践，帮助用 React 构建可渲染视频。",
+    "seedance-2-0": "使用字节 Seedance 2.0 生成电影感视频片段，支持镜头、动作和音画控制。",
+    "session-history": "展示当前项目近期 Agent 会话历史，按时间线回看过去工作。",
+    "setup-api-key": "引导配置 ElevenLabs API Key，先检查现有环境，再完成可用性验证。",
+    "setup-matt-pocock-skills": "为工程技能配置 AGENTS/CLAUDE 文档和 issue 约定，让诊断、TDD、拆 issue 等技能理解项目上下文。",
+    "sound-effects": "使用 ElevenLabs 从文本生成音效，例如环境音、冲击声、UI 声和循环音景。",
+    "speech-to-text": "使用 ElevenLabs Scribe 把音频或视频转文字，并生成字幕或会议记录。",
+    "stock_analyzer": "分析股票和市场，支持单股、多股、市场复盘和走势解读。",
+    "svg-character-animation": "用 GSAP、CSS transform 或 Remotion 控制 SVG 角色骨架动画。",
+    "synthetic-screen-recording": "生成或控制合成式屏幕录制素材，用于演示视频和自动化录屏。",
+    "tdd": "测试驱动开发流程，先写失败测试，再实现功能，最后重构并验证。",
+    "text-to-speech": "使用 HeyGen TTS 把文本转语音，支持声音选择、语速和语调控制。",
+    "threejs-animation": "Three.js 动画指南，包括关键帧、骨骼动画、morph target 和动画混合。",
+    "threejs-fundamentals": "Three.js 基础指南，覆盖场景、相机、渲染器、Object3D 层级和坐标系统。",
+    "threejs-geometry": "Three.js 几何体指南，包括内置形状、BufferGeometry、自定义网格和实例化。",
+    "threejs-interaction": "Three.js 交互指南，包括 raycasting、鼠标触摸输入、对象选择和控制器。",
+    "threejs-lighting": "Three.js 灯光指南，覆盖光源类型、阴影、环境光和 IBL。",
+    "threejs-loaders": "Three.js 资源加载指南，覆盖 GLTF、纹理、图片、模型和异步加载进度。",
+    "threejs-materials": "Three.js 材质指南，覆盖 PBR、基础材质、Phong、ShaderMaterial 和材质优化。",
+    "threejs-postprocessing": "Three.js 后期处理指南，包括 EffectComposer、Bloom、景深、调色和屏幕特效。",
+    "threejs-shaders": "Three.js Shader 指南，覆盖 GLSL、ShaderMaterial、uniform 和自定义顶点/片元效果。",
+    "threejs-textures": "Three.js 纹理指南，覆盖纹理类型、UV 映射、环境贴图、HDR 和压缩优化。",
+    "to-issues": "把计划、规格或 PRD 拆成可独立领取的 issue，强调可验证的垂直切片。",
+    "vercel-composition-patterns": "React 组合模式指南，面向可扩展组件、复合组件、render props 和 Context。",
+    "vercel-react-best-practices": "Vercel React/Next.js 性能最佳实践，覆盖数据获取、bundle、组件和渲染优化。",
+    "video_toolkit": "自主创建专业视频的工具包，整合配音、图像生成、音乐、头像视频和 Remotion 渲染。",
+    "video-download": "使用 yt-dlp 下载 YouTube 等网站的视频、音频或字幕。",
+    "video-edit": "用 FFmpeg 本地剪辑视频，包括裁剪、合并、变速、字幕、压缩和格式转换。",
+    "video-translate": "把已有视频翻译并配音成多语言版本，通常包含字幕、配音和口型同步。",
+    "video-understand": "用 ffmpeg 抽帧和语音转录在本地理解视频内容，无需外部 API。",
+    "visual-style": "创建、提取和应用视觉风格系统，定义颜色、字体、布局、动效和整体气质。",
+    "web-design-guidelines": "审查 Web UI 质量，检查可访问性、布局、交互、响应式和设计规范。",
+    "website-to-hyperframes": "捕获网站并转换为 HyperFrames 视频，用于产品宣传片和社交媒体广告。",
+    "write-agentmemory-skill": "编写或更新 AgentMemory 技能文档，遵循内部格式、结构和质量规则。"
+  };
+
+  var catalogBySkill = {};
+  (window.SKILL_CATALOG || []).forEach(function (item) {
+    if (item && item.skill) catalogBySkill[item.skill] = item;
+  });
+
+  var skillRows = (window.SKILL_DATA || []).map(function (row) {
+    var skillName = String(row.skill || "");
+    var catalog = catalogBySkill[skillName] || {};
+    var rawCount = Number(row.raw_count != null ? row.raw_count : row.count || 0);
+    var dedupCount = Number(row.dedup_count != null ? row.dedup_count : row.count || 0);
+    return {
+      skill: skillName,
+      count: dedupCount,
+      rawCount: rawCount,
+      dedupCount: dedupCount,
+      hasCollectorCounts: row.raw_count != null || row.dedup_count != null,
+      desc: String(row.desc || ""),
+      category: String(row.category || catalog.category || "通用技能"),
+      zhDesc: String(row.zh_desc || catalog.zh_desc || ZH_DESC[skillName] || "")
+    };
+  }).sort(function (a, b) {
+    return b.dedupCount - a.dedupCount || a.skill.localeCompare(b.skill);
+  });
+
+  var logRows = (window.SKILL_LOG || []).map(function (row) {
+    return {
+      skill: String(row.skill || ""),
+      tool: String(row.tool || "Unknown"),
+      time: String(row.time || ""),
+      session: String(row.session || ""),
+      dedup: row.dedup === true,
+      dedupKey: String(row.dedup_key || "")
+    };
+  });
+
+  var tools = (window.DETECTED_TOOLS && window.DETECTED_TOOLS.length)
+    ? window.DETECTED_TOOLS.slice()
+    : unique(logRows.map(function (row) { return row.tool; }));
+
+  var dedupWindowMinutes = Number(window.DEDUP_WINDOW_MINUTES || 2);
+  hydrateCountsFromLogs();
+  var countMode = "dedup";
+  var totalRawCalls = skillRows.reduce(function (sum, row) { return sum + row.rawCount; }, 0);
+  var totalDedupCalls = skillRows.reduce(function (sum, row) { return sum + row.dedupCount; }, 0);
+  var translatedSkills = skillRows.filter(function (row) { return !!row.zhDesc; }).length;
+  var expandedSkills = {};
+  var skillFilter = "all";
+  var skillPage = 0;
+  var logTool = "all";
+  var logPage = 0;
+  var skillPageSize = 12;
+  var logPageSize = 18;
+  var filteredSkills = [];
+  var filteredLogs = [];
+
+  var els = {
+    generatedAt: document.getElementById("generatedAt"),
+    themeToggle: document.getElementById("themeToggle"),
+    toolBadges: document.getElementById("toolBadges"),
+    metricsGrid: document.getElementById("metricsGrid"),
+    trendList: document.getElementById("trendList"),
+    modeNote: document.getElementById("modeNote"),
+    skillSearch: document.getElementById("skillSearch"),
+    skillTableBody: document.getElementById("skillTableBody"),
+    skillPager: document.getElementById("skillPager"),
+    toolFilters: document.getElementById("toolFilters"),
+    logSearch: document.getElementById("logSearch"),
+    logTableBody: document.getElementById("logTableBody"),
+    logPager: document.getElementById("logPager"),
+    sessionModal: document.getElementById("sessionModal"),
+    sessionModalClose: document.getElementById("sessionModalClose"),
+    sessionModalId: document.getElementById("sessionModalId"),
+    sessionModalBody: document.getElementById("sessionModalBody")
+  };
+
+  initTheme();
+  renderStaticChrome();
+  renderMetrics();
+  renderTrend();
+  renderToolFilters();
+  bindEvents();
+  renderSkills(true);
+  renderLogs(true);
+
+  function bindEvents() {
+    document.querySelectorAll("[data-view-button]").forEach(function (button) {
+      button.addEventListener("click", function () {
+        switchView(button.getAttribute("data-view-button"));
+      });
+    });
+
+    document.querySelectorAll("[data-skill-filter]").forEach(function (button) {
+      button.addEventListener("click", function () {
+        skillFilter = button.getAttribute("data-skill-filter");
+        document.querySelectorAll("[data-skill-filter]").forEach(function (item) {
+          item.classList.toggle("active", item === button);
+        });
+        expandedSkills = {};
+        renderSkills(true);
+      });
+    });
+
+    document.querySelectorAll("[data-count-mode]").forEach(function (button) {
+      button.addEventListener("click", function () {
+        countMode = button.getAttribute("data-count-mode") === "raw" ? "raw" : "dedup";
+        document.querySelectorAll("[data-count-mode]").forEach(function (item) {
+          item.classList.toggle("active", item === button);
+        });
+        renderMetrics();
+        renderTrend();
+        renderSkills(true);
+      });
+    });
+
+    els.skillSearch.addEventListener("input", function () {
+      renderSkills(true);
+    });
+
+    els.logSearch.addEventListener("input", function () {
+      renderLogs(true);
+    });
+
+    els.skillTableBody.addEventListener("click", function (event) {
+      var button = event.target.closest("[data-expand-skill]");
+      if (!button) return;
+      var skill = decodeURIComponent(button.getAttribute("data-expand-skill"));
+      expandedSkills[skill] = !expandedSkills[skill];
+      renderSkills(false);
+    });
+
+    els.toolFilters.addEventListener("click", function (event) {
+      var button = event.target.closest("[data-tool-filter]");
+      if (!button) return;
+      logTool = button.getAttribute("data-tool-filter");
+      els.toolFilters.querySelectorAll("[data-tool-filter]").forEach(function (item) {
+        item.classList.toggle("active", item === button);
+      });
+      renderLogs(true);
+    });
+
+    els.logTableBody.addEventListener("click", function (event) {
+      var button = event.target.closest("[data-session]");
+      if (!button) return;
+      openSessionModal(decodeURIComponent(button.getAttribute("data-session")));
+    });
+
+    els.sessionModalClose.addEventListener("click", closeSessionModal);
+    els.sessionModal.addEventListener("click", function (event) {
+      if (event.target === els.sessionModal) closeSessionModal();
+    });
+    document.addEventListener("keydown", function (event) {
+      if (event.key === "Escape") closeSessionModal();
+    });
+
+    els.themeToggle.addEventListener("click", function () {
+      var next = document.documentElement.getAttribute("data-theme") === "dark" ? "light" : "dark";
+      setTheme(next);
+    });
+  }
+
+  function renderStaticChrome() {
+    els.generatedAt.textContent = window.GENERATED_AT || "--";
+    els.toolBadges.innerHTML = tools.length ? tools.map(function (tool) {
+      return '<span class="tool-chip ' + toolClass(tool) + '">' + escapeHtml(tool) + '</span>';
+    }).join("") : '<span class="tool-chip">No tools</span>';
+  }
+
+  function hydrateCountsFromLogs() {
+    if (!logRows.length || skillRows.some(function (row) { return row.hasCollectorCounts; })) return;
+    var bySkill = {};
+    skillRows.forEach(function (row) {
+      bySkill[row.skill] = row;
+      row.rawCount = 0;
+      row.dedupCount = 0;
+      row.count = 0;
+    });
+
+    var seen = {};
+    logRows.forEach(function (row) {
+      var skill = bySkill[row.skill];
+      if (!skill) return;
+      skill.rawCount += 1;
+      var key = row.dedupKey || computeDedupKey(row);
+      if (!seen[key]) {
+        seen[key] = true;
+        skill.dedupCount += 1;
+      }
+    });
+
+    skillRows.forEach(function (row) {
+      row.count = row.dedupCount;
+    });
+  }
+
+  function computeDedupKey(row) {
+    var sessionKey = row.session || "no-session";
+    var parsed = Date.parse(row.time || "");
+    var bucketSize = dedupWindowMinutes * 60 * 1000;
+    var bucket = isNaN(parsed) ? "no-time" : Math.floor(parsed / bucketSize);
+    return [row.tool, sessionKey, row.skill, bucket].join("|");
+  }
+
+  function getCount(row) {
+    return countMode === "raw" ? Number(row.rawCount || 0) : Number(row.dedupCount || 0);
+  }
+
+  function getTotalCalls() {
+    return countMode === "raw" ? totalRawCalls : totalDedupCalls;
+  }
+
+  function sortedSkillRows() {
+    return skillRows.slice().sort(function (a, b) {
+      return getCount(b) - getCount(a) || a.skill.localeCompare(b.skill);
+    });
+  }
+
+  function renderMetrics() {
+    var sorted = sortedSkillRows();
+    var top = sorted[0] || { skill: "--", rawCount: 0, dedupCount: 0 };
+    var totalCalls = getTotalCalls();
+    var activeSkills = skillRows.filter(function (row) { return getCount(row) > 0; }).length;
+    var zeroSkills = skillRows.length - activeSkills;
+    var savedReads = Math.max(0, totalRawCalls - totalDedupCalls);
+    els.modeNote.textContent = countMode === "dedup"
+      ? "当前使用去重调用：同一工具、同一会话、同一 skill 在 " + dedupWindowMinutes + " 分钟内重复读取只算一次。"
+      : "当前使用原始读取：每次日志里读取 SKILL.md 都计入一次。";
+    var cards = [
+      { label: "总调用", value: formatNum(totalCalls), sub: "来自 " + formatNum(tools.length) + " 个工具", accent: "var(--accent)" },
+      { label: "活跃技能", value: formatNum(activeSkills), sub: "未调用 " + formatNum(zeroSkills) + " 个", accent: "var(--accent-3)" },
+      { label: "Top Skill", value: formatNum(getCount(top)), sub: top.skill, accent: "var(--accent-2)" },
+      { label: "去重节省", value: formatNum(savedReads), sub: "中文说明 " + formatNum(translatedSkills) + "/" + formatNum(skillRows.length), accent: "var(--danger)" }
+    ];
+
+    els.metricsGrid.innerHTML = cards.map(function (card) {
+      return '<article class="metric-card" style="--metric-accent:' + card.accent + '">'
+        + '<div class="metric-label">' + escapeHtml(card.label) + '</div>'
+        + '<div class="metric-value">' + escapeHtml(card.value) + '</div>'
+        + '<div class="metric-sub">' + escapeHtml(card.sub) + '</div>'
+        + '</article>';
+    }).join("");
+  }
+
+  function renderTrend() {
+    var topSkills = sortedSkillRows().filter(function (row) { return getCount(row) > 0; }).slice(0, 20);
+    var maxCount = topSkills.reduce(function (max, row) { return Math.max(max, getCount(row)); }, 0);
+    if (!topSkills.length) {
+      els.trendList.innerHTML = '<div class="empty-state">暂无调用数据</div>';
+      return;
+    }
+
+    els.trendList.innerHTML = topSkills.map(function (row) {
+      var count = getCount(row);
+      var pct = maxCount ? Math.max(2, count / maxCount * 100) : 0;
+      return '<div class="trend-row">'
+        + '<div class="trend-name" title="' + escapeAttr(row.skill) + '">' + escapeHtml(row.skill) + '</div>'
+        + '<div class="trend-track" aria-hidden="true"><div class="trend-fill" style="width:' + pct.toFixed(2) + '%"></div></div>'
+        + '<div class="trend-value">' + formatNum(count) + '</div>'
+        + '</div>';
+    }).join("");
+  }
+
+  function renderToolFilters() {
+    var buttons = ['<button type="button" class="active" data-tool-filter="all">全部</button>'];
+    tools.forEach(function (tool) {
+      buttons.push('<button type="button" data-tool-filter="' + escapeAttr(tool) + '">' + escapeHtml(tool) + '</button>');
+    });
+    els.toolFilters.innerHTML = buttons.join("");
+  }
+
+  function renderSkills(resetPage) {
+    var query = els.skillSearch.value.trim().toLowerCase();
+    filteredSkills = sortedSkillRows().filter(function (row) {
+      var count = getCount(row);
+      if (skillFilter === "active" && count === 0) return false;
+      if (skillFilter === "zero" && count > 0) return false;
+      if (query) {
+        var searchable = (row.skill + " " + row.category + " " + row.zhDesc + " " + row.desc).toLowerCase();
+        if (searchable.indexOf(query) === -1) return false;
+      }
+      return true;
+    });
+
+    if (resetPage) skillPage = 0;
+    var pages = pageCount(filteredSkills.length, skillPageSize);
+    skillPage = clamp(skillPage, 0, pages - 1);
+    var slice = filteredSkills.slice(skillPage * skillPageSize, (skillPage + 1) * skillPageSize);
+
+    if (!slice.length) {
+      els.skillTableBody.innerHTML = '<tr><td colspan="4"><div class="empty-state">没有匹配的技能</div></td></tr>';
+    } else {
+      els.skillTableBody.innerHTML = slice.map(function (row) {
+        var count = getCount(row);
+        var totalCalls = getTotalCalls();
+        var maxCount = sortedSkillRows().reduce(function (max, item) { return Math.max(max, getCount(item)); }, 0);
+        var share = totalCalls ? count / totalCalls * 100 : 0;
+        var pctOfMax = maxCount ? count / maxCount * 100 : 0;
+        var key = encodeURIComponent(row.skill);
+        var expanded = !!expandedSkills[row.skill];
+        var zhDesc = row.zhDesc || "暂未收录中文翻译。";
+        var originalDesc = usefulOriginalDesc(row.desc) ? row.desc : "原始说明缺失或被截断。";
+        var html = '<tr class="data-row' + (expanded ? ' expanded' : '') + '">'
+          + '<td><div class="skill-cell"><span class="skill-name' + (count === 0 ? ' zero' : '') + '">' + escapeHtml(row.skill) + '</span><span class="skill-summary">[' + escapeHtml(row.category) + '] ' + escapeHtml(zhDesc) + '</span></div></td>'
+          + '<td class="count-cell">' + formatNum(count) + '</td>'
+          + '<td><div class="pct-cell"><div class="pct-track" aria-hidden="true"><div class="pct-fill" style="width:' + pctOfMax.toFixed(2) + '%"></div></div><span class="pct-value">' + share.toFixed(2) + '%</span></div></td>'
+          + '<td><button type="button" class="expand-btn" data-expand-skill="' + key + '" aria-label="展开 ' + escapeAttr(row.skill) + '"><span class="chevron"></span></button></td>'
+          + '</tr>';
+        if (expanded) {
+          html += '<tr class="drawer-row"><td colspan="4"><div class="drawer"><div class="drawer-grid">'
+            + '<div class="drawer-section"><span class="drawer-label">统计口径</span><div class="drawer-text">去重调用 ' + formatNum(row.dedupCount) + ' 次，原始读取 ' + formatNum(row.rawCount) + ' 次，分类：' + escapeHtml(row.category) + '</div></div>'
+            + '<div class="drawer-section"><span class="drawer-label">中文功能说明</span><div class="drawer-text">' + escapeHtml(zhDesc) + '</div></div>'
+            + '<div class="drawer-section"><span class="drawer-label">原始说明</span><div class="drawer-text original">' + escapeHtml(originalDesc) + '</div></div>'
+            + '</div></div></td></tr>';
+        }
+        return html;
+      }).join("");
+    }
+
+    renderPager(els.skillPager, filteredSkills.length, skillPage, skillPageSize, function (nextPage) {
+      skillPage = nextPage;
+      renderSkills(false);
+    });
+  }
+
+  function renderLogs(resetPage) {
+    var query = els.logSearch.value.trim().toLowerCase();
+    filteredLogs = logRows.filter(function (row) {
+      if (logTool !== "all" && row.tool !== logTool) return false;
+      if (query && (row.skill + " " + row.session + " " + row.tool).toLowerCase().indexOf(query) === -1) return false;
+      return true;
+    });
+
+    if (resetPage) logPage = 0;
+    var pages = pageCount(filteredLogs.length, logPageSize);
+    logPage = clamp(logPage, 0, pages - 1);
+    var slice = filteredLogs.slice(logPage * logPageSize, (logPage + 1) * logPageSize);
+
+    if (!slice.length) {
+      els.logTableBody.innerHTML = '<tr><td colspan="4"><div class="empty-state">没有匹配的日志</div></td></tr>';
+    } else {
+      els.logTableBody.innerHTML = slice.map(function (row) {
+        var sessionShort = row.session ? row.session.substring(0, 8) : "--";
+        var sessionButton = row.session
+          ? '<button type="button" class="session-link" data-session="' + encodeURIComponent(row.session) + '" title="' + escapeAttr(row.session) + '">' + escapeHtml(sessionShort) + '</button>'
+          : '<span class="session-short">--</span>';
+        return '<tr class="data-row">'
+          + '<td class="time-cell">' + escapeHtml(formatDate(row.time)) + '</td>'
+          + '<td><span class="tool-tag ' + toolClass(row.tool) + '">' + escapeHtml(row.tool) + '</span></td>'
+          + '<td><span class="log-skill">' + escapeHtml(row.skill) + '</span></td>'
+          + '<td class="session-cell">' + sessionButton + '</td>'
+          + '</tr>';
+      }).join("");
+    }
+
+    renderPager(els.logPager, filteredLogs.length, logPage, logPageSize, function (nextPage) {
+      logPage = nextPage;
+      renderLogs(false);
+    });
+  }
+
+  function openSessionModal(sessionId) {
+    var rows = logRows.filter(function (row) { return row.session === sessionId; });
+    rows.sort(function (a, b) {
+      return (Date.parse(a.time || "") || 0) - (Date.parse(b.time || "") || 0);
+    });
+
+    var uniqueSkills = unique(rows.map(function (row) { return row.skill; }));
+    var uniqueTools = unique(rows.map(function (row) { return row.tool; }));
+    var seen = {};
+    var dedupRows = rows.filter(function (row) {
+      var key = row.dedupKey || computeDedupKey(row);
+      if (seen[key]) return false;
+      seen[key] = true;
+      return true;
+    });
+    var firstTime = rows[0] ? formatDate(rows[0].time) : "--";
+    var lastTime = rows[rows.length - 1] ? formatDate(rows[rows.length - 1].time) : "--";
+
+    els.sessionModalId.textContent = sessionId || "--";
+    els.sessionModalBody.innerHTML =
+      '<div class="session-summary">'
+      + '<div class="summary-item"><span>时间范围</span><strong title="' + escapeAttr(firstTime + ' - ' + lastTime) + '">' + escapeHtml(firstTime) + '</strong></div>'
+      + '<div class="summary-item"><span>来源工具</span><strong>' + escapeHtml(uniqueTools.join(", ") || "--") + '</strong></div>'
+      + '<div class="summary-item"><span>去重 / 原始</span><strong>' + formatNum(dedupRows.length) + ' / ' + formatNum(rows.length) + '</strong></div>'
+      + '<div class="summary-item"><span>涉及技能</span><strong>' + formatNum(uniqueSkills.length) + '</strong></div>'
+      + '</div>'
+      + '<div class="session-timeline">'
+      + rows.map(function (row) {
+        var catalog = catalogBySkill[row.skill] || {};
+        var zhDesc = catalog.zh_desc || ZH_DESC[row.skill] || "";
+        return '<div class="timeline-row">'
+          + '<div class="time-cell">' + escapeHtml(formatDate(row.time)) + '</div>'
+          + '<div><span class="tool-tag ' + toolClass(row.tool) + '">' + escapeHtml(row.tool) + '</span></div>'
+          + '<div><span class="log-skill">' + escapeHtml(row.skill) + '</span>'
+          + (zhDesc ? '<div class="skill-summary">' + escapeHtml(zhDesc) + '</div>' : '')
+          + '</div>'
+          + '</div>';
+      }).join("")
+      + '</div>';
+
+    els.sessionModal.classList.add("active");
+    els.sessionModal.setAttribute("aria-hidden", "false");
+  }
+
+  function closeSessionModal() {
+    els.sessionModal.classList.remove("active");
+    els.sessionModal.setAttribute("aria-hidden", "true");
+  }
+
+  function renderPager(container, total, page, size, onPage) {
+    var pages = pageCount(total, size);
+    container.innerHTML =
+      '<span>第 ' + formatNum(page + 1) + ' / ' + formatNum(pages) + ' 页，共 ' + formatNum(total) + ' 条</span>'
+      + '<button type="button" data-page="first" ' + (page === 0 ? 'disabled' : '') + ' aria-label="第一页">«</button>'
+      + '<button type="button" data-page="prev" ' + (page === 0 ? 'disabled' : '') + ' aria-label="上一页">‹</button>'
+      + '<span class="pager-jump"><span>跳至</span><input type="number" min="1" max="' + pages + '" value="' + (page + 1) + '" aria-label="页码"><button type="button" data-page="jump">Go</button></span>'
+      + '<button type="button" data-page="next" ' + (page >= pages - 1 ? 'disabled' : '') + ' aria-label="下一页">›</button>'
+      + '<button type="button" data-page="last" ' + (page >= pages - 1 ? 'disabled' : '') + ' aria-label="最后一页">»</button>';
+
+    container.querySelectorAll("button").forEach(function (button) {
+      button.addEventListener("click", function () {
+        var action = button.getAttribute("data-page");
+        var next = page;
+        if (action === "first") next = 0;
+        if (action === "prev") next = page - 1;
+        if (action === "next") next = page + 1;
+        if (action === "last") next = pages - 1;
+        if (action === "jump") {
+          var value = parseInt(container.querySelector("input").value, 10);
+          next = isNaN(value) ? page : value - 1;
+        }
+        onPage(clamp(next, 0, pages - 1));
+      });
+    });
+
+    container.querySelector("input").addEventListener("keydown", function (event) {
+      if (event.key !== "Enter") return;
+      var value = parseInt(event.currentTarget.value, 10);
+      onPage(clamp(isNaN(value) ? page : value - 1, 0, pages - 1));
+    });
+  }
+
+  function switchView(viewName) {
+    document.querySelectorAll("[data-view-button]").forEach(function (button) {
+      button.classList.toggle("active", button.getAttribute("data-view-button") === viewName);
+    });
+    document.querySelectorAll(".view-panel").forEach(function (panel) {
+      panel.classList.toggle("active", panel.id === "view-" + viewName);
+    });
+  }
+
+  function initTheme() {
+    var stored = localStorage.getItem("skill-tracker-theme");
+    setTheme(stored === "light" ? "light" : "dark");
+  }
+
+  function setTheme(theme) {
+    document.documentElement.setAttribute("data-theme", theme);
+    localStorage.setItem("skill-tracker-theme", theme);
+    els.themeToggle.textContent = theme === "dark" ? "Dark" : "Light";
+    els.themeToggle.setAttribute("aria-pressed", String(theme === "dark"));
+  }
+
+  function pageCount(total, size) {
+    return Math.max(1, Math.ceil(total / size));
+  }
+
+  function clamp(value, min, max) {
+    return Math.max(min, Math.min(max, value));
+  }
+
+  function unique(values) {
+    var seen = {};
+    return values.filter(function (value) {
+      if (!value || seen[value]) return false;
+      seen[value] = true;
+      return true;
+    });
+  }
+
+  function toolClass(tool) {
+    var clean = String(tool || "default").replace(/[^a-zA-Z0-9_-]/g, "");
+    return "tool-" + (clean || "default");
+  }
+
+  function formatNum(value) {
+    return Number(value || 0).toLocaleString("zh-CN");
+  }
+
+  function formatDate(value) {
+    if (!value) return "--";
+    var date = new Date(value);
+    if (isNaN(date.getTime())) return value;
+    return new Intl.DateTimeFormat("zh-CN", {
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit"
+    }).format(date);
+  }
+
+  function usefulOriginalDesc(value) {
+    var text = String(value || "").trim();
+    return text.length > 1 && text !== "|" && text !== ">";
+  }
+
+  function escapeHtml(value) {
+    return String(value).replace(/[&<>"']/g, function (char) {
+      return ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[char];
+    });
+  }
+
+  function escapeAttr(value) {
+    return escapeHtml(value).replace(/`/g, "&#96;");
+  }
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,25 @@
+# Generated local telemetry data (don't commit)
+dashboard/skill_data.js
+dashboard/skill_log.js
+dashboard/skill_call_stats.json
+dashboard/skill_catalog.js
+dashboard/skill_catalog.json
+dashboard/preview-*.png
+
+# Local agent/workspace artifacts
+.agents/
+.codex/
+.playwright-mcp/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Editor
+.vscode/
+*.suo
+*.user
+
+# Logs/temp
+*.log
+*.tmp

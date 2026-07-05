@@ -1,0 +1,7 @@
+{
+  "skills_root": "",
+  "output_dir": "./dashboard",
+  "max_log_entries": 5000,
+  "dedup_window_minutes": 2,
+  "custom_tools": []
+}
