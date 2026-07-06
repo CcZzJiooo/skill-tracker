@@ -1086,6 +1086,13 @@ button.catalog-stat.active {
   word-break: break-all;
 }
 
+.search-hit {
+  border-radius: 3px;
+  background: color-mix(in srgb, var(--accent) 30%, transparent);
+  color: var(--text);
+  padding: 0 2px;
+}
+
 .catalog-edit {
   min-width: 0;
   display: grid;
@@ -1524,10 +1531,51 @@ button.catalog-stat.active {
   line-height: 1.6;
 }
 
+.repo-summary-cn {
+  border: 1px solid color-mix(in srgb, var(--accent-3) 28%, var(--border));
+  border-radius: var(--radius-sm);
+  background: color-mix(in srgb, var(--accent-3) 7%, var(--surface-2));
+  color: var(--text);
+  font-size: 12px;
+  line-height: 1.6;
+  padding: 9px 10px;
+}
+
+.repo-summary-cn strong {
+  color: var(--accent-3);
+}
+
 .repo-tags {
   display: flex;
   gap: 6px;
   flex-wrap: wrap;
+}
+
+.repo-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.repo-action {
+  min-height: 30px;
+  display: inline-flex;
+  align-items: center;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
+  color: var(--text);
+  cursor: pointer;
+  padding: 0 9px;
+  font: inherit;
+  font-size: 11px;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.repo-action:hover {
+  border-color: color-mix(in srgb, var(--accent) 54%, var(--border));
 }
 
 .repo-tag,
@@ -2364,6 +2412,7 @@ button.catalog-stat.active {
     "character-animation-qa": "检查本地角色动画质量，包括 schema 校验、浏览器预览、抽帧检查和 ffmpeg 验证。",
     "character-rigging": "设计数据驱动的 2D 角色骨架，包括部件、枢轴、层级、约束和可复用姿态。",
     "commit-history": "查看与 Agent 会话关联的 Git 提交记录，可按仓库或分支筛选。",
+    "create-video": "从文本提示生成视频内容，适合短片、演示素材、动态背景和 AI 视频工作流。",
     "d3-viz": "用 D3.js 创建定制化数据可视化，包括图表、网络图、地图和复杂 SVG 交互。",
     "deep-research": "多 Agent 深度研究流水线，覆盖问题定义、资料检索、事实核查、综合分析和研究报告。",
     "diagnose": "规范化疑难问题诊断流程，从复现、最小化、假设、插桩到修复和回归验证。",
@@ -2415,6 +2464,7 @@ button.catalog-stat.active {
     "stock_analyzer": "分析股票和市场，支持单股、多股、市场复盘和走势解读。",
     "svg-character-animation": "用 GSAP、CSS transform 或 Remotion 控制 SVG 角色骨架动画。",
     "synthetic-screen-recording": "生成或控制合成式屏幕录制素材，用于演示视频和自动化录屏。",
+    "tailwind-design-system": "使用 Tailwind CSS 构建设计系统，统一设计 tokens、组件规范、响应式布局和视觉一致性。",
     "tdd": "测试驱动开发流程，先写失败测试，再实现功能，最后重构并验证。",
     "text-to-speech": "使用 HeyGen TTS 把文本转语音，支持声音选择、语速和语调控制。",
     "threejs-animation": "Three.js 动画指南，包括关键帧、骨骼动画、morph target 和动画混合。",
@@ -2443,10 +2493,12 @@ button.catalog-stat.active {
 
   var catalogBySkill = {};
   (window.SKILL_CATALOG || []).forEach(function (item) {
-    if (item && item.skill) catalogBySkill[item.skill] = item;
+    if (item && item.skill && !isInternalSkillName(item.skill)) catalogBySkill[item.skill] = item;
   });
 
-  var skillRows = (window.SKILL_DATA || []).map(function (row) {
+  var skillRows = (window.SKILL_DATA || []).filter(function (row) {
+    return row && !isInternalSkillName(row.skill);
+  }).map(function (row) {
     var skillName = String(row.skill || "");
     var catalog = catalogBySkill[skillName] || {};
     var rawCount = Number(row.raw_count != null ? row.raw_count : row.count || 0);
@@ -2471,7 +2523,7 @@ button.catalog-stat.active {
   });
 
   (window.SKILL_CATALOG || []).forEach(function (catalog) {
-    if (!catalog || !catalog.skill || skillRowByName[catalog.skill]) return;
+    if (!catalog || !catalog.skill || isInternalSkillName(catalog.skill) || skillRowByName[catalog.skill]) return;
     var row = {
       skill: String(catalog.skill),
       count: 0,
@@ -2489,7 +2541,9 @@ button.catalog-stat.active {
     return b.dedupCount - a.dedupCount || a.skill.localeCompare(b.skill);
   });
 
-  var logRows = (window.SKILL_LOG || []).map(function (row) {
+  var logRows = (window.SKILL_LOG || []).filter(function (row) {
+    return row && !isInternalSkillName(row.skill);
+  }).map(function (row) {
     return {
       skill: String(row.skill || ""),
       tool: String(row.tool || "Unknown"),
@@ -2712,6 +2766,20 @@ button.catalog-stat.active {
     });
     els.githubRepo.addEventListener("keydown", function (event) {
       if (event.key === "Enter") checkGitHubRepo();
+    });
+    els.githubRepoResults.addEventListener("click", function (event) {
+      var copyButton = event.target.closest("[data-copy-clone]");
+      if (copyButton) {
+        copyCloneCommand(copyButton.getAttribute("data-copy-clone") || "");
+        return;
+      }
+      var checkButton = event.target.closest("[data-check-repo]");
+      if (checkButton) {
+        var slug = checkButton.getAttribute("data-check-repo") || "";
+        if (!slug) return;
+        els.githubRepo.value = slug;
+        checkGitHubRepo();
+      }
     });
 
     els.skillTableBody.addEventListener("click", function (event) {
@@ -3477,6 +3545,7 @@ button.catalog-stat.active {
     var concepts = [
       { test: /token|上下文|省|节省|压缩|精简|低成本|成本|context|compress|compact/i, queries: ["token compression agent skill", "context compression agent skill SKILL.md"], words: ["token saving", "context compression", "prompt compression", "agent skill"], skills: ["caveman", "caveman-compress", "caveman-stats"], relevance: ["token", "context", "compression", "compress", "compact"], skillSearch: true },
       { test: /ppt|pptx|powerpoint|slide|slides|presentation|演示|幻灯片|简报|汇报|课件|生成ppt|做ppt|制作ppt/i, queries: ["powerpoint-generation", "pptx ai presentation generator"], words: ["ppt", "pptx", "powerpoint", "presentation", "slides", "deck", "powerpoint generation"], skills: ["ppt-master"], relevance: ["ppt", "pptx", "powerpoint", "presentation", "slides", "slide", "deck", "powerpoint-generation"], preferred: ["ppt-master", "presenton", "pptxgenjs", "pptagent"] },
+      { test: /\bmcp\b|model context protocol|模型上下文协议|上下文协议/i, queries: ["mcp server in:name,description,topics", "model context protocol in:name,description,topics"], words: ["mcp", "model context protocol", "mcp server", "tool server"], skills: ["find-skills"], relevance: ["mcp", "model context protocol", "server", "tool"], preferred: ["modelcontextprotocol", "mcp"], skillSearch: true },
       { test: /记忆|记住|回忆|长期|memory|remember|recall/i, queries: ["agent memory skill", "memory agent workflow SKILL.md"], words: ["agent memory", "memory skill", "recall remember"], skills: ["remember", "recall", "agentmemory-mcp-tools"], relevance: ["memory", "remember", "recall"], skillSearch: true },
       { test: /测试|单测|tdd|质量|验证|test/i, queries: ["test driven development agent skill", "tdd agent workflow SKILL.md"], words: ["test driven development", "testing agent skill", "quality gate"], skills: ["tdd", "diagnose"], relevance: ["tdd", "test", "testing", "quality"], skillSearch: true },
       { test: /诊断|排查|bug|故障|debug|修复/i, queries: ["debugging diagnose agent workflow", "debug agent skill SKILL.md"], words: ["debugging agent", "diagnose workflow", "bug triage"], skills: ["diagnose", "tdd"], relevance: ["debug", "diagnose", "bug", "triage"], skillSearch: true },
@@ -3553,18 +3622,20 @@ button.catalog-stat.active {
       repo.language || "",
       (repo.topics || []).join(" ")
     ].join(" ").toLowerCase();
-    var score = Number(repo.stargazers_count || 0);
-    score += Math.max(0, 20 - queryIndex * 5 - itemIndex * 0.2);
+    var stars = Math.max(0, Number(repo.stargazers_count || 0));
+    var score = Math.log10(stars + 1) * 8;
+    score += Math.max(0, 30 - queryIndex * 8 - itemIndex * 0.4);
+    if (intent.input && text.indexOf(String(intent.input).toLowerCase()) !== -1) score += 80;
     (intent.relevanceTerms || []).forEach(function (term) {
       term = String(term || "").toLowerCase();
       if (term.length < 2) return;
-      if (text.indexOf(term) !== -1) score += term.length > 4 ? 5 : 2;
+      if (text.indexOf(term) !== -1) score += term.length > 4 ? 18 : 10;
     });
     (intent.preferredNames || []).forEach(function (preferred) {
       preferred = String(preferred || "").toLowerCase();
       if (!preferred) return;
-      if (name === preferred || fullName.endsWith("/" + preferred)) score += 500;
-      else if (name.indexOf(preferred) !== -1 || fullName.indexOf(preferred) !== -1) score += 100;
+      if (name === preferred || fullName.endsWith("/" + preferred)) score += 1000;
+      else if (name.indexOf(preferred) !== -1 || fullName.indexOf(preferred) !== -1) score += 350;
     });
     return score;
   }
@@ -3667,16 +3738,72 @@ button.catalog-stat.active {
       var tags = topics.length ? topics.map(function (topic) {
         return '<span class="repo-tag">' + escapeHtml(topic) + '</span>';
       }).join("") : '<span class="repo-tag">no topics</span>';
+      var guidance = describeGitHubRepository(repo);
+      var htmlUrl = repo.html_url || "#";
+      var cloneUrl = repo.clone_url || (repo.html_url ? repo.html_url.replace(/\/$/, "") + ".git" : "");
+      var zipUrl = githubZipUrl(repo);
+      var slug = repo.full_name || repo.name || "";
       return '<article class="repo-card">'
         + '<div class="repo-head">'
-        + '<div class="repo-title"><a href="' + escapeAttr(repo.html_url || "#") + '" target="_blank" rel="noreferrer">' + escapeHtml(repo.full_name || repo.name || "unknown") + '</a></div>'
+        + '<div class="repo-title"><a href="' + escapeAttr(htmlUrl) + '" target="_blank" rel="noreferrer">' + escapeHtml(repo.full_name || repo.name || "unknown") + '</a></div>'
         + '<span class="repo-tag">★ ' + formatNum(repo.stargazers_count || 0) + '</span>'
         + '</div>'
         + '<div class="repo-meta">' + escapeHtml(repo.description || "No description.") + '</div>'
+        + '<div class="repo-summary-cn"><strong>中文解读：</strong>' + escapeHtml(guidance.summary) + '<br><strong>下一步：</strong>' + escapeHtml(guidance.next) + '</div>'
         + '<div class="repo-meta">语言：' + escapeHtml(repo.language || "--") + ' · 更新：' + escapeHtml(formatDate(repo.updated_at)) + '</div>'
         + '<div class="repo-tags">' + tags + '</div>'
+        + '<div class="repo-actions">'
+        + '<a class="repo-action" href="' + escapeAttr(htmlUrl) + '" target="_blank" rel="noreferrer">打开仓库</a>'
+        + '<a class="repo-action" href="' + escapeAttr(zipUrl) + '" target="_blank" rel="noreferrer">下载 ZIP</a>'
+        + '<button type="button" class="repo-action" data-copy-clone="' + escapeAttr(cloneUrl) + '">复制 clone</button>'
+        + '<button type="button" class="repo-action" data-check-repo="' + escapeAttr(slug) + '">检查更新</button>'
+        + '</div>'
         + '</article>';
     }).join("");
+  }
+
+  function describeGitHubRepository(repo) {
+    var text = [
+      repo.full_name || "",
+      repo.name || "",
+      repo.description || "",
+      (repo.topics || []).join(" ")
+    ].join(" ").toLowerCase();
+    if (/mcp|model context protocol/.test(text)) {
+      return {
+        summary: "这可能是 MCP 协议、MCP Server、工具接入或相关生态项目。优先确认它支持哪些客户端、transport、权限和配置方式。",
+        next: "打开仓库看 README 的安装段落；需要本地使用时优先复制 clone 命令或下载 ZIP。"
+      };
+    }
+    if (/ppt|pptx|powerpoint|presentation|slide|deck/.test(text)) {
+      return {
+        summary: "这可能用于 PPT、演示文稿、幻灯片生成或 PowerPoint 文件处理。重点看输入格式、导出格式和模板能力。",
+        next: "先打开仓库确认示例效果；只想试用可下载 ZIP，开发集成建议复制 clone。"
+      };
+    }
+    if (/agent|workflow|automation|ai|llm/.test(text)) {
+      return {
+        summary: "这可能是 AI Agent、自动化工作流或 LLM 应用框架。注意区分完整产品、框架库和单个工具插件。",
+        next: "打开仓库检查 quick start、依赖和许可证；再用检查更新判断活跃度。"
+      };
+    }
+    if (/ui|webui|dashboard|frontend/.test(text)) {
+      return {
+        summary: "这可能是界面、控制台或 Web 应用项目。重点看部署方式、截图和是否支持本地运行。",
+        next: "打开仓库查看截图和部署说明；下载 ZIP 适合快速浏览源码。"
+      };
+    }
+    return {
+      summary: "这是 GitHub 根据关键词返回的候选仓库。当前卡片保留英文原描述，同时给出操作入口。",
+      next: "打开仓库看 README；需要下载源码可点 ZIP，需要本地开发可复制 clone。"
+    };
+  }
+
+  function githubZipUrl(repo) {
+    var htmlUrl = String(repo.html_url || "").replace(/\/$/, "");
+    if (!htmlUrl) return "#";
+    var branch = encodeURIComponent(repo.default_branch || "main");
+    return htmlUrl + "/archive/refs/heads/" + branch + ".zip";
   }
 
   function renderGitHubUpdate(repo, release, rate) {
@@ -3711,6 +3838,41 @@ button.catalog-stat.active {
   function setGitHubBusy(isBusy) {
     els.githubSearch.disabled = isBusy;
     els.githubCheckRepo.disabled = isBusy;
+  }
+
+  function copyCloneCommand(cloneUrl) {
+    if (!cloneUrl) {
+      setGitHubStatus("该仓库没有可复制的 clone 地址。");
+      return;
+    }
+    var command = "git clone " + cloneUrl;
+    copyTextToClipboard(command).then(function () {
+      setGitHubStatus("已复制：" + command);
+    }).catch(function () {
+      setGitHubStatus("复制失败，请手动复制：" + command);
+    });
+  }
+
+  function copyTextToClipboard(text) {
+    if (navigator.clipboard && window.isSecureContext) {
+      return navigator.clipboard.writeText(text);
+    }
+    return new Promise(function (resolve, reject) {
+      var textarea = document.createElement("textarea");
+      textarea.value = text;
+      textarea.setAttribute("readonly", "");
+      textarea.style.position = "fixed";
+      textarea.style.left = "-9999px";
+      document.body.appendChild(textarea);
+      textarea.select();
+      try {
+        document.execCommand("copy") ? resolve() : reject(new Error("copy command failed"));
+      } catch (error) {
+        reject(error);
+      } finally {
+        textarea.remove();
+      }
+    });
   }
 
   function rateInfo(response) {
@@ -4014,6 +4176,7 @@ button.catalog-stat.active {
 
   function renderCatalog(resetPage) {
     var rows = filteredCatalogRows();
+    var query = els.catalogSearch.value.trim();
     renderCatalogSummary(rows.length);
     if (resetPage) catalogPage = 0;
     var pages = pageCount(rows.length, catalogPageSize);
@@ -4029,17 +4192,18 @@ button.catalog-stat.active {
       var catalog = catalogBySkill[row.skill] || {};
       var className = "catalog-item" + (catalogDirty[row.skill] ? " edited" : "") + (!isTranslated(row) ? " missing" : "");
       var calls = getCount(row);
-      var originalDesc = usefulOriginalDesc(row.desc) ? row.desc : (catalog.english_desc || "No original description.");
+      var originalDesc = catalogDisplayDesc(row, catalog);
       var sourcePath = catalog.source_path || "collector output";
+      var placeholder = suggestCatalogPlaceholder(row, catalog);
       return '<article class="' + className + '">'
         + '<div class="catalog-meta">'
-        + '<div class="catalog-title"><strong>' + escapeHtml(row.skill) + '</strong><span class="catalog-pill">' + escapeHtml(row.category) + '</span><span class="catalog-pill">' + formatNum(calls) + ' calls</span></div>'
-        + '<p class="catalog-desc">' + escapeHtml(originalDesc) + '</p>'
-        + '<p class="catalog-source">' + escapeHtml(sourcePath) + '</p>'
+        + '<div class="catalog-title"><strong>' + highlightText(row.skill, query) + '</strong><span class="catalog-pill">' + highlightText(row.category, query) + '</span><span class="catalog-pill">' + formatNum(calls) + ' calls</span></div>'
+        + '<p class="catalog-desc">' + highlightText(originalDesc, query) + '</p>'
+        + '<p class="catalog-source">' + highlightText(sourcePath, query) + '</p>'
         + '</div>'
         + '<div class="catalog-edit">'
         + '<label for="catalog-' + encodeURIComponent(row.skill) + '">中文功能说明</label>'
-        + '<textarea id="catalog-' + encodeURIComponent(row.skill) + '" data-catalog-field="zh_desc" data-skill="' + encodeURIComponent(row.skill) + '">' + escapeHtml(row.zhDesc) + '</textarea>'
+        + '<textarea id="catalog-' + encodeURIComponent(row.skill) + '" data-catalog-field="zh_desc" data-skill="' + encodeURIComponent(row.skill) + '" placeholder="' + escapeAttr(placeholder) + '">' + escapeHtml(row.zhDesc) + '</textarea>'
         + '</div>'
         + '</article>';
     }).join("");
@@ -4048,6 +4212,19 @@ button.catalog-stat.active {
       catalogPage = nextPage;
       renderCatalog(false);
     });
+  }
+
+  function catalogDisplayDesc(row, catalog) {
+    if (usefulOriginalDesc(row.desc)) return row.desc;
+    if (usefulOriginalDesc(catalog.english_desc)) return catalog.english_desc;
+    return "原始说明缺失：这个 SKILL.md 没有可用 description。建议打开来源文件补 frontmatter description，或先在右侧补一句中文功能说明。";
+  }
+
+  function suggestCatalogPlaceholder(row, catalog) {
+    if (ZH_DESC[row.skill]) return ZH_DESC[row.skill];
+    if (usefulOriginalDesc(row.desc)) return "把左侧英文说明改写成一句清晰中文功能说明";
+    if (usefulOriginalDesc(catalog.english_desc)) return "把左侧英文说明改写成一句清晰中文功能说明";
+    return "例如：说明这个 skill 解决什么问题、何时触发、适合什么任务";
   }
 
   function exportCatalogJson() {
@@ -4364,6 +4541,10 @@ button.catalog-stat.active {
     });
   }
 
+  function isInternalSkillName(skill) {
+    return /^\./.test(String(skill || ""));
+  }
+
   function toolClass(tool) {
     var clean = String(tool || "default").replace(/[^a-zA-Z0-9_-]/g, "");
     return "tool-" + (clean || "default");
@@ -4439,6 +4620,32 @@ button.catalog-stat.active {
 
   function tokenList(text) {
     return Object.keys(tokenSet(text));
+  }
+
+  function highlightText(value, query) {
+    var text = String(value || "");
+    var tokens = unique([query].concat(tokenList(query))).filter(function (token) {
+      return String(token || "").trim().length >= 2;
+    }).sort(function (a, b) {
+      return b.length - a.length;
+    });
+    if (!tokens.length) return escapeHtml(text);
+    var pattern = tokens.map(escapeRegExp).join("|");
+    var regex = new RegExp(pattern, "gi");
+    var html = "";
+    var lastIndex = 0;
+    text.replace(regex, function (match, offset) {
+      html += escapeHtml(text.slice(lastIndex, offset));
+      html += '<mark class="search-hit">' + escapeHtml(match) + '</mark>';
+      lastIndex = offset + match.length;
+      return match;
+    });
+    html += escapeHtml(text.slice(lastIndex));
+    return html;
+  }
+
+  function escapeRegExp(value) {
+    return String(value).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
   }
 
   function jaccard(a, b) {

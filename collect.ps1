@@ -79,6 +79,7 @@ if ($activeSources.Count -eq 0) { Write-Warning "No AI tools detected."; exit 1 
 
 # ── Load skill names + descriptions from SKILL.md frontmatter ─────────────────
 $skillNames = Get-ChildItem -Path $cfg.skills_root -Directory -ErrorAction SilentlyContinue |
+              Where-Object { $_.Name -notmatch '^\.' } |
               Select-Object -ExpandProperty Name
 $counts = @{}
 $dedupCounts = @{}
