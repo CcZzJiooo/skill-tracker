@@ -1258,8 +1258,9 @@ tbody tr.data-row.expanded {
 .github-controls {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
-  gap: 10px;
-  align-items: end;
+  gap: 12px;
+  align-items: center;
+  margin-bottom: 14px;
 }
 
 .matrix-note,
@@ -1389,6 +1390,25 @@ tbody tr.data-row.expanded {
   border-radius: var(--radius);
   background: var(--surface);
   padding: 14px;
+}
+
+.skill-match-card {
+  border-color: color-mix(in srgb, var(--accent) 38%, var(--border));
+}
+
+.cleanup-actions {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+}
+
+.cleanup-hint {
+  color: var(--dim);
+  font-size: 11px;
+  line-height: 1.5;
+  margin-bottom: 12px;
 }
 
 .repo-head,
@@ -1796,7 +1816,8 @@ tbody tr.data-row.expanded {
   }
 
   .github-actions .action-button,
-  .action-toolbar .action-button {
+  .action-toolbar .action-button,
+  .cleanup-actions .action-button {
     width: 100%;
   }
 
@@ -2075,8 +2096,13 @@ tbody tr.data-row.expanded {
               <h3 id="duplicateHeading">重复/相似检测</h3>
               <p>基于名称、描述、触发词和分类的相似度指纹</p>
             </div>
+            <div class="cleanup-actions">
+              <button type="button" class="action-button" id="exportDuplicatePlan">导出清理计划</button>
+              <button type="button" class="action-button" id="exportDuplicateScript">导出归档脚本</button>
+            </div>
           </div>
           <div class="section-body">
+            <div class="cleanup-hint">浏览器不会直接删除本机 skill。清理脚本默认只预览；审查后加 `-Apply` 才会把建议归档项移动到 `.skill-tracker-archive`。</div>
             <div class="insight-list" id="duplicateList"></div>
           </div>
         </section>
@@ -2147,7 +2173,7 @@ tbody tr.data-row.expanded {
             <div class="github-form">
               <label>
                 搜索关键词
-                <input id="githubKeyword" type="search" placeholder="例如 agent skills / tdd skill / skill tracker">
+                <input id="githubKeyword" type="search" placeholder="例如：我想找一个可以节省 token 的 skill">
               </label>
               <label>
                 指定仓库
@@ -2160,6 +2186,7 @@ tbody tr.data-row.expanded {
             </div>
           </div>
           <div class="github-status" id="githubStatus">未联网。输入关键词或仓库后点击按钮。</div>
+          <div class="repo-grid" id="githubSkillMatches"></div>
           <div class="github-update" id="githubUpdateResult">指定仓库检查结果会显示在这里。</div>
           <div class="repo-grid" id="githubRepoResults"></div>
         </div>
@@ -2407,6 +2434,8 @@ tbody tr.data-row.expanded {
     flowList: document.getElementById("flowList"),
     healthList: document.getElementById("healthList"),
     duplicateList: document.getElementById("duplicateList"),
+    exportDuplicatePlan: document.getElementById("exportDuplicatePlan"),
+    exportDuplicateScript: document.getElementById("exportDuplicateScript"),
     conflictList: document.getElementById("conflictList"),
     actionSummary: document.getElementById("actionSummary"),
     actionList: document.getElementById("actionList"),
@@ -2421,6 +2450,7 @@ tbody tr.data-row.expanded {
     githubSearch: document.getElementById("githubSearch"),
     githubCheckRepo: document.getElementById("githubCheckRepo"),
     githubStatus: document.getElementById("githubStatus"),
+    githubSkillMatches: document.getElementById("githubSkillMatches"),
     githubUpdateResult: document.getElementById("githubUpdateResult"),
     githubRepoResults: document.getElementById("githubRepoResults"),
     manualGrid: document.getElementById("manualGrid"),
@@ -2541,6 +2571,8 @@ tbody tr.data-row.expanded {
     els.exportAnonymous.addEventListener("click", exportAnonymousReport);
     els.exportActionIssues.addEventListener("click", exportActionIssues);
     els.exportActionJson.addEventListener("click", exportActionJson);
+    els.exportDuplicatePlan.addEventListener("click", exportDuplicateCleanupPlan);
+    els.exportDuplicateScript.addEventListener("click", exportDuplicateArchiveScript);
     els.exportMatrixJson.addEventListener("click", exportMatrixJson);
     els.githubSearch.addEventListener("click", searchGitHubProjects);
     els.githubCheckRepo.addEventListener("click", checkGitHubRepo);
@@ -2774,12 +2806,133 @@ tbody tr.data-row.expanded {
       els.duplicateList.innerHTML = '<div class="empty-state">没有发现明显重复技能</div>';
       return;
     }
+    var cleanupPlan = buildDuplicateCleanupPlan(duplicates);
+    var cleanupByPair = {};
+    cleanupPlan.items.forEach(function (item) {
+      cleanupByPair[duplicatePairKey(item.keep_skill, item.archive_skill)] = item;
+    });
     els.duplicateList.innerHTML = duplicates.slice(0, 12).map(function (row) {
+      var cleanup = cleanupByPair[duplicatePairKey(row.a, row.b)];
+      var cleanupText = cleanup
+        ? '建议保留 ' + cleanup.keep_skill + '，归档 ' + cleanup.archive_skill + '。'
+        : '建议人工确认保留项，避免误归档链式依赖 skill。';
       return '<div class="risk-row medium">'
         + '<div class="risk-head"><span class="risk-tag">' + escapeHtml(row.a) + '</span><span class="chain-arrow">≈</span><span class="risk-tag">' + escapeHtml(row.b) + '</span></div>'
         + '<div class="risk-meta">相似度 ' + Math.round(row.score * 100) + '%，共同分类：' + escapeHtml(row.category) + '。建议检查是否可合并、改名或补充触发边界。</div>'
+        + '<div class="risk-meta">' + escapeHtml(cleanupText) + '</div>'
         + '</div>';
     }).join("");
+  }
+
+  function buildDuplicateCleanupPlan(duplicates) {
+    var removed = {};
+    var items = [];
+    duplicates.slice(0, 50).forEach(function (pair) {
+      var choice = chooseDuplicateCleanup(pair, removed);
+      if (!choice) return;
+      removed[choice.archive] = true;
+      items.push({
+        pair: [pair.a, pair.b],
+        keep_skill: choice.keep,
+        archive_skill: choice.archive,
+        score: Number(pair.score.toFixed(4)),
+        category: pair.category,
+        reason: choice.reason,
+        keep_source_path: skillSourcePath(choice.keep),
+        archive_source_path: skillSourcePath(choice.archive),
+        action: "archive_folder"
+      });
+    });
+    return {
+      schema: "skill-tracker-duplicate-cleanup-plan@1",
+      generated_at: new Date().toISOString(),
+      strategy: "keep stronger usage/translation/metadata; archive lower-confidence duplicate",
+      safety: "review-first; browser never deletes local files; generated script previews by default and only archives with -Apply",
+      items: items
+    };
+  }
+
+  function chooseDuplicateCleanup(pair, removed) {
+    if (removed[pair.a] || removed[pair.b]) return null;
+    var a = skillRowByName[pair.a];
+    var b = skillRowByName[pair.b];
+    if (!a || !b) return null;
+    var scoreA = duplicateRetentionScore(a);
+    var scoreB = duplicateRetentionScore(b);
+    var keep = scoreA >= scoreB ? pair.a : pair.b;
+    var archive = keep === pair.a ? pair.b : pair.a;
+    return {
+      keep: keep,
+      archive: archive,
+      reason: "保留项在调用量、中文说明、触发词或来源路径上更完整。"
+    };
+  }
+
+  function duplicateRetentionScore(row) {
+    var catalog = catalogBySkill[row.skill] || {};
+    var score = 0;
+    score += Number(row.dedupCount || 0) * 5;
+    score += Number(row.rawCount || 0);
+    if (isTranslated(row)) score += 24;
+    if (usefulOriginalDesc(row.desc) || usefulOriginalDesc(catalog.english_desc)) score += 10;
+    if (normalizeTriggers(catalog.triggers).length) score += 8;
+    if (catalog.source_path) score += 6;
+    return score;
+  }
+
+  function duplicatePairKey(a, b) {
+    return [a, b].sort().join("::");
+  }
+
+  function skillSourcePath(skill) {
+    var catalog = catalogBySkill[skill] || {};
+    return String(catalog.source_path || "");
+  }
+
+  function exportDuplicateCleanupPlan() {
+    downloadJson("skill-tracker-duplicate-cleanup-plan.json", buildDuplicateCleanupPlan(findDuplicateSkillPairs()));
+  }
+
+  function exportDuplicateArchiveScript() {
+    var plan = buildDuplicateCleanupPlan(findDuplicateSkillPairs());
+    downloadText("skill-tracker-archive-duplicates.ps1", buildDuplicateArchiveScript(plan), "text/plain;charset=utf-8");
+  }
+
+  function buildDuplicateArchiveScript(plan) {
+    var localItems = plan.items.filter(function (item) {
+      return item.archive_source_path && !/^demo:\/\//i.test(item.archive_source_path);
+    });
+    var lines = [
+      "# Generated by Skill Tracker.",
+      "# Review this file before running. It archives duplicate skill folders; it does not permanently delete them.",
+      "# Default mode is preview. Run with -Apply to move folders into the archive.",
+      "param([switch]$Apply, [string]$ArchiveRoot = (Join-Path (Get-Location) '.skill-tracker-archive'))",
+      "$ErrorActionPreference = 'Stop'",
+      "$items = @("
+    ];
+    localItems.forEach(function (item) {
+      lines.push("  [pscustomobject]@{ Skill = '" + psQuote(item.archive_skill) + "'; Keep = '" + psQuote(item.keep_skill) + "'; SourceSkillFile = '" + psQuote(item.archive_source_path) + "'; Reason = '" + psQuote(item.reason) + "' }");
+    });
+    lines.push(")");
+    lines.push("if (-not $items.Count) { Write-Host 'No local duplicate skill paths were exported.'; exit 0 }");
+    lines.push("if (-not $Apply) { Write-Host 'Preview mode. Re-run with -Apply to archive these folders.' }");
+    lines.push("if ($Apply) { New-Item -ItemType Directory -Path $ArchiveRoot -Force | Out-Null }");
+    lines.push("foreach ($item in $items) {");
+    lines.push("  if (-not (Test-Path -LiteralPath $item.SourceSkillFile)) { Write-Warning ('Missing skill file: {0}' -f $item.SourceSkillFile); continue }");
+    lines.push("  $skillDir = Split-Path -Parent $item.SourceSkillFile");
+    lines.push("  if (-not (Test-Path -LiteralPath $skillDir)) { Write-Warning ('Missing skill directory: {0}' -f $skillDir); continue }");
+    lines.push("  $dest = Join-Path $ArchiveRoot $item.Skill");
+    lines.push("  if (Test-Path -LiteralPath $dest) { $dest = Join-Path $ArchiveRoot ($item.Skill + '-' + (Get-Date -Format 'yyyyMMdd-HHmmss')) }");
+    lines.push("  if (-not $Apply) { Write-Host ('Would archive {0} -> {1}; keep {2}' -f $item.Skill, $dest, $item.Keep); continue }");
+    lines.push("  Move-Item -LiteralPath $skillDir -Destination $dest");
+    lines.push("  Write-Host ('Archived {0} -> {1}; keep {2}' -f $item.Skill, $dest, $item.Keep)");
+    lines.push("}");
+    lines.push("if ($Apply) { Write-Host 'Done. Re-run collect.ps1 after reviewing the archive.' }");
+    return lines.join("\n") + "\n";
+  }
+
+  function psQuote(value) {
+    return String(value || "").replace(/'/g, "''");
   }
 
   function renderConflictList(conflicts) {
@@ -3043,8 +3196,9 @@ tbody tr.data-row.expanded {
 
   function initGitHubRadar() {
     if (!els.githubKeyword.value.trim()) {
-      els.githubKeyword.value = suggestedGitHubQuery();
+      els.githubKeyword.value = "我想找一个可以节省 token 的 skill";
     }
+    renderGitHubSkillMatches(buildGitHubSearchIntent(els.githubKeyword.value));
   }
 
   function suggestedGitHubQuery() {
@@ -3054,15 +3208,15 @@ tbody tr.data-row.expanded {
 
   async function searchGitHubProjects() {
     var keyword = els.githubKeyword.value.trim() || suggestedGitHubQuery();
+    var intent = buildGitHubSearchIntent(keyword);
     els.githubKeyword.value = keyword;
+    renderGitHubSkillMatches(intent);
     setGitHubBusy(true);
-    setGitHubStatus("正在搜索 GitHub 公开仓库：" + keyword);
+    setGitHubStatus("已将输入解析为 GitHub 查询：" + intent.githubQuery);
     els.githubRepoResults.innerHTML = '<div class="empty-state">正在联网搜索...</div>';
     try {
-      var query = keyword;
-      if (!/skill|agent|prompt/i.test(query)) query += " agent skill";
       var url = "https://api.github.com/search/repositories?q="
-        + encodeURIComponent(query)
+        + encodeURIComponent(intent.githubQuery)
         + "&sort=stars&order=desc&per_page=8";
       var response = await fetch(url, { headers: { Accept: "application/vnd.github+json" } });
       var payload = await response.json();
@@ -3073,6 +3227,100 @@ tbody tr.data-row.expanded {
     } finally {
       setGitHubBusy(false);
     }
+  }
+
+  function buildGitHubSearchIntent(input) {
+    var text = String(input || "").trim();
+    var lower = text.toLowerCase();
+    var expansions = [];
+    var queryTerms = [];
+    var concepts = [
+      { test: /token|上下文|省|节省|压缩|精简|低成本|成本|context|compress|compact/i, query: "token compression agent skill", words: ["token saving", "context compression", "prompt compression", "agent skill"], skills: ["caveman", "caveman-compress", "caveman-stats"] },
+      { test: /记忆|记住|回忆|长期|memory|remember|recall/i, query: "agent memory skill", words: ["agent memory", "memory skill", "recall remember"], skills: ["remember", "recall", "agentmemory-mcp-tools"] },
+      { test: /测试|单测|tdd|质量|验证|test/i, query: "test driven development agent skill", words: ["test driven development", "testing agent skill", "quality gate"], skills: ["tdd", "diagnose"] },
+      { test: /诊断|排查|bug|故障|debug|修复/i, query: "debugging diagnose agent workflow", words: ["debugging agent", "diagnose workflow", "bug triage"], skills: ["diagnose", "tdd"] },
+      { test: /ui|界面|设计|前端|美化|视觉|动效|design|frontend/i, query: "web design ui review agent skill", words: ["web design guidelines", "frontend agent skill", "ui review"], skills: ["web-design-guidelines", "visual-style", "framer-motion"] },
+      { test: /视频|剪辑|音频|配音|字幕|video|audio|tts/i, query: "video audio ai workflow skill", words: ["video audio ai workflow", "media generation skill"], skills: ["video-edit", "ffmpeg", "text-to-speech"] },
+      { test: /论文|研究|资料|调研|research|paper|academic/i, query: "deep research academic paper agent", words: ["deep research agent", "academic paper workflow"], skills: ["deep-research", "academic-paper", "academic-pipeline"] },
+      { test: /github|开源|仓库|项目|repo|repository/i, query: "open source agent skills", words: ["github repository", "open source agent skills"], skills: ["find-skills"] }
+    ];
+    concepts.forEach(function (concept) {
+      if (!concept.test.test(lower)) return;
+      queryTerms.push(concept.query);
+      expansions = expansions.concat(concept.words).concat(concept.skills);
+    });
+
+    var matches = findLocalSkillMatches(text, expansions).slice(0, 6);
+    matches.forEach(function (match) {
+      expansions.push(match.skill);
+      if (match.category) expansions.push(match.category);
+    });
+
+    if (!expansions.length) expansions = ["agent skill", "SKILL.md", text || "agent skills"];
+    var bestMatch = matches[0] ? matches[0].skill : "";
+    var githubQuery = (queryTerms[0] || (/[^\x00-\x7F]/.test(text) && bestMatch ? bestMatch + " agent skill" : text + " agent skill")).trim();
+    githubQuery = unique([githubQuery, "SKILL.md"]).join(" ");
+    return {
+      input: text,
+      githubQuery: githubQuery,
+      matches: matches
+    };
+  }
+
+  function findLocalSkillMatches(input, expansions) {
+    var query = String(input || "").toLowerCase();
+    var queryTokens = tokenSet(query + " " + expansions.join(" "));
+    return catalogRows.map(function (row) {
+      var catalog = catalogBySkill[row.skill] || {};
+      var haystack = [
+        row.skill,
+        row.category,
+        row.zhDesc,
+        row.desc,
+        catalog.english_desc || "",
+        normalizeTriggers(catalog.triggers).join(" ")
+      ].join(" ").toLowerCase();
+      var score = 0;
+      Object.keys(queryTokens).forEach(function (token) {
+        if (haystack.indexOf(token) !== -1) score += token.length > 3 ? 3 : 1;
+      });
+      if (query && haystack.indexOf(query) !== -1) score += 12;
+      expansions.forEach(function (word) {
+        if (row.skill === word) score += 18;
+        if (haystack.indexOf(String(word).toLowerCase()) !== -1) score += 4;
+      });
+      if (getCount(row) > 0) score += 1;
+      return {
+        skill: row.skill,
+        category: row.category,
+        zhDesc: row.zhDesc,
+        desc: row.desc,
+        count: getCount(row),
+        score: score
+      };
+    }).filter(function (row) {
+      return row.score > 0;
+    }).sort(function (a, b) {
+      return b.score - a.score || b.count - a.count || a.skill.localeCompare(b.skill);
+    });
+  }
+
+  function renderGitHubSkillMatches(intent) {
+    if (!intent.matches.length) {
+      els.githubSkillMatches.innerHTML = '<div class="empty-state">本地没有明显匹配的 skill；会直接使用关键词搜索 GitHub。</div>';
+      return;
+    }
+    els.githubSkillMatches.innerHTML = intent.matches.map(function (match) {
+      var desc = match.zhDesc || match.desc || "暂无说明。";
+      return '<article class="repo-card skill-match-card">'
+        + '<div class="repo-head">'
+        + '<div class="repo-title">' + escapeHtml(match.skill) + '</div>'
+        + '<span class="repo-tag">' + formatNum(match.count) + ' calls</span>'
+        + '</div>'
+        + '<div class="repo-meta">' + escapeHtml(desc) + '</div>'
+        + '<div class="repo-tags"><span class="repo-tag">' + escapeHtml(match.category) + '</span><span class="repo-tag">本地意图命中</span></div>'
+        + '</article>';
+    }).join("");
   }
 
   async function checkGitHubRepo() {
@@ -3183,7 +3431,7 @@ tbody tr.data-row.expanded {
       {
         title: "治理洞察",
         step: "发现问题",
-        body: "用于识别高频链路、低健康 skill、重复/相似 skill 和冲突风险。它回答的是 skill 体系哪里可能变乱。"
+        body: "用于识别高频链路、低健康 skill、重复/相似 skill 和冲突风险。重复项可以导出清理计划和归档脚本，网页不会直接删文件。"
       },
       {
         title: "行动方案",
@@ -3198,7 +3446,7 @@ tbody tr.data-row.expanded {
       {
         title: "GitHub 雷达",
         step: "联网探索",
-        body: "用于搜索公开仓库、检查指定仓库更新和 release。它只访问公开 GitHub API，失败时不会影响本地 dashboard。"
+        body: "支持中文意图输入，会先命中本地 skill，再扩展为 GitHub 查询。它只访问公开 GitHub API，失败时不影响本地 dashboard。"
       },
       {
         title: "匿名导出",
