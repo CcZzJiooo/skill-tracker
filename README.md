@@ -108,6 +108,8 @@ Dashboard 的“技能字典”页用于维护每个 skill 的中文功能说明
 
 “行动方案”页把治理洞察进一步转成可执行任务。每条任务都会带有优先级、证据、处理建议和验收标准，适合直接进入开源仓库的 issue 工作流。
 
+行动方案支持按 `P0`、`P1`、`P2` 筛选，导出的 Markdown/JSON 会跟随当前筛选结果。
+
 可导出的文件：
 
 - `skill-tracker-governance-issues.md`: 面向 GitHub issue 或维护清单的 Markdown 草稿。
