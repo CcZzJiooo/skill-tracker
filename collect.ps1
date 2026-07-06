@@ -124,6 +124,19 @@ function Get-TimeBucket {
     return [string]([math]::Floor($dt.Ticks / $bucketTicks))
 }
 
+function Get-StableId {
+    param([string]$Value)
+    if (-not $Value) { return "none" }
+    $sha = [System.Security.Cryptography.SHA256]::Create()
+    try {
+        $bytes = [System.Text.Encoding]::UTF8.GetBytes($Value)
+        $hash = $sha.ComputeHash($bytes)
+        return -join ($hash[0..7] | ForEach-Object { $_.ToString("x2") })
+    } finally {
+        $sha.Dispose()
+    }
+}
+
 function Get-SkillCategory {
     param([string]$Skill)
     if ($Skill -match 'academic|research|paper|citation|reviewer|pipeline|deep-research') { return 'Research' }
@@ -200,7 +213,7 @@ foreach ($src in $activeSources) {
                     $skill = $m.Groups[1].Value
                     if ($counts.ContainsKey($skill)) {
                         $counts[$skill]++
-                        $sessionKey = if ($sessionId) { $sessionId } else { $f.FullName }
+                        $sessionKey = if ($sessionId) { "session:$sessionId" } else { "file:$(Get-StableId $f.FullName)" }
                         $bucket = Get-TimeBucket -Timestamp $ts -FallbackUtc $f.LastWriteTimeUtc -WindowMinutes $dedupWindowMinutes
                         $dedupKey = "$toolName|$sessionKey|$skill|$bucket"
                         $isDedupedCall = -not $dedupSeen.ContainsKey($dedupKey)
@@ -274,15 +287,17 @@ $catalogJson = @($catalogArr) | ConvertTo-Json -Depth 8 -Compress
 # ── Output skill_data.js ───────────────────────────────────────────────────────
 $sb = [System.Text.StringBuilder]::new()
 $skillDataJson = @($arr) | ConvertTo-Json -Depth 6 -Compress
+$detectedTools = @($activeSources | ForEach-Object { [string]$_.Name })
+$detectedToolsJson = ConvertTo-Json -InputObject $detectedTools -Depth 3 -Compress
 [void]$sb.AppendLine("var SKILL_DATA = $skillDataJson;")
 [void]$sb.AppendLine("var GENERATED_AT = `"$genAt`";")
 [void]$sb.AppendLine("var DEDUP_WINDOW_MINUTES = $dedupWindowMinutes;")
-[void]$sb.AppendLine("var DETECTED_TOOLS = [`"$($($activeSources | ForEach-Object { $_.Name }) -join '","')`"];")
+[void]$sb.AppendLine("var DETECTED_TOOLS = $detectedToolsJson;")
 $jsPath = Join-Path $cfg.output_dir "skill_data.js"
 [System.IO.File]::WriteAllText($jsPath, $sb.ToString(), [System.Text.Encoding]::UTF8)
 
 # ── Output skill_log.js ────────────────────────────────────────────────────────
-$maxE  = [int]$cfg.max_log_entries
+$maxE  = [Math]::Max(1, [int]$cfg.max_log_entries)
 $sorted = $logEntries | Sort-Object { $_.time } -Descending | Select-Object -First $maxE
 $lb = [System.Text.StringBuilder]::new()
 $logJson = @($sorted) | ConvertTo-Json -Depth 6 -Compress
