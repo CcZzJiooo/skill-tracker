@@ -23,6 +23,24 @@
 - GitHub: `https://github.com/CcZzJiooo/skill-tracker`
 - Release ZIP: `https://github.com/CcZzJiooo/skill-tracker/releases`
 - README: `https://github.com/CcZzJiooo/skill-tracker#readme`
+- Gitee 镜像: `https://gitee.com/jiojio688/skill-tracker`
+- GitCode / AtomGit 镜像: `https://gitcode.com/2301_80046217/skill-tracker`
+- 已发布入口: [`../PUBLISHED_LINKS.md`](../PUBLISHED_LINKS.md)
+
+## 已完成发布
+
+| 平台 | 状态 | 链接 |
+|---|---|---|
+| GitHub | 已发布仓库和 Release | https://github.com/CcZzJiooo/skill-tracker |
+| Gitee | 已导入国内镜像 | https://gitee.com/jiojio688/skill-tracker |
+| GitCode / AtomGit | 已导入国内镜像 | https://gitcode.com/2301_80046217/skill-tracker |
+| CSDN | 已发布 | https://blog.csdn.net/2301_80046217/article/details/162640881 |
+| 掘金 | 已发布，可能仍在平台审核 | https://juejin.cn/spost/7659234687550292022 |
+| OSCHINA | 已发布，可能仍在平台审核 | https://my.oschina.net/u/9760204/blog/19717607 |
+| 知乎 | 已发布 | https://zhuanlan.zhihu.com/p/2057579724029834752 |
+| SegmentFault | 已发布，可能仍在人工审核 | https://segmentfault.com/a/1190000047981781 |
+| 小黑盒 | 已发布 | https://www.xiaoheihe.cn/app/bbs/link/185171000 |
+| V2EX | 暂未发布 | 账号需要邀请码激活 |
 
 ## 发布原则
 

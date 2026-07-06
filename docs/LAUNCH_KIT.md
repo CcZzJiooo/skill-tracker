@@ -8,6 +8,14 @@ Repository:
 https://github.com/CcZzJiooo/skill-tracker
 ```
 
+Mirrors and launch posts:
+
+```text
+Gitee: https://gitee.com/jiojio688/skill-tracker
+GitCode / AtomGit: https://gitcode.com/2301_80046217/skill-tracker
+Published links: docs/PUBLISHED_LINKS.md
+```
+
 ## One-line Pitch
 
 Skill Tracker is a local-first dashboard that visualizes AI-agent skill calls, translates skill purposes into Chinese, and helps clean up duplicated skills.
@@ -51,6 +59,8 @@ privacy
 - Set repository description.
 - Add social preview image from `docs/social-preview.png`.
 - Publish `v0.1.0` release.
+- Keep Gitee and GitCode mirrors visible for domestic users.
+- Link published posts back from `docs/PUBLISHED_LINKS.md`.
 - Pin a roadmap issue.
 - Pin a "new adapter request" issue.
 - Share the desktop preview screenshot.

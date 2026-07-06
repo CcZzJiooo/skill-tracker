@@ -14,6 +14,15 @@ The dashboard opens in your browser. No server, installer, account, API key, or 
 
 If this is your first run and no local AI-agent logs are found, the dashboard still opens with demo data. That is expected.
 
+## Download Links
+
+- GitHub Releases: https://github.com/CcZzJiooo/skill-tracker/releases
+- GitHub source: https://github.com/CcZzJiooo/skill-tracker
+- Gitee mirror: https://gitee.com/jiojio688/skill-tracker
+- GitCode / AtomGit mirror: https://gitcode.com/2301_80046217/skill-tracker
+
+For the easiest first run, use the GitHub release ZIP. The Gitee and GitCode mirrors are provided for domestic source browsing and backup access.
+
 ## Developers
 
 ```powershell

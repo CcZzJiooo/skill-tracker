@@ -36,6 +36,16 @@ For normal users, download the latest `skill-tracker-*-windows-portable.zip` fro
 
 See [START_HERE.md](START_HERE.md) for the shortest onboarding path.
 
+## Download, Mirrors, and Community Links
+
+- GitHub repository: https://github.com/CcZzJiooo/skill-tracker
+- Windows release package: https://github.com/CcZzJiooo/skill-tracker/releases
+- Gitee mirror: https://gitee.com/jiojio688/skill-tracker
+- GitCode / AtomGit mirror: https://gitcode.com/2301_80046217/skill-tracker
+- Published articles and launch posts: [docs/PUBLISHED_LINKS.md](docs/PUBLISHED_LINKS.md)
+
+Use GitHub Releases for the portable ZIP package. The Gitee and GitCode mirrors are useful when GitHub access is slow or when domestic users want to browse the source first.
+
 Developers can clone the repository:
 
 ```powershell
