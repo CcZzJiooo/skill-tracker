@@ -1,0 +1,33 @@
+name: Skill dictionary improvement
+description: Improve Chinese descriptions, categories, triggers, or skill metadata.
+title: "[Dictionary]: "
+labels: ["skill-dictionary", "documentation"]
+body:
+  - type: input
+    id: skill_name
+    attributes:
+      label: Skill name
+      placeholder: "example-skill"
+    validations:
+      required: true
+  - type: textarea
+    id: current
+    attributes:
+      label: Current description or category
+      placeholder: Current text is...
+    validations:
+      required: false
+  - type: textarea
+    id: proposed
+    attributes:
+      label: Proposed Chinese description or metadata
+      placeholder: Suggested Chinese description...
+    validations:
+      required: true
+  - type: textarea
+    id: reason
+    attributes:
+      label: Reason
+      placeholder: This is clearer because...
+    validations:
+      required: false

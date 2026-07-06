@@ -1,0 +1,37 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="640" viewBox="0 0 1280 640" role="img" aria-label="Skill Tracker social preview">
+  <rect width="1280" height="640" fill="#0d0e0c"/>
+  <path d="M0 80H1280M0 160H1280M0 240H1280M0 320H1280M0 400H1280M0 480H1280M0 560H1280M160 0V640M320 0V640M480 0V640M640 0V640M800 0V640M960 0V640M1120 0V640" stroke="#eff0d8" stroke-opacity=".045" stroke-width="1"/>
+  <rect x="88" y="86" width="1104" height="468" rx="20" fill="#151712" stroke="#efecd8" stroke-opacity=".16"/>
+  <rect x="130" y="128" width="78" height="78" rx="16" fill="#25291f" stroke="#efecd8" stroke-opacity=".2"/>
+  <path d="M145 145h48v48h-48z" fill="#b9f35a"/>
+  <path d="M193 145v48h-48z" fill="#f0b85a"/>
+  <path d="M145 193l48-48" stroke="#0d0e0c" stroke-width="7"/>
+  <text x="238" y="164" fill="#f4f0df" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="34" font-weight="750">Skill Tracker</text>
+  <text x="238" y="202" fill="#b9b59f" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="20">Local-first observability for AI-agent skills</text>
+  <text x="130" y="298" fill="#f4f0df" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="58" font-weight="800">See what your AI agent actually used.</text>
+  <text x="132" y="352" fill="#b9b59f" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="25">Visualize SKILL.md calls, Chinese descriptions, duplicate governance,</text>
+  <text x="132" y="388" fill="#b9b59f" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="25">GitHub discovery, and privacy-safe exports.</text>
+  <g transform="translate(132 446)">
+    <rect width="150" height="42" rx="8" fill="#b9f35a"/>
+    <text x="22" y="28" fill="#0d0e0c" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="18" font-weight="750">local-first</text>
+    <rect x="164" width="170" height="42" rx="8" fill="#25291f" stroke="#efecd8" stroke-opacity=".18"/>
+    <text x="186" y="28" fill="#f4f0df" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="18" font-weight="650">AI skills</text>
+    <rect x="348" width="178" height="42" rx="8" fill="#25291f" stroke="#efecd8" stroke-opacity=".18"/>
+    <text x="370" y="28" fill="#f4f0df" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="18" font-weight="650">observability</text>
+    <rect x="540" width="142" height="42" rx="8" fill="#25291f" stroke="#efecd8" stroke-opacity=".18"/>
+    <text x="562" y="28" fill="#f4f0df" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="18" font-weight="650">中文说明</text>
+  </g>
+  <g transform="translate(850 138)">
+    <rect width="260" height="306" rx="14" fill="#1d2019" stroke="#efecd8" stroke-opacity=".14"/>
+    <rect x="24" y="26" width="70" height="10" rx="5" fill="#b9f35a"/>
+    <rect x="24" y="56" width="212" height="10" rx="5" fill="#575548"/>
+    <rect x="24" y="84" width="160" height="10" rx="5" fill="#575548"/>
+    <g transform="translate(24 130)">
+      <rect width="212" height="24" rx="5" fill="#25291f"/>
+      <rect y="42" width="172" height="24" rx="5" fill="#25291f"/>
+      <rect y="84" width="198" height="24" rx="5" fill="#25291f"/>
+      <rect y="126" width="136" height="24" rx="5" fill="#25291f"/>
+    </g>
+  </g>
+  <text x="130" y="524" fill="#7d7b6a" font-family="JetBrains Mono, Consolas, monospace" font-size="20">github.com/CcZzJiooo/skill-tracker</text>
+</svg>

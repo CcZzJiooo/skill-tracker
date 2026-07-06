@@ -1,0 +1,20 @@
+cff-version: 1.2.0
+message: "If you use Skill Tracker, please cite it and link to the GitHub repository."
+title: "Skill Tracker"
+abstract: "A local-first dashboard for visualizing AI-agent skill calls, maintaining Chinese skill descriptions, and governing duplicated skills."
+authors:
+  - alias: "CcZzJiooo"
+repository-code: "https://github.com/CcZzJiooo/skill-tracker"
+url: "https://github.com/CcZzJiooo/skill-tracker"
+license: "MIT"
+version: "0.1.0"
+date-released: "2026-07-06"
+keywords:
+  - ai-agent
+  - skills
+  - observability
+  - local-first
+  - dashboard
+  - codex
+  - claude-code
+  - chinese

@@ -1,0 +1,23 @@
+Skill Tracker
+Copyright (c) 2026 Skill Tracker contributors.
+
+Project URL:
+https://github.com/CcZzJiooo/skill-tracker
+
+Skill Tracker is a local-first dashboard for AI-agent skill-call
+observability, Chinese skill descriptions, duplicate-skill governance,
+and privacy-safe skill telemetry exports.
+
+This project is released under the MIT License. If you copy, modify,
+redistribute, publish, package, or build on this project, keep the
+copyright notice, license text, and a visible reference to the original
+project URL where reasonably possible.
+
+Suggested attribution:
+"Based on Skill Tracker by CcZzJiooo:
+https://github.com/CcZzJiooo/skill-tracker"
+
+Third-party names such as GitHub, Codex, Claude Code, Cursor, Windsurf,
+Antigravity, Continue, and Gemini CLI are trademarks or product names of
+their respective owners. This project is not affiliated with or endorsed by
+those owners unless explicitly stated.

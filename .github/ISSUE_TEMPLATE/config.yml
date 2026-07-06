@@ -1,0 +1,5 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Security and private data reports
+    url: https://github.com/CcZzJiooo/skill-tracker/blob/main/SECURITY.md
+    about: Read this before sharing logs, screenshots, or local telemetry.

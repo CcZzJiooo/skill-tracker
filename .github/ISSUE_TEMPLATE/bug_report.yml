@@ -1,0 +1,69 @@
+name: Bug report
+description: Report incorrect data, broken UI, failed collection, or export issues.
+title: "[Bug]: "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting a bug. Do not paste raw local logs unless they are sanitized.
+  - type: textarea
+    id: summary
+    attributes:
+      label: Summary
+      description: What happened?
+      placeholder: The dashboard shows...
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      description: List the shortest path that reproduces the issue.
+      placeholder: |
+        1. Run .\run.bat
+        2. Open dashboard/index.html
+        3. Click ...
+    validations:
+      required: true
+  - type: input
+    id: platform
+    attributes:
+      label: Platform
+      placeholder: "Windows 11, PowerShell 7, Chrome 126"
+    validations:
+      required: false
+  - type: dropdown
+    id: data_source
+    attributes:
+      label: Data source
+      multiple: true
+      options:
+        - Demo data
+        - Real local logs
+        - Anonymous export
+        - Other
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+      placeholder: I expected...
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behavior
+      placeholder: Instead...
+    validations:
+      required: true
+  - type: textarea
+    id: sanitized_evidence
+    attributes:
+      label: Sanitized evidence
+      description: Add screenshots or redacted output. Remove session IDs, private paths, and private skill names.
+      placeholder: Paste sanitized evidence here.
+    validations:
+      required: false

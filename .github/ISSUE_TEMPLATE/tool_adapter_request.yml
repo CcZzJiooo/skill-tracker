@@ -1,0 +1,36 @@
+name: Tool adapter request
+description: Request support for a new AI coding tool or session-log format.
+title: "[Adapter]: "
+labels: ["adapter", "enhancement"]
+body:
+  - type: input
+    id: tool_name
+    attributes:
+      label: Tool name
+      placeholder: "Example: OpenCode, Roo Code, custom agent"
+    validations:
+      required: true
+  - type: input
+    id: log_location
+    attributes:
+      label: Local log location
+      description: Use a generic path. Do not expose your username or private project path.
+      placeholder: "%APPDATA%/ToolName/logs/"
+    validations:
+      required: false
+  - type: textarea
+    id: log_shape
+    attributes:
+      label: Sanitized log shape
+      description: Redact private data. Show only enough structure to detect SKILL.md usage.
+      placeholder: |
+        {"timestamp":"...","message":".../skills/example/SKILL.md"}
+    validations:
+      required: false
+  - type: textarea
+    id: notes
+    attributes:
+      label: Notes
+      placeholder: This tool stores sessions as...
+    validations:
+      required: false

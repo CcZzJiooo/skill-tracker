@@ -30,7 +30,14 @@ New-Item -ItemType Directory -Path $cfg.output_dir -Force | Out-Null
 # ── Auto-detect skills root ────────────────────────────────────────────────────
 $userHome = $env:USERPROFILE
 if (-not $cfg.skills_root) {
-    foreach ($c in @("$userHome\.gemini\config\skills","$userHome\.claude\skills","$userHome\.config\gemini\skills")) {
+    foreach ($c in @(
+        "$userHome\.codex\skills",
+        "$userHome\.agents\skills",
+        "$userHome\.claude\skills",
+        "$userHome\.gemini\config\skills",
+        "$userHome\.config\gemini\skills",
+        "$userHome\.cc-switch\skills"
+    )) {
         if (Test-Path $c) { $cfg.skills_root = $c; break }
     }
 }

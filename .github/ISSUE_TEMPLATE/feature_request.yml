@@ -1,0 +1,43 @@
+name: Feature request
+description: Suggest a product feature, dashboard view, export, or workflow improvement.
+title: "[Feature]: "
+labels: ["enhancement"]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      description: What user problem should this solve?
+      placeholder: I want to...
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed solution
+      description: Describe the expected workflow or UI behavior.
+      placeholder: Add a view that...
+    validations:
+      required: true
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options:
+        - Collection
+        - Dashboard
+        - Skill dictionary
+        - Governance
+        - GitHub radar
+        - Export
+        - Documentation
+        - Other
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+      placeholder: Another way would be...
+    validations:
+      required: false
