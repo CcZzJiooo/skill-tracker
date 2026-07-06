@@ -49,6 +49,25 @@ start .\dashboard\index.html
 
 If no local logs have been collected yet, the dashboard opens with synthetic demo data from `dashboard/demo_data.js`, so contributors can inspect the interface immediately after cloning.
 
+## Project Type
+
+Skill Tracker is a local-first observability tool, not a single agent `skill` and not a desktop `.exe`.
+
+It has two runtime parts:
+
+- `collect.ps1`: scans local AI-agent session logs and generates local dashboard data.
+- `dashboard/index.html`: a static browser dashboard for visualization, governance, Chinese descriptions, GitHub radar, and exports.
+
+GitHub's default "Source code" assets work, but they look raw to non-technical users. For releases, maintainers should attach a Windows portable ZIP:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\package-release.ps1 -Version v0.1.0
+```
+
+Upload the generated `dist/skill-tracker-v0.1.0-windows-portable.zip` to the GitHub release. Users can unzip it and double-click `run.bat`.
+
+An `.exe` wrapper is optional later, mainly for one-click onboarding. It is not required for the current architecture because there is no server, installer, or background service.
+
 ## Core Features
 
 | Area | What it does |
