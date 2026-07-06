@@ -957,6 +957,21 @@ tbody tr.data-row.expanded {
   border: 1px solid var(--border);
   border-radius: var(--radius);
   background: var(--surface);
+  text-align: left;
+}
+
+button.catalog-stat {
+  cursor: pointer;
+  font: inherit;
+}
+
+button.catalog-stat:hover {
+  border-color: color-mix(in srgb, var(--accent) 48%, var(--border));
+}
+
+button.catalog-stat.active {
+  border-color: color-mix(in srgb, var(--accent) 72%, var(--border));
+  background: color-mix(in srgb, var(--accent) 11%, var(--surface));
 }
 
 .catalog-stat span {
@@ -1252,6 +1267,7 @@ tbody tr.data-row.expanded {
   min-height: 28px;
   display: inline-grid;
   place-items: center;
+  justify-self: start;
   border-radius: var(--radius-sm);
   border: 1px solid var(--border);
   background: var(--surface);
@@ -1269,6 +1285,7 @@ tbody tr.data-row.expanded {
 }
 
 .action-kind {
+  justify-self: start;
   color: var(--muted);
   font-size: 11px;
 }
@@ -1285,23 +1302,11 @@ tbody tr.data-row.expanded {
   color: var(--text);
 }
 
-.action-filter-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  padding: 0 16px 14px;
-  border-bottom: 1px solid var(--border);
-}
-
 .action-filter-note {
   color: var(--dim);
   font-size: 12px;
-  text-align: right;
-}
-
-.action-filter-row .segmented {
-  flex-wrap: wrap;
+  padding: 0 16px 12px;
+  border-bottom: 1px solid var(--border);
 }
 
 .matrix-toolbar,
@@ -1872,11 +1877,6 @@ tbody tr.data-row.expanded {
     justify-content: stretch;
   }
 
-  .action-filter-row {
-    align-items: stretch;
-    flex-direction: column;
-  }
-
   .action-filter-note {
     text-align: left;
   }
@@ -2201,18 +2201,11 @@ tbody tr.data-row.expanded {
         </div>
 
         <div class="catalog-summary" id="actionSummary"></div>
-        <div class="action-filter-row">
-          <div class="segmented" role="group" aria-label="行动方案优先级筛选">
-            <button type="button" class="active" data-action-priority-filter="all">全部</button>
-            <button type="button" data-action-priority-filter="P0">P0 阻断</button>
-            <button type="button" data-action-priority-filter="P1">P1 高优先</button>
-            <button type="button" data-action-priority-filter="P2">P2 改进</button>
-          </div>
-          <div class="action-filter-note" id="actionFilterNote">显示全部行动项</div>
-        </div>
+        <div class="action-filter-note" id="actionFilterNote">点击上方统计卡可切换优先级筛选。</div>
         <div class="section-body">
           <div class="insight-list" id="actionList"></div>
         </div>
+        <div class="pager" id="actionPager"></div>
       </div>
     </section>
 
@@ -2488,6 +2481,8 @@ tbody tr.data-row.expanded {
   var catalogPageSize = 8;
   var catalogDirty = {};
   var actionPriorityFilter = "all";
+  var actionPage = 0;
+  var actionPageSize = 8;
   var pageTitles = {
     stats: "AI Skill Usage Analytics",
     log: "Skill Call Audit Stream",
@@ -2516,6 +2511,7 @@ tbody tr.data-row.expanded {
     actionSummary: document.getElementById("actionSummary"),
     actionList: document.getElementById("actionList"),
     actionFilterNote: document.getElementById("actionFilterNote"),
+    actionPager: document.getElementById("actionPager"),
     exportActionIssues: document.getElementById("exportActionIssues"),
     exportActionJson: document.getElementById("exportActionJson"),
     matrixSummary: document.getElementById("matrixSummary"),
@@ -2651,14 +2647,12 @@ tbody tr.data-row.expanded {
     els.exportDuplicatePlan.addEventListener("click", exportDuplicateCleanupPlan);
     els.exportDuplicateScript.addEventListener("click", exportDuplicateArchiveScript);
     els.exportMatrixJson.addEventListener("click", exportMatrixJson);
-    document.querySelectorAll("[data-action-priority-filter]").forEach(function (button) {
-      button.addEventListener("click", function () {
-        actionPriorityFilter = button.getAttribute("data-action-priority-filter") || "all";
-        document.querySelectorAll("[data-action-priority-filter]").forEach(function (item) {
-          item.classList.toggle("active", item === button);
-        });
-        renderActionLab();
-      });
+    els.actionSummary.addEventListener("click", function (event) {
+      var button = event.target.closest("[data-action-priority-filter]");
+      if (!button) return;
+      actionPriorityFilter = button.getAttribute("data-action-priority-filter") || "all";
+      actionPage = 0;
+      renderActionLab();
     });
     els.githubSearch.addEventListener("click", searchGitHubProjects);
     els.githubCheckRepo.addEventListener("click", checkGitHubRepo);
@@ -3039,11 +3033,15 @@ tbody tr.data-row.expanded {
     var visibleActions = filterActionsByPriority(actions);
     renderActionSummary(actions);
     renderActionFilterNote(visibleActions, actions);
+    var pages = pageCount(visibleActions.length, actionPageSize);
+    actionPage = clamp(actionPage, 0, pages - 1);
     if (!visibleActions.length) {
       els.actionList.innerHTML = '<div class="empty-state">暂无需要处理的治理任务</div>';
+      els.actionPager.innerHTML = "";
       return;
     }
-    els.actionList.innerHTML = visibleActions.slice(0, 24).map(function (action) {
+    var slice = visibleActions.slice(actionPage * actionPageSize, (actionPage + 1) * actionPageSize);
+    els.actionList.innerHTML = slice.map(function (action) {
       return '<article class="action-card ' + escapeAttr(action.priority.toLowerCase()) + '">'
         + '<div class="action-head">'
         + '<span class="priority-badge">' + escapeHtml(action.priority) + '</span>'
@@ -3057,6 +3055,10 @@ tbody tr.data-row.expanded {
         + '</div>'
         + '</article>';
     }).join("");
+    renderPager(els.actionPager, visibleActions.length, actionPage, actionPageSize, function (nextPage) {
+      actionPage = nextPage;
+      renderActionLab();
+    });
   }
 
   function renderActionSummary(actions) {
@@ -3065,13 +3067,14 @@ tbody tr.data-row.expanded {
       counts[action.priority] = (counts[action.priority] || 0) + 1;
     });
     var cards = [
-      { label: "行动任务", value: actions.length },
-      { label: "P0 阻断", value: counts.P0 },
-      { label: "P1 高优先", value: counts.P1 },
-      { label: "P2 改进项", value: counts.P2 }
+      { label: "行动任务", value: actions.length, filter: "all" },
+      { label: "P0 阻断", value: counts.P0, filter: "P0" },
+      { label: "P1 高优先", value: counts.P1, filter: "P1" },
+      { label: "P2 改进项", value: counts.P2, filter: "P2" }
     ];
     els.actionSummary.innerHTML = cards.map(function (card) {
-      return '<div class="catalog-stat"><span>' + escapeHtml(card.label) + '</span><strong>' + formatNum(card.value) + '</strong></div>';
+      var active = actionPriorityFilter === card.filter ? " active" : "";
+      return '<button type="button" class="catalog-stat action-filter-card' + active + '" data-action-priority-filter="' + escapeAttr(card.filter) + '"><span>' + escapeHtml(card.label) + '</span><strong>' + formatNum(card.value) + '</strong></button>';
     }).join("");
   }
 
@@ -3084,7 +3087,7 @@ tbody tr.data-row.expanded {
 
   function renderActionFilterNote(visibleActions, actions) {
     var label = actionPriorityFilter === "all" ? "全部等级" : actionPriorityFilter;
-    els.actionFilterNote.textContent = "当前显示 " + label + "：" + formatNum(visibleActions.length) + " / " + formatNum(actions.length) + " 条";
+    els.actionFilterNote.textContent = "当前筛选 " + label + "：" + formatNum(visibleActions.length) + " / " + formatNum(actions.length) + " 条。点击上方统计卡可切换等级。";
   }
 
   function buildActionItems(model) {
