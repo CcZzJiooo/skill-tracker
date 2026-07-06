@@ -3428,21 +3428,23 @@ button.catalog-stat.active {
   async function searchGitHubProjects() {
     var keyword = els.githubKeyword.value.trim() || suggestedGitHubQuery();
     var intent = buildGitHubSearchIntent(keyword);
+    var queries = intent.githubQueries && intent.githubQueries.length ? intent.githubQueries : [intent.githubQuery];
     els.githubKeyword.value = keyword;
     renderGitHubSkillMatches(intent);
     hideGitHubUpdateResult();
     showGitHubSearchResults("正在搜索 GitHub 公开仓库");
     setGitHubBusy(true);
-    setGitHubStatus("已将输入解析为 GitHub 查询：" + intent.githubQuery);
+    setGitHubStatus("已将输入解析为 " + formatNum(queries.length) + " 条 GitHub 查询：" + queries.join(" | "));
     els.githubRepoResults.innerHTML = '<div class="empty-state">正在联网搜索...</div>';
     try {
-      var url = "https://api.github.com/search/repositories?q="
-        + encodeURIComponent(intent.githubQuery)
-        + "&sort=stars&order=desc&per_page=8";
-      var response = await fetch(url, { headers: { Accept: "application/vnd.github+json" } });
-      var payload = await response.json();
-      if (!response.ok) throw new Error(payload.message || "GitHub search failed");
-      renderGitHubProjects(payload.items || [], rateInfo(response));
+      var results = [];
+      var rates = [];
+      for (var i = 0; i < queries.length; i += 1) {
+        var result = await fetchGitHubRepositorySearch(queries[i]);
+        results.push(result);
+        if (result.rate) rates.push(result.rate);
+      }
+      renderGitHubProjects(mergeGitHubProjectResults(results, intent).slice(0, 8), rates.filter(Boolean).pop() || "", queries.length);
     } catch (error) {
       renderGitHubError("搜索失败：" + error.message, "search");
     } finally {
@@ -3450,25 +3452,46 @@ button.catalog-stat.active {
     }
   }
 
+  async function fetchGitHubRepositorySearch(query) {
+    var url = "https://api.github.com/search/repositories?q="
+      + encodeURIComponent(query)
+      + "&sort=stars&order=desc&per_page=8";
+    var response = await fetch(url, { headers: { Accept: "application/vnd.github+json" } });
+    var payload = await response.json();
+    if (!response.ok) throw new Error(payload.message || "GitHub search failed");
+    return {
+      query: query,
+      items: payload.items || [],
+      rate: rateInfo(response)
+    };
+  }
+
   function buildGitHubSearchIntent(input) {
     var text = String(input || "").trim();
     var lower = text.toLowerCase();
     var expansions = [];
     var queryTerms = [];
+    var relevanceTerms = [];
+    var preferredNames = [];
+    var wantsSkillSearch = /skill|agent|mcp|插件|技能|智能体/i.test(text);
     var concepts = [
-      { test: /token|上下文|省|节省|压缩|精简|低成本|成本|context|compress|compact/i, query: "token compression agent skill", words: ["token saving", "context compression", "prompt compression", "agent skill"], skills: ["caveman", "caveman-compress", "caveman-stats"] },
-      { test: /记忆|记住|回忆|长期|memory|remember|recall/i, query: "agent memory skill", words: ["agent memory", "memory skill", "recall remember"], skills: ["remember", "recall", "agentmemory-mcp-tools"] },
-      { test: /测试|单测|tdd|质量|验证|test/i, query: "test driven development agent skill", words: ["test driven development", "testing agent skill", "quality gate"], skills: ["tdd", "diagnose"] },
-      { test: /诊断|排查|bug|故障|debug|修复/i, query: "debugging diagnose agent workflow", words: ["debugging agent", "diagnose workflow", "bug triage"], skills: ["diagnose", "tdd"] },
-      { test: /ui|界面|设计|前端|美化|视觉|动效|design|frontend/i, query: "web design ui review agent skill", words: ["web design guidelines", "frontend agent skill", "ui review"], skills: ["web-design-guidelines", "visual-style", "framer-motion"] },
-      { test: /视频|剪辑|音频|配音|字幕|video|audio|tts/i, query: "video audio ai workflow skill", words: ["video audio ai workflow", "media generation skill"], skills: ["video-edit", "ffmpeg", "text-to-speech"] },
-      { test: /论文|研究|资料|调研|research|paper|academic/i, query: "deep research academic paper agent", words: ["deep research agent", "academic paper workflow"], skills: ["deep-research", "academic-paper", "academic-pipeline"] },
-      { test: /github|开源|仓库|项目|repo|repository/i, query: "open source agent skills", words: ["github repository", "open source agent skills"], skills: ["find-skills"] }
+      { test: /token|上下文|省|节省|压缩|精简|低成本|成本|context|compress|compact/i, queries: ["token compression agent skill", "context compression agent skill SKILL.md"], words: ["token saving", "context compression", "prompt compression", "agent skill"], skills: ["caveman", "caveman-compress", "caveman-stats"], relevance: ["token", "context", "compression", "compress", "compact"], skillSearch: true },
+      { test: /ppt|pptx|powerpoint|slide|slides|presentation|演示|幻灯片|简报|汇报|课件|生成ppt|做ppt|制作ppt/i, queries: ["powerpoint-generation", "pptx ai presentation generator"], words: ["ppt", "pptx", "powerpoint", "presentation", "slides", "deck", "powerpoint generation"], skills: ["ppt-master"], relevance: ["ppt", "pptx", "powerpoint", "presentation", "slides", "slide", "deck", "powerpoint-generation"], preferred: ["ppt-master", "presenton", "pptxgenjs", "pptagent"] },
+      { test: /记忆|记住|回忆|长期|memory|remember|recall/i, queries: ["agent memory skill", "memory agent workflow SKILL.md"], words: ["agent memory", "memory skill", "recall remember"], skills: ["remember", "recall", "agentmemory-mcp-tools"], relevance: ["memory", "remember", "recall"], skillSearch: true },
+      { test: /测试|单测|tdd|质量|验证|test/i, queries: ["test driven development agent skill", "tdd agent workflow SKILL.md"], words: ["test driven development", "testing agent skill", "quality gate"], skills: ["tdd", "diagnose"], relevance: ["tdd", "test", "testing", "quality"], skillSearch: true },
+      { test: /诊断|排查|bug|故障|debug|修复/i, queries: ["debugging diagnose agent workflow", "debug agent skill SKILL.md"], words: ["debugging agent", "diagnose workflow", "bug triage"], skills: ["diagnose", "tdd"], relevance: ["debug", "diagnose", "bug", "triage"], skillSearch: true },
+      { test: /ui|界面|设计|前端|美化|视觉|动效|design|frontend/i, queries: ["web design ui review agent skill", "frontend ui design agent workflow"], words: ["web design guidelines", "frontend agent skill", "ui review"], skills: ["web-design-guidelines", "visual-style", "framer-motion"], relevance: ["ui", "frontend", "design", "review"], skillSearch: true },
+      { test: /视频|剪辑|音频|配音|字幕|video|audio|tts/i, queries: ["video audio ai workflow", "video editing ai agent skill"], words: ["video audio ai workflow", "media generation skill"], skills: ["video-edit", "ffmpeg", "text-to-speech"], relevance: ["video", "audio", "tts", "subtitle", "media"] },
+      { test: /论文|研究|资料|调研|research|paper|academic/i, queries: ["deep research academic paper agent", "academic paper agent workflow"], words: ["deep research agent", "academic paper workflow"], skills: ["deep-research", "academic-paper", "academic-pipeline"], relevance: ["research", "paper", "academic"], skillSearch: true },
+      { test: /github|开源|仓库|项目|repo|repository/i, queries: ["open source agent skills", "github repository agent skill"], words: ["github repository", "open source agent skills"], skills: ["find-skills"], relevance: ["github", "repository", "open source"], skillSearch: true }
     ];
     concepts.forEach(function (concept) {
       if (!concept.test.test(lower)) return;
-      queryTerms.push(concept.query);
+      queryTerms = queryTerms.concat(concept.queries || [concept.query]);
       expansions = expansions.concat(concept.words).concat(concept.skills);
+      relevanceTerms = relevanceTerms.concat(concept.relevance || concept.words || []);
+      preferredNames = preferredNames.concat(concept.preferred || concept.skills || []);
+      if (concept.skillSearch) wantsSkillSearch = true;
     });
 
     var matches = findLocalSkillMatches(text, expansions).slice(0, 6);
@@ -3477,15 +3500,73 @@ button.catalog-stat.active {
       if (match.category) expansions.push(match.category);
     });
 
-    if (!expansions.length) expansions = ["agent skill", "SKILL.md", text || "agent skills"];
+    if (!expansions.length) expansions = [text || "agent skills"];
     var bestMatch = matches[0] ? matches[0].skill : "";
-    var githubQuery = (queryTerms[0] || (/[^\x00-\x7F]/.test(text) && bestMatch ? bestMatch + " agent skill" : text + " agent skill")).trim();
-    githubQuery = unique([githubQuery, "SKILL.md"]).join(" ");
+    if (!queryTerms.length) {
+      queryTerms.push((/[^\x00-\x7F]/.test(text) && bestMatch ? bestMatch + " agent skill" : text || "agent skills").trim());
+    }
+    if (wantsSkillSearch) {
+      queryTerms.push(unique([bestMatch || text || "agent skills", "SKILL.md"]).join(" "));
+    }
+    var githubQueries = unique(queryTerms.map(function (query) { return String(query || "").trim(); }).filter(Boolean)).slice(0, 2);
+    var githubQuery = githubQueries[0] || "agent skills";
     return {
       input: text,
       githubQuery: githubQuery,
+      githubQueries: githubQueries,
+      relevanceTerms: unique(relevanceTerms.concat(expansions).concat(tokenList(text))),
+      preferredNames: unique(preferredNames.concat(matches.map(function (match) { return match.skill; }))),
       matches: matches
     };
+  }
+
+  function mergeGitHubProjectResults(results, intent) {
+    var byRepo = {};
+    results.forEach(function (result, queryIndex) {
+      (result.items || []).forEach(function (repo, itemIndex) {
+        var key = String(repo.full_name || repo.html_url || repo.name || "").toLowerCase();
+        if (!key) return;
+        if (!byRepo[key]) {
+          byRepo[key] = repo;
+          byRepo[key]._skillTrackerScore = 0;
+        }
+        byRepo[key]._skillTrackerScore = Math.max(
+          byRepo[key]._skillTrackerScore || 0,
+          scoreGitHubRepository(repo, intent, queryIndex, itemIndex)
+        );
+      });
+    });
+    return Object.keys(byRepo).map(function (key) { return byRepo[key]; }).sort(function (a, b) {
+      return (b._skillTrackerScore || 0) - (a._skillTrackerScore || 0)
+        || Number(b.stargazers_count || 0) - Number(a.stargazers_count || 0)
+        || String(a.full_name || a.name || "").localeCompare(String(b.full_name || b.name || ""));
+    });
+  }
+
+  function scoreGitHubRepository(repo, intent, queryIndex, itemIndex) {
+    var name = String(repo.name || "").toLowerCase();
+    var fullName = String(repo.full_name || "").toLowerCase();
+    var text = [
+      fullName,
+      name,
+      repo.description || "",
+      repo.language || "",
+      (repo.topics || []).join(" ")
+    ].join(" ").toLowerCase();
+    var score = Number(repo.stargazers_count || 0);
+    score += Math.max(0, 20 - queryIndex * 5 - itemIndex * 0.2);
+    (intent.relevanceTerms || []).forEach(function (term) {
+      term = String(term || "").toLowerCase();
+      if (term.length < 2) return;
+      if (text.indexOf(term) !== -1) score += term.length > 4 ? 5 : 2;
+    });
+    (intent.preferredNames || []).forEach(function (preferred) {
+      preferred = String(preferred || "").toLowerCase();
+      if (!preferred) return;
+      if (name === preferred || fullName.endsWith("/" + preferred)) score += 500;
+      else if (name.indexOf(preferred) !== -1 || fullName.indexOf(preferred) !== -1) score += 100;
+    });
+    return score;
   }
 
   function findLocalSkillMatches(input, expansions) {
@@ -3574,8 +3655,8 @@ button.catalog-stat.active {
     }
   }
 
-  function renderGitHubProjects(items, rate) {
-    setGitHubStatus("搜索完成，找到 " + formatNum(items.length) + " 个候选仓库。" + rate);
+  function renderGitHubProjects(items, rate, queryCount) {
+    setGitHubStatus("搜索完成，执行 " + formatNum(queryCount || 1) + " 条查询，去重后展示 " + formatNum(items.length) + " 个候选仓库。" + rate);
     showGitHubSearchResults("GitHub 搜索结果 · " + formatNum(items.length) + " 个候选仓库");
     if (!items.length) {
       els.githubRepoResults.innerHTML = '<div class="empty-state">没有找到匹配仓库，换一个关键词试试</div>';
@@ -4354,6 +4435,10 @@ button.catalog-stat.active {
     var set = {};
     tokens.forEach(function (token) { set[token] = true; });
     return set;
+  }
+
+  function tokenList(text) {
+    return Object.keys(tokenSet(text));
   }
 
   function jaccard(a, b) {
