@@ -45,6 +45,7 @@ $RootFiles = @(
     "CONTRIBUTING.md",
     "CODE_OF_CONDUCT.md",
     "CITATION.cff",
+    "START_HERE.md",
     "config.json",
     "collect.ps1",
     "run.bat"
@@ -64,11 +65,16 @@ $StartHere = @"
 Skill Tracker Windows Portable
 ==============================
 
-1. Double-click run.bat
-2. The collector scans local AI-agent session logs.
-3. The dashboard opens in your browser.
+Fastest path:
+1. Unzip this package.
+2. Double-click run.bat.
+3. Use the dashboard in your browser.
 
-No server, installer, or API key is required.
+No server, installer, account, API key, or .exe is required.
+
+If no local AI-agent logs are found, the dashboard still opens with demo data.
+
+For full instructions, open START_HERE.md.
 
 Private generated files stay local and are not included in this release package:
 - dashboard/skill_data.js
@@ -78,7 +84,7 @@ Private generated files stay local and are not included in this release package:
 - dashboard/skill_catalog.js
 
 If Windows blocks the script, run this from PowerShell:
-powershell -ExecutionPolicy Bypass -File .\collect.ps1
+powershell -NoProfile -ExecutionPolicy Bypass -File .\collect.ps1
 start .\dashboard\index.html
 "@
 [System.IO.File]::WriteAllText((Join-Path $StageDir "START_HERE.txt"), $StartHere, [System.Text.Encoding]::UTF8)
