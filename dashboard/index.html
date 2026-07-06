@@ -1254,6 +1254,205 @@ tbody tr.data-row.expanded {
   color: var(--text);
 }
 
+.matrix-toolbar,
+.github-controls {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: end;
+}
+
+.matrix-note,
+.github-status {
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.6;
+}
+
+.matrix-shell {
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow: auto;
+  background: var(--surface);
+}
+
+.matrix-table {
+  width: 100%;
+  min-width: 720px;
+  border-collapse: collapse;
+}
+
+.matrix-table th,
+.matrix-table td {
+  border-bottom: 1px solid var(--border);
+  padding: 9px 10px;
+  text-align: left;
+  font-size: 12px;
+}
+
+.matrix-table th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: var(--surface-2);
+  color: var(--muted);
+  font-weight: 700;
+}
+
+.matrix-table td:first-child,
+.matrix-table th:first-child {
+  position: sticky;
+  left: 0;
+  z-index: 2;
+  background: var(--surface);
+  min-width: 210px;
+}
+
+.matrix-table th:first-child {
+  z-index: 3;
+  background: var(--surface-2);
+}
+
+.matrix-skill {
+  display: grid;
+  gap: 3px;
+}
+
+.matrix-skill strong {
+  color: var(--text);
+  font-size: 12px;
+}
+
+.matrix-skill span {
+  color: var(--dim);
+  font-size: 11px;
+}
+
+.matrix-cell {
+  min-width: 76px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  padding: 7px 8px;
+  color: var(--text);
+  font-family: var(--font-mono);
+  font-weight: 800;
+  background:
+    linear-gradient(90deg, color-mix(in srgb, var(--accent) var(--heat, 0%), transparent), transparent),
+    var(--surface-2);
+}
+
+.github-form {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.github-form label {
+  display: grid;
+  gap: 7px;
+  color: var(--muted);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.github-form input {
+  min-height: 40px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--text);
+  padding: 0 12px;
+  font: inherit;
+}
+
+.github-actions {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+}
+
+.repo-grid,
+.manual-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.repo-card,
+.manual-card {
+  display: grid;
+  gap: 9px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+  padding: 14px;
+}
+
+.repo-head,
+.manual-head {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.repo-title,
+.manual-title {
+  min-width: 0;
+  color: var(--text);
+  font-weight: 800;
+  overflow-wrap: anywhere;
+}
+
+.repo-title a {
+  color: inherit;
+  text-decoration: none;
+}
+
+.repo-title a:hover {
+  color: var(--accent);
+}
+
+.repo-meta,
+.manual-body {
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.6;
+}
+
+.repo-tags {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.repo-tag,
+.manual-step {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--muted);
+  background: var(--surface-2);
+  padding: 4px 7px;
+  font-size: 11px;
+}
+
+.github-update {
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+  padding: 14px;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.7;
+}
+
+.github-update strong {
+  color: var(--text);
+}
+
 .mini-track {
   width: 100%;
   height: 8px;
@@ -1586,6 +1785,26 @@ tbody tr.data-row.expanded {
     justify-content: stretch;
   }
 
+  .matrix-toolbar,
+  .github-controls,
+  .github-form {
+    grid-template-columns: 1fr;
+  }
+
+  .github-actions {
+    justify-content: stretch;
+  }
+
+  .github-actions .action-button,
+  .action-toolbar .action-button {
+    width: 100%;
+  }
+
+  .repo-grid,
+  .manual-grid {
+    grid-template-columns: 1fr;
+  }
+
   .catalog-summary {
     grid-template-columns: 1fr;
   }
@@ -1648,6 +1867,18 @@ tbody tr.data-row.expanded {
         <button type="button" data-view-button="actions">
           <span class="nav-index">05</span>
           <span class="nav-label"><strong>行动方案</strong><span>Action lab</span></span>
+        </button>
+        <button type="button" data-view-button="matrix">
+          <span class="nav-index">06</span>
+          <span class="nav-label"><strong>矩阵实验室</strong><span>Skill matrix</span></span>
+        </button>
+        <button type="button" data-view-button="github">
+          <span class="nav-index">07</span>
+          <span class="nav-label"><strong>GitHub 雷达</strong><span>Online radar</span></span>
+        </button>
+        <button type="button" data-view-button="manual">
+          <span class="nav-index">08</span>
+          <span class="nav-label"><strong>操作手册</strong><span>How to use</span></span>
         </button>
       </nav>
     </div>
@@ -1883,6 +2114,71 @@ tbody tr.data-row.expanded {
         </div>
       </div>
     </section>
+
+    <section class="view-panel" id="view-matrix" aria-labelledby="matrixHeading">
+      <div class="section" style="margin-top: 18px;">
+        <div class="section-head">
+          <div class="section-title">
+            <h3 id="matrixHeading">矩阵实验室</h3>
+            <p>把 skill、工具和调用量压成一张可扫描热力表，用来发现工具偏好和跨平台覆盖空洞</p>
+          </div>
+        </div>
+        <div class="catalog-summary" id="matrixSummary"></div>
+        <div class="section-body">
+          <div class="matrix-toolbar">
+            <div class="matrix-note" id="matrixNote">当前矩阵跟随顶部统计口径。</div>
+            <button type="button" class="action-button" id="exportMatrixJson">导出矩阵 JSON</button>
+          </div>
+          <div class="matrix-shell" id="skillMatrix"></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="view-panel" id="view-github" aria-labelledby="githubHeading">
+      <div class="section" style="margin-top: 18px;">
+        <div class="section-head">
+          <div class="section-title">
+            <h3 id="githubHeading">GitHub 雷达</h3>
+            <p>联网搜索公开仓库，或检查指定仓库的更新时间和最新 Release；本地功能不依赖该联网能力</p>
+          </div>
+        </div>
+        <div class="section-body">
+          <div class="github-controls">
+            <div class="github-form">
+              <label>
+                搜索关键词
+                <input id="githubKeyword" type="search" placeholder="例如 agent skills / tdd skill / skill tracker">
+              </label>
+              <label>
+                指定仓库
+                <input id="githubRepo" type="text" placeholder="owner/repo，例如 openai/codex">
+              </label>
+            </div>
+            <div class="github-actions">
+              <button type="button" class="action-button" id="githubSearch">搜索开源项目</button>
+              <button type="button" class="action-button" id="githubCheckRepo">检查仓库更新</button>
+            </div>
+          </div>
+          <div class="github-status" id="githubStatus">未联网。输入关键词或仓库后点击按钮。</div>
+          <div class="github-update" id="githubUpdateResult">指定仓库检查结果会显示在这里。</div>
+          <div class="repo-grid" id="githubRepoResults"></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="view-panel" id="view-manual" aria-labelledby="manualHeading">
+      <div class="section" style="margin-top: 18px;">
+        <div class="section-head">
+          <div class="section-title">
+            <h3 id="manualHeading">操作手册</h3>
+            <p>面向第一次打开项目的 GitHub 用户，直接说明每个板块能做什么、什么时候用、下一步点哪里</p>
+          </div>
+        </div>
+        <div class="section-body">
+          <div class="manual-grid" id="manualGrid"></div>
+        </div>
+      </div>
+    </section>
   </main>
 </div>
 
@@ -2089,6 +2385,16 @@ tbody tr.data-row.expanded {
   var catalogPage = 0;
   var catalogPageSize = 8;
   var catalogDirty = {};
+  var pageTitles = {
+    stats: "AI Skill Usage Analytics",
+    log: "Skill Call Audit Stream",
+    catalog: "Chinese Skill Catalog",
+    governance: "Skill Governance Insights",
+    actions: "Governance Action Lab",
+    matrix: "Skill Matrix Lab",
+    github: "GitHub Discovery Radar",
+    manual: "Skill Tracker Manual"
+  };
 
   var els = {
     generatedAt: document.getElementById("generatedAt"),
@@ -2106,6 +2412,19 @@ tbody tr.data-row.expanded {
     actionList: document.getElementById("actionList"),
     exportActionIssues: document.getElementById("exportActionIssues"),
     exportActionJson: document.getElementById("exportActionJson"),
+    matrixSummary: document.getElementById("matrixSummary"),
+    matrixNote: document.getElementById("matrixNote"),
+    skillMatrix: document.getElementById("skillMatrix"),
+    exportMatrixJson: document.getElementById("exportMatrixJson"),
+    githubKeyword: document.getElementById("githubKeyword"),
+    githubRepo: document.getElementById("githubRepo"),
+    githubSearch: document.getElementById("githubSearch"),
+    githubCheckRepo: document.getElementById("githubCheckRepo"),
+    githubStatus: document.getElementById("githubStatus"),
+    githubUpdateResult: document.getElementById("githubUpdateResult"),
+    githubRepoResults: document.getElementById("githubRepoResults"),
+    manualGrid: document.getElementById("manualGrid"),
+    pageHeading: document.getElementById("pageHeading"),
     modeNote: document.getElementById("modeNote"),
     skillSearch: document.getElementById("skillSearch"),
     skillTableBody: document.getElementById("skillTableBody"),
@@ -2138,6 +2457,9 @@ tbody tr.data-row.expanded {
   renderCatalog(true);
   renderGovernance();
   renderActionLab();
+  renderMatrixLab();
+  renderManual();
+  initGitHubRadar();
 
   function bindEvents() {
     document.querySelectorAll("[data-view-button]").forEach(function (button) {
@@ -2166,6 +2488,7 @@ tbody tr.data-row.expanded {
         renderMetrics();
         renderTrend();
         renderSkills(true);
+        renderMatrixLab();
       });
     });
 
@@ -2218,6 +2541,15 @@ tbody tr.data-row.expanded {
     els.exportAnonymous.addEventListener("click", exportAnonymousReport);
     els.exportActionIssues.addEventListener("click", exportActionIssues);
     els.exportActionJson.addEventListener("click", exportActionJson);
+    els.exportMatrixJson.addEventListener("click", exportMatrixJson);
+    els.githubSearch.addEventListener("click", searchGitHubProjects);
+    els.githubCheckRepo.addEventListener("click", checkGitHubRepo);
+    els.githubKeyword.addEventListener("keydown", function (event) {
+      if (event.key === "Enter") searchGitHubProjects();
+    });
+    els.githubRepo.addEventListener("keydown", function (event) {
+      if (event.key === "Enter") checkGitHubRepo();
+    });
 
     els.skillTableBody.addEventListener("click", function (event) {
       var button = event.target.closest("[data-expand-skill]");
@@ -2622,6 +2954,264 @@ tbody tr.data-row.expanded {
 
   function priorityRank(priority) {
     return priority === "P0" ? 0 : priority === "P1" ? 1 : 2;
+  }
+
+  function renderMatrixLab() {
+    var matrix = buildSkillToolMatrix();
+    var cards = [
+      { label: "矩阵调用", value: matrix.total },
+      { label: "覆盖工具", value: matrix.tools.length },
+      { label: "活跃技能", value: matrix.rows.length },
+      { label: "最高单元", value: matrix.maxCell }
+    ];
+    els.matrixSummary.innerHTML = cards.map(function (card) {
+      return '<div class="catalog-stat"><span>' + escapeHtml(card.label) + '</span><strong>' + formatNum(card.value) + '</strong></div>';
+    }).join("");
+    els.matrixNote.textContent = "当前使用 " + (countMode === "raw" ? "原始读取" : "去重调用") + " 口径；颜色越亮代表该工具越常触发该 skill。";
+
+    if (!matrix.rows.length) {
+      els.skillMatrix.innerHTML = '<div class="empty-state">暂无可生成矩阵的调用日志</div>';
+      return;
+    }
+
+    var header = '<thead><tr><th>Skill</th>' + matrix.tools.map(function (tool) {
+      return '<th>' + escapeHtml(tool) + '</th>';
+    }).join("") + '<th>Total</th></tr></thead>';
+
+    var body = '<tbody>' + matrix.rows.map(function (row) {
+      var cells = matrix.tools.map(function (tool) {
+        var value = row.tools[tool] || 0;
+        var heat = matrix.maxCell ? Math.round(value / matrix.maxCell * 68) : 0;
+        return '<td><div class="matrix-cell" style="--heat: ' + heat + '%">' + formatNum(value) + '</div></td>';
+      }).join("");
+      return '<tr>'
+        + '<td><div class="matrix-skill"><strong>' + escapeHtml(row.skill) + '</strong><span>' + escapeHtml(row.category) + '</span></div></td>'
+        + cells
+        + '<td><div class="matrix-cell" style="--heat: 38%">' + formatNum(row.total) + '</div></td>'
+        + '</tr>';
+    }).join("") + '</tbody>';
+
+    els.skillMatrix.innerHTML = '<table class="matrix-table"><caption>Skill by tool matrix</caption>' + header + body + '</table>';
+  }
+
+  function buildSkillToolMatrix() {
+    var sourceRows = logRows.filter(function (row) {
+      return countMode === "raw" || row.dedup !== false;
+    });
+    var toolNames = tools.length ? tools.slice() : unique(sourceRows.map(function (row) { return row.tool; }));
+    var bySkill = {};
+    var maxCell = 0;
+
+    sourceRows.forEach(function (row) {
+      if (!row.skill || !row.tool) return;
+      if (!bySkill[row.skill]) {
+        bySkill[row.skill] = {
+          skill: row.skill,
+          category: (skillRowByName[row.skill] && skillRowByName[row.skill].category) || "通用技能",
+          total: 0,
+          tools: {}
+        };
+      }
+      bySkill[row.skill].tools[row.tool] = (bySkill[row.skill].tools[row.tool] || 0) + 1;
+      bySkill[row.skill].total += 1;
+      maxCell = Math.max(maxCell, bySkill[row.skill].tools[row.tool]);
+    });
+
+    var rows = Object.keys(bySkill).map(function (skill) { return bySkill[skill]; }).sort(function (a, b) {
+      return b.total - a.total || a.skill.localeCompare(b.skill);
+    }).slice(0, 24);
+
+    return {
+      tools: toolNames,
+      rows: rows,
+      total: sourceRows.length,
+      maxCell: maxCell
+    };
+  }
+
+  function exportMatrixJson() {
+    var matrix = buildSkillToolMatrix();
+    downloadJson("skill-tracker-skill-tool-matrix.json", {
+      schema: "skill-tracker-skill-tool-matrix@1",
+      generated_at: new Date().toISOString(),
+      count_mode: countMode,
+      source_generated_at: window.GENERATED_AT || null,
+      tools: matrix.tools,
+      rows: matrix.rows
+    });
+  }
+
+  function initGitHubRadar() {
+    if (!els.githubKeyword.value.trim()) {
+      els.githubKeyword.value = suggestedGitHubQuery();
+    }
+  }
+
+  function suggestedGitHubQuery() {
+    var top = sortedSkillRows().filter(function (row) { return getCount(row) > 0; })[0];
+    return top ? top.skill + " agent skill" : "agent skills SKILL.md";
+  }
+
+  async function searchGitHubProjects() {
+    var keyword = els.githubKeyword.value.trim() || suggestedGitHubQuery();
+    els.githubKeyword.value = keyword;
+    setGitHubBusy(true);
+    setGitHubStatus("正在搜索 GitHub 公开仓库：" + keyword);
+    els.githubRepoResults.innerHTML = '<div class="empty-state">正在联网搜索...</div>';
+    try {
+      var query = keyword;
+      if (!/skill|agent|prompt/i.test(query)) query += " agent skill";
+      var url = "https://api.github.com/search/repositories?q="
+        + encodeURIComponent(query)
+        + "&sort=stars&order=desc&per_page=8";
+      var response = await fetch(url, { headers: { Accept: "application/vnd.github+json" } });
+      var payload = await response.json();
+      if (!response.ok) throw new Error(payload.message || "GitHub search failed");
+      renderGitHubProjects(payload.items || [], rateInfo(response));
+    } catch (error) {
+      renderGitHubError("搜索失败：" + error.message);
+    } finally {
+      setGitHubBusy(false);
+    }
+  }
+
+  async function checkGitHubRepo() {
+    var slug = els.githubRepo.value.trim();
+    var match = slug.match(/^([\w.-]+)\/([\w.-]+)$/);
+    if (!match) {
+      renderGitHubError("请输入 owner/repo 格式，例如 openai/codex。");
+      return;
+    }
+    setGitHubBusy(true);
+    setGitHubStatus("正在检查仓库：" + slug);
+    els.githubUpdateResult.innerHTML = "正在读取仓库信息...";
+    try {
+      var repoUrl = "https://api.github.com/repos/" + encodeURIComponent(match[1]) + "/" + encodeURIComponent(match[2]);
+      var repoResponse = await fetch(repoUrl, { headers: { Accept: "application/vnd.github+json" } });
+      var repo = await repoResponse.json();
+      if (!repoResponse.ok) throw new Error(repo.message || "GitHub repository request failed");
+
+      var release = null;
+      var releaseResponse = await fetch(repoUrl + "/releases/latest", { headers: { Accept: "application/vnd.github+json" } });
+      if (releaseResponse.ok) {
+        release = await releaseResponse.json();
+      }
+      renderGitHubUpdate(repo, release, rateInfo(repoResponse));
+    } catch (error) {
+      renderGitHubError("检查失败：" + error.message);
+    } finally {
+      setGitHubBusy(false);
+    }
+  }
+
+  function renderGitHubProjects(items, rate) {
+    setGitHubStatus("搜索完成，找到 " + formatNum(items.length) + " 个候选仓库。" + rate);
+    if (!items.length) {
+      els.githubRepoResults.innerHTML = '<div class="empty-state">没有找到匹配仓库，换一个关键词试试</div>';
+      return;
+    }
+    els.githubRepoResults.innerHTML = items.map(function (repo) {
+      var topics = (repo.topics || []).slice(0, 4);
+      var tags = topics.length ? topics.map(function (topic) {
+        return '<span class="repo-tag">' + escapeHtml(topic) + '</span>';
+      }).join("") : '<span class="repo-tag">no topics</span>';
+      return '<article class="repo-card">'
+        + '<div class="repo-head">'
+        + '<div class="repo-title"><a href="' + escapeAttr(repo.html_url || "#") + '" target="_blank" rel="noreferrer">' + escapeHtml(repo.full_name || repo.name || "unknown") + '</a></div>'
+        + '<span class="repo-tag">★ ' + formatNum(repo.stargazers_count || 0) + '</span>'
+        + '</div>'
+        + '<div class="repo-meta">' + escapeHtml(repo.description || "No description.") + '</div>'
+        + '<div class="repo-meta">语言：' + escapeHtml(repo.language || "--") + ' · 更新：' + escapeHtml(formatDate(repo.updated_at)) + '</div>'
+        + '<div class="repo-tags">' + tags + '</div>'
+        + '</article>';
+    }).join("");
+  }
+
+  function renderGitHubUpdate(repo, release, rate) {
+    setGitHubStatus("仓库检查完成。" + rate);
+    var releaseHtml = release
+      ? '<div><strong>最新 Release：</strong><a href="' + escapeAttr(release.html_url || repo.html_url || "#") + '" target="_blank" rel="noreferrer">' + escapeHtml(release.tag_name || release.name || "latest") + '</a> · ' + escapeHtml(formatDate(release.published_at || release.created_at)) + '</div>'
+      : '<div><strong>最新 Release：</strong>未发现公开 release，建议以仓库更新时间判断活跃度。</div>';
+    els.githubUpdateResult.innerHTML =
+      '<div><strong>' + escapeHtml(repo.full_name || repo.name) + '</strong></div>'
+      + '<div>描述：' + escapeHtml(repo.description || "No description.") + '</div>'
+      + '<div>Stars：' + formatNum(repo.stargazers_count || 0) + ' · Forks：' + formatNum(repo.forks_count || 0) + ' · Issues：' + formatNum(repo.open_issues_count || 0) + '</div>'
+      + '<div>默认分支：' + escapeHtml(repo.default_branch || "--") + ' · 推送：' + escapeHtml(formatDate(repo.pushed_at)) + ' · 更新：' + escapeHtml(formatDate(repo.updated_at)) + '</div>'
+      + releaseHtml;
+  }
+
+  function renderGitHubError(message) {
+    setGitHubStatus(message);
+    els.githubRepoResults.innerHTML = '<div class="empty-state">' + escapeHtml(message) + '</div>';
+  }
+
+  function setGitHubStatus(message) {
+    els.githubStatus.textContent = message;
+  }
+
+  function setGitHubBusy(isBusy) {
+    els.githubSearch.disabled = isBusy;
+    els.githubCheckRepo.disabled = isBusy;
+  }
+
+  function rateInfo(response) {
+    var remaining = response.headers.get("x-ratelimit-remaining");
+    var reset = response.headers.get("x-ratelimit-reset");
+    if (remaining == null) return "";
+    var suffix = " GitHub 剩余额度：" + remaining;
+    if (reset) suffix += "，重置：" + formatDate(Number(reset) * 1000);
+    return suffix;
+  }
+
+  function renderManual() {
+    var entries = [
+      {
+        title: "统计总览",
+        step: "先看这里",
+        body: "用于快速判断当前机器上哪些 skill 最常被调用。切换去重/原始口径，可以分辨真实使用量和重复读取噪声。"
+      },
+      {
+        title: "调用日志",
+        step: "追踪来源",
+        body: "用于查看每次 skill 调用来自哪个工具、哪次会话。点击会话 ID 可以展开同一轮对话里的完整技能时间线。"
+      },
+      {
+        title: "技能字典",
+        step: "补中文说明",
+        body: "用于维护每个 skill 的中文功能解释。筛选缺失项、编辑说明后导出 JSON，再作为新的 catalog 数据使用。"
+      },
+      {
+        title: "治理洞察",
+        step: "发现问题",
+        body: "用于识别高频链路、低健康 skill、重复/相似 skill 和冲突风险。它回答的是 skill 体系哪里可能变乱。"
+      },
+      {
+        title: "行动方案",
+        step: "生成任务",
+        body: "把治理洞察转成 P0/P1/P2 任务，每条都有证据、建议和验收标准。适合导出为 GitHub issue 草稿。"
+      },
+      {
+        title: "矩阵实验室",
+        step: "看覆盖关系",
+        body: "把 skill 和工具做成热力矩阵，用于观察某个 skill 是否只被单一平台调用，或某个平台是否偏向特定技能类型。"
+      },
+      {
+        title: "GitHub 雷达",
+        step: "联网探索",
+        body: "用于搜索公开仓库、检查指定仓库更新和 release。它只访问公开 GitHub API，失败时不会影响本地 dashboard。"
+      },
+      {
+        title: "匿名导出",
+        step: "安全分享",
+        body: "用于把统计结果脱敏后发给社区或 issue 讨论，避免泄露本地路径、真实 session、skill 原名和说明全文。"
+      }
+    ];
+    els.manualGrid.innerHTML = entries.map(function (entry) {
+      return '<article class="manual-card">'
+        + '<div class="manual-head"><div class="manual-title">' + escapeHtml(entry.title) + '</div><span class="manual-step">' + escapeHtml(entry.step) + '</span></div>'
+        + '<div class="manual-body">' + escapeHtml(entry.body) + '</div>'
+        + '</article>';
+    }).join("");
   }
 
   function buildSkillTransitions() {
@@ -3183,6 +3773,7 @@ tbody tr.data-row.expanded {
     document.querySelectorAll(".view-panel").forEach(function (panel) {
       panel.classList.toggle("active", panel.id === "view-" + viewName);
     });
+    els.pageHeading.textContent = pageTitles[viewName] || pageTitles.stats;
   }
 
   function initTheme() {
