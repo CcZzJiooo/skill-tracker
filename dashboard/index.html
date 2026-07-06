@@ -2584,6 +2584,7 @@ button.catalog-stat.active {
   var actionPriorityFilter = "all";
   var actionPage = 0;
   var actionPageSize = 8;
+  var githubTranslationCache = {};
   var pageTitles = {
     stats: "AI Skill Usage Analytics",
     log: "Skill Call Audit Stream",
@@ -3512,7 +3513,10 @@ button.catalog-stat.active {
         results.push(result);
         if (result.rate) rates.push(result.rate);
       }
-      renderGitHubProjects(mergeGitHubProjectResults(results, intent).slice(0, 8), rates.filter(Boolean).pop() || "", queries.length);
+      var items = mergeGitHubProjectResults(results, intent).slice(0, 8);
+      setGitHubStatus("搜索完成，正在翻译 " + formatNum(items.length) + " 条仓库描述...");
+      await enrichGitHubProjectTranslations(items);
+      renderGitHubProjects(items, rates.filter(Boolean).pop() || "", queries.length);
     } catch (error) {
       renderGitHubError("搜索失败：" + error.message, "search");
     } finally {
@@ -3786,10 +3790,78 @@ button.catalog-stat.active {
     };
   }
 
+  async function enrichGitHubProjectTranslations(items) {
+    await Promise.all(items.map(async function (repo) {
+      repo._skillTrackerTranslation = await translateGitHubDescriptionOnline(repo.description || "", repo);
+    }));
+  }
+
+  async function translateGitHubDescriptionOnline(description, repo) {
+    var text = String(description || "").replace(/\s+/g, " ").trim();
+    var fallback = translateGitHubDescription(text, repo);
+    if (!text || /[\u4e00-\u9fff]/.test(text)) return fallback;
+    if (githubTranslationCache[text]) return githubTranslationCache[text];
+
+    var translated = await translateWithGoogleEndpoint(text);
+    if (!translated) translated = await translateWithMyMemoryEndpoint(text);
+    if (isUsefulChineseTranslation(translated, text)) {
+      githubTranslationCache[text] = translated;
+      return translated;
+    }
+    githubTranslationCache[text] = fallback;
+    return fallback;
+  }
+
+  async function translateWithGoogleEndpoint(text) {
+    var url = "https://translate.googleapis.com/translate_a/single?client=gtx&sl=en&tl=zh-CN&dt=t&q=" + encodeURIComponent(text);
+    try {
+      var response = await fetchWithTimeout(url, 8000);
+      if (!response.ok) return "";
+      var payload = await response.json();
+      if (!Array.isArray(payload) || !Array.isArray(payload[0])) return "";
+      return payload[0].map(function (part) {
+        return Array.isArray(part) ? part[0] || "" : "";
+      }).join("").replace(/\s+/g, " ").trim();
+    } catch (error) {
+      return "";
+    }
+  }
+
+  async function translateWithMyMemoryEndpoint(text) {
+    var url = "https://api.mymemory.translated.net/get?q=" + encodeURIComponent(text) + "&langpair=en|zh-CN";
+    try {
+      var response = await fetchWithTimeout(url, 8000);
+      if (!response.ok) return "";
+      var payload = await response.json();
+      return String(payload && payload.responseData && payload.responseData.translatedText || "").replace(/\s+/g, " ").trim();
+    } catch (error) {
+      return "";
+    }
+  }
+
+  function isUsefulChineseTranslation(translated, source) {
+    var text = String(translated || "").trim();
+    if (!/[\u4e00-\u9fff]/.test(text)) return false;
+    if (text.toLowerCase() === String(source || "").trim().toLowerCase()) return false;
+    return true;
+  }
+
+  function fetchWithTimeout(url, timeoutMs) {
+    if (typeof AbortController === "undefined") return fetch(url);
+    var controller = new AbortController();
+    var timer = setTimeout(function () {
+      controller.abort();
+    }, timeoutMs || 8000);
+    return fetch(url, { signal: controller.signal }).finally(function () {
+      clearTimeout(timer);
+    });
+  }
+
   function translateGitHubDescription(description, repo) {
     var text = String(description || "").replace(/\s+/g, " ").trim();
     if (!text) return "该仓库没有填写 GitHub description，无法直接翻译；建议打开 README 查看用途。";
     if (/[\u4e00-\u9fff]/.test(text)) return text;
+    if (repo && repo._skillTrackerTranslation) return repo._skillTrackerTranslation;
     var exact = translateKnownGitHubDescription(text);
     if (exact) return exact;
     return translateEnglishDescription(text, repo);
@@ -3808,6 +3880,18 @@ button.catalog-stat.active {
     }
     if (/^chrome mcp server is a chrome extension-based model context protocol/.test(lower)) {
       return "Chrome MCP Server 是一个基于 Chrome 扩展的模型上下文协议（MCP）服务，可把 Chrome 浏览器功能开放给 Claude 等 AI 助手，用于复杂浏览器自动化、内容分析和语义搜索。";
+    }
+    if (/^ai generates a real, editable powerpoint from any document/.test(lower)) {
+      return "AI 可以从任意文档生成真正可编辑的 PowerPoint：包含原生形状和动画、可修改数据的图表和表格、可转成语音旁白的演讲备注，并支持沿用你自己的 .pptx 模板，而不是只生成幻灯片图片。";
+    }
+    if (/^build powerpoint presentations with javascript/.test(lower)) {
+      return "使用 JavaScript 构建 PowerPoint 演示文稿。支持 Node、React、网页浏览器等环境。";
+    }
+    if (/^an agentic framework for reflective powerpoint generation\.?$/.test(lower)) {
+      return "用于反思式 PowerPoint 生成的智能体框架。";
+    }
+    if (/^open-source ai presentation generator and api/.test(lower)) {
+      return "开源 AI 演示文稿生成器和 API，可作为 Gamma、Canva、Beautiful AI、Decktopus、Presentations AI 等产品的替代方案。";
     }
     return "";
   }
@@ -3852,7 +3936,7 @@ button.catalog-stat.active {
 
     var translated = translateTechPhrase(clean);
     if (translated !== clean) return translated + end;
-    return "英文描述：" + raw;
+    return "在线翻译暂不可用，本地词表无法完整翻译；请查看上方 GitHub 原始描述。";
   }
 
   function translateMetricSentence(text) {
