@@ -3749,7 +3749,7 @@ button.catalog-stat.active {
         + '<span class="repo-tag">★ ' + formatNum(repo.stargazers_count || 0) + '</span>'
         + '</div>'
         + '<div class="repo-meta">' + escapeHtml(repo.description || "No description.") + '</div>'
-        + '<div class="repo-summary-cn"><strong>中文解读：</strong>' + escapeHtml(guidance.summary) + '<br><strong>下一步：</strong>' + escapeHtml(guidance.next) + '</div>'
+        + '<div class="repo-summary-cn"><strong>中文翻译：</strong>' + escapeHtml(guidance.translation) + '<br><strong>操作建议：</strong>' + escapeHtml(guidance.next) + '</div>'
         + '<div class="repo-meta">语言：' + escapeHtml(repo.language || "--") + ' · 更新：' + escapeHtml(formatDate(repo.updated_at)) + '</div>'
         + '<div class="repo-tags">' + tags + '</div>'
         + '<div class="repo-actions">'
@@ -3769,34 +3769,162 @@ button.catalog-stat.active {
       repo.description || "",
       (repo.topics || []).join(" ")
     ].join(" ").toLowerCase();
+    var translation = translateGitHubDescription(repo.description || "", repo);
+    var next = "打开仓库看 README；需要下载源码可点 ZIP，需要本地开发可复制 clone。";
     if (/mcp|model context protocol/.test(text)) {
-      return {
-        summary: "这可能是 MCP 协议、MCP Server、工具接入或相关生态项目。优先确认它支持哪些客户端、transport、权限和配置方式。",
-        next: "打开仓库看 README 的安装段落；需要本地使用时优先复制 clone 命令或下载 ZIP。"
-      };
-    }
-    if (/ppt|pptx|powerpoint|presentation|slide|deck/.test(text)) {
-      return {
-        summary: "这可能用于 PPT、演示文稿、幻灯片生成或 PowerPoint 文件处理。重点看输入格式、导出格式和模板能力。",
-        next: "先打开仓库确认示例效果；只想试用可下载 ZIP，开发集成建议复制 clone。"
-      };
-    }
-    if (/agent|workflow|automation|ai|llm/.test(text)) {
-      return {
-        summary: "这可能是 AI Agent、自动化工作流或 LLM 应用框架。注意区分完整产品、框架库和单个工具插件。",
-        next: "打开仓库检查 quick start、依赖和许可证；再用检查更新判断活跃度。"
-      };
-    }
-    if (/ui|webui|dashboard|frontend/.test(text)) {
-      return {
-        summary: "这可能是界面、控制台或 Web 应用项目。重点看部署方式、截图和是否支持本地运行。",
-        next: "打开仓库查看截图和部署说明；下载 ZIP 适合快速浏览源码。"
-      };
+      next = "重点看 README 的安装、客户端支持、transport、权限和配置示例。";
+    } else if (/ppt|pptx|powerpoint|presentation|slide|deck/.test(text)) {
+      next = "重点看示例截图、输入格式、导出格式、模板能力和许可证。";
+    } else if (/agent|workflow|automation|ai|llm/.test(text)) {
+      next = "重点看 quick start、依赖、是否可本地部署，以及许可证是否允许集成。";
+    } else if (/ui|webui|dashboard|frontend/.test(text)) {
+      next = "重点看截图、部署方式、是否支持本地运行，以及是否有可复用组件。";
     }
     return {
-      summary: "这是 GitHub 根据关键词返回的候选仓库。当前卡片保留英文原描述，同时给出操作入口。",
-      next: "打开仓库看 README；需要下载源码可点 ZIP，需要本地开发可复制 clone。"
+      translation: translation,
+      next: next
     };
+  }
+
+  function translateGitHubDescription(description, repo) {
+    var text = String(description || "").replace(/\s+/g, " ").trim();
+    if (!text) return "该仓库没有填写 GitHub description，无法直接翻译；建议打开 README 查看用途。";
+    if (/[\u4e00-\u9fff]/.test(text)) return text;
+    var exact = translateKnownGitHubDescription(text);
+    if (exact) return exact;
+    return translateEnglishDescription(text, repo);
+  }
+
+  function translateKnownGitHubDescription(text) {
+    var lower = text.toLowerCase();
+    if (/^specification and documentation for the model context protocol\.?$/.test(lower)) {
+      return "模型上下文协议（Model Context Protocol）的规范和文档。";
+    }
+    if (/^high-performance code intelligence mcp server/.test(lower)) {
+      return "高性能代码智能 MCP 服务。它把代码库索引为持久知识图谱，普通仓库可在毫秒级完成；支持 158 种语言、亚毫秒查询、最多减少 99% token；单个静态二进制文件，零依赖。";
+    }
+    if (/^🚀?\s*the fast, pythonic way to build mcp servers and clients\.?$/i.test(text)) {
+      return "快速且符合 Python 风格的 MCP 服务端和客户端构建方式。";
+    }
+    if (/^chrome mcp server is a chrome extension-based model context protocol/.test(lower)) {
+      return "Chrome MCP Server 是一个基于 Chrome 扩展的模型上下文协议（MCP）服务，可把 Chrome 浏览器功能开放给 Claude 等 AI 助手，用于复杂浏览器自动化、内容分析和语义搜索。";
+    }
+    return "";
+  }
+
+  function translateEnglishDescription(text, repo) {
+    var sentences = (text.match(/[^.!?]+[.!?]?/g) || [text]).filter(Boolean).map(function (sentence) {
+      return translateEnglishSentence(sentence, repo);
+    });
+    return sentences.join(" ").replace(/\s+/g, " ").trim();
+  }
+
+  function translateEnglishSentence(sentence, repo) {
+    var raw = String(sentence || "").trim();
+    var end = "。";
+    var clean = raw.replace(/[.!?]$/, "").trim();
+    var match;
+
+    match = clean.match(/^specification and documentation for (.+)$/i);
+    if (match) return translateTechPhrase(match[1]) + "的规范和文档。";
+
+    match = clean.match(/^(.+?) is an? (.+?) that (.+)$/i);
+    if (match) {
+      return translateTechPhrase(match[1]) + "是一个" + translateTechPhrase(match[2]) + "，可" + translateVerbPhrase(match[3]) + "。";
+    }
+
+    match = clean.match(/^(.+?) is an? (.+)$/i);
+    if (match) {
+      return translateTechPhrase(match[1]) + "是一个" + translateTechPhrase(match[2]) + "。";
+    }
+
+    match = clean.match(/^the (.+?) way to build (.+)$/i);
+    if (match) {
+      return translateTechPhrase(match[1]) + "构建" + translateTechPhrase(match[2]) + "的方式。";
+    }
+
+    match = clean.match(/^indexes codebases into (.+)$/i);
+    if (match) return "将代码库索引为" + translateTechPhrase(match[1]) + "。";
+
+    if (/^\d+ languages/i.test(clean)) return translateMetricSentence(clean) + "。";
+    if (/^single static binary/i.test(clean)) return translateMetricSentence(clean) + "。";
+    if (/^zero dependencies/i.test(clean)) return "零依赖。";
+
+    var translated = translateTechPhrase(clean);
+    if (translated !== clean) return translated + end;
+    return "英文描述：" + raw;
+  }
+
+  function translateMetricSentence(text) {
+    return translateTechPhrase(text)
+      .replace(/^(\d+) languages/i, "支持 $1 种语言")
+      .replace(/sub-ms queries/i, "亚毫秒查询")
+      .replace(/(\d+)% fewer tokens/i, "最多减少 $1% token")
+      .replace(/single static binary/i, "单个静态二进制文件")
+      .replace(/zero dependencies/i, "零依赖");
+  }
+
+  function translateVerbPhrase(text) {
+    return translateTechPhrase(text)
+      .replace(/^exposes /i, "开放")
+      .replace(/^enables /i, "支持")
+      .replace(/^indexes /i, "索引")
+      .replace(/^builds /i, "构建")
+      .replace(/^provides /i, "提供")
+      .replace(/^supports /i, "支持");
+  }
+
+  function translateTechPhrase(value) {
+    var text = String(value || "").trim();
+    var replacements = [
+      [/Model Context Protocol \(MCP\)/g, "模型上下文协议（MCP）"],
+      [/Model Context Protocol/g, "模型上下文协议"],
+      [/Chrome extension-based/gi, "基于 Chrome 扩展的"],
+      [/High-performance/gi, "高性能"],
+      [/high performance/gi, "高性能"],
+      [/code intelligence/gi, "代码智能"],
+      [/MCP servers and clients/gi, "MCP 服务端和客户端"],
+      [/MCP servers/gi, "MCP 服务端"],
+      [/MCP server/gi, "MCP 服务"],
+      [/MCP clients/gi, "MCP 客户端"],
+      [/persistent knowledge graph/gi, "持久知识图谱"],
+      [/average repo in milliseconds/gi, "普通仓库毫秒级完成"],
+      [/codebases/gi, "代码库"],
+      [/codebase/gi, "代码库"],
+      [/AI assistants like Claude/gi, "Claude 等 AI 助手"],
+      [/AI assistants/gi, "AI 助手"],
+      [/browser automation/gi, "浏览器自动化"],
+      [/content analysis/gi, "内容分析"],
+      [/semantic search/gi, "语义搜索"],
+      [/workflow automation platform/gi, "工作流自动化平台"],
+      [/automation platform/gi, "自动化平台"],
+      [/documentation/gi, "文档"],
+      [/specification/gi, "规范"],
+      [/servers/gi, "服务端"],
+      [/server/gi, "服务"],
+      [/clients/gi, "客户端"],
+      [/client/gi, "客户端"],
+      [/fast/gi, "快速"],
+      [/Pythonic/gi, "符合 Python 风格"],
+      [/way to build/gi, "构建方式"],
+      [/build/gi, "构建"],
+      [/tools?/gi, "工具"],
+      [/framework/gi, "框架"],
+      [/library/gi, "库"],
+      [/open source/gi, "开源"],
+      [/local/gi, "本地"],
+      [/cloud/gi, "云端"],
+      [/zero dependencies/gi, "零依赖"]
+    ];
+    replacements.forEach(function (item) {
+      text = text.replace(item[0], item[1]);
+    });
+    return text
+      .replace(/\s+—\s+/g, "，")
+      .replace(/\s+-\s+/g, "，")
+      .replace(/\s*,\s*/g, "，")
+      .replace(/\s+/g, " ")
+      .trim();
   }
 
   function githubZipUrl(repo) {
