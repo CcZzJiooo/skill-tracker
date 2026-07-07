@@ -9,6 +9,7 @@
 <script src="skill_catalog.js"></script>
 <script src="skill_data.js"></script>
 <script src="skill_log.js"></script>
+<script src="tool_report.js"></script>
 <style>
 :root {
   color-scheme: dark;
@@ -39,6 +40,15 @@
   --tool-codex: #55a7ff;
   --tool-cursor: #79e5d6;
   --tool-windsurf: #a98cff;
+  --tool-opencode: #f0b85a;
+  --tool-aider: #ff7b6e;
+  --tool-cline: #8fb7ff;
+  --tool-roo-code: #7ed78b;
+  --tool-kilo-code: #f48bd3;
+  --tool-copilot: #78d8c7;
+  --tool-qwen-code: #d6a4ff;
+  --tool-goose: #c7dd60;
+  --tool-jetbrains: #ff9b5f;
   --tool-default: #a9a58f;
 }
 
@@ -395,6 +405,16 @@ button {
 .tool-Codex { --tool-color: var(--tool-codex); }
 .tool-Cursor { --tool-color: var(--tool-cursor); }
 .tool-Windsurf { --tool-color: var(--tool-windsurf); }
+.tool-opencode { --tool-color: var(--tool-opencode); }
+.tool-Aider { --tool-color: var(--tool-aider); }
+.tool-Cline { --tool-color: var(--tool-cline); }
+.tool-Roo-Code { --tool-color: var(--tool-roo-code); }
+.tool-Kilo-Code { --tool-color: var(--tool-kilo-code); }
+.tool-GitHub-Copilot { --tool-color: var(--tool-copilot); }
+.tool-Qwen-Code { --tool-color: var(--tool-qwen-code); }
+.tool-Goose { --tool-color: var(--tool-goose); }
+.tool-JetBrains-AI,
+.tool-Junie { --tool-color: var(--tool-jetbrains); }
 
 .view-panel {
   display: none;
@@ -404,11 +424,184 @@ button {
   display: block;
 }
 
+.overview-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(360px, 460px);
+  gap: 14px;
+  align-items: stretch;
+  margin: 12px 0 16px;
+}
+
 .metrics-grid {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.tool-audit-panel {
+  min-width: 0;
+  display: grid;
+  grid-template-rows: auto auto minmax(0, 1fr);
+  gap: 9px;
+  min-height: 0;
+  padding: 13px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background:
+    linear-gradient(135deg, color-mix(in srgb, var(--surface-2) 64%, transparent), transparent 58%),
+    color-mix(in srgb, var(--surface) 94%, transparent);
+  box-shadow: var(--shadow);
+}
+
+.tool-audit-head {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: start;
+  gap: 10px;
+}
+
+.tool-audit-title {
+  margin: 0;
+  color: var(--text);
+  font-size: 13px;
+  font-weight: 760;
+}
+
+.tool-audit-summary {
+  max-width: 210px;
+  color: var(--dim);
+  font-size: 11px;
+  line-height: 1.35;
+  text-align: right;
+}
+
+.tool-audit-kpis {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 12px;
-  margin: 12px 0;
+  gap: 6px;
+}
+
+.tool-audit-kpi {
+  display: grid;
+  gap: 1px;
+  min-width: 0;
+  padding: 6px 7px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: color-mix(in srgb, var(--surface) 72%, transparent);
+}
+
+.tool-audit-kpi span {
+  color: var(--dim);
+  font-size: 9px;
+  font-weight: 760;
+  text-transform: uppercase;
+}
+
+.tool-audit-kpi strong {
+  color: var(--text);
+  font-family: var(--font-mono);
+  font-size: 15px;
+  line-height: 1.05;
+}
+
+.tool-audit-list {
+  min-height: 0;
+  max-height: 246px;
+  overflow: auto;
+  display: grid;
+  gap: 6px;
+  padding-right: 4px;
+  scrollbar-gutter: stable;
+}
+
+.tool-audit-row {
+  --audit-color: var(--faint);
+  min-width: 0;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 3px 8px;
+  align-items: center;
+  padding: 7px 8px;
+  border: 1px solid color-mix(in srgb, var(--audit-color) 32%, var(--border));
+  border-radius: var(--radius-sm);
+  background: color-mix(in srgb, var(--audit-color) 7%, var(--surface));
+}
+
+.tool-audit-row.ok { --audit-color: var(--accent); }
+.tool-audit-row.warn { --audit-color: var(--accent-2); }
+.tool-audit-row.idle { --audit-color: var(--accent-3); }
+.tool-audit-row.missing { --audit-color: var(--faint); }
+
+.tool-audit-main {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.tool-audit-dot {
+  flex: 0 0 auto;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--audit-color);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--audit-color) 16%, transparent);
+}
+
+.tool-audit-tool {
+  min-width: 0;
+  color: var(--text);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 760;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tool-audit-status {
+  flex: 0 0 auto;
+  border-radius: 999px;
+  padding: 2px 6px;
+  background: color-mix(in srgb, var(--audit-color) 14%, transparent);
+  color: color-mix(in srgb, var(--audit-color) 74%, var(--text));
+  font-size: 10px;
+  font-weight: 760;
+  white-space: nowrap;
+}
+
+.tool-audit-stats {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  color: var(--dim);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  white-space: nowrap;
+}
+
+.tool-audit-stats strong {
+  color: var(--text);
+  font-weight: 760;
+}
+
+.tool-audit-note,
+.tool-audit-path {
+  grid-column: 1 / -1;
+  min-width: 0;
+  color: var(--faint);
+  font-size: 11px;
+  line-height: 1.35;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tool-audit-path {
+  font-family: var(--font-mono);
 }
 
 .dashboard-controls {
@@ -425,12 +618,12 @@ button {
 }
 
 .metric-card {
-  min-height: 126px;
+  min-height: 110px;
   border: 1px solid var(--border);
   border-radius: var(--radius);
   background: var(--surface);
   box-shadow: var(--shadow);
-  padding: 16px;
+  padding: 14px 15px;
   display: grid;
   align-content: space-between;
   gap: 14px;
@@ -471,10 +664,6 @@ button {
   align-items: start;
 }
 
-.trend-section {
-  align-self: start;
-}
-
 .section {
   min-width: 0;
   border: 1px solid var(--border);
@@ -482,6 +671,11 @@ button {
   background: color-mix(in srgb, var(--surface) 94%, transparent);
   box-shadow: var(--shadow);
   overflow: hidden;
+}
+
+.section.trend-section {
+  align-self: start;
+  overflow: visible;
 }
 
 .section-head {
@@ -517,16 +711,16 @@ button {
 }
 
 .section-title.compact-title {
-  grid-template-columns: auto minmax(0, 1fr);
-  align-items: baseline;
-  column-gap: 14px;
-  row-gap: 0;
+  grid-template-columns: 1fr;
+  align-items: start;
+  gap: 3px;
 }
 
 .section-title.compact-title p {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  overflow: visible;
+  overflow-wrap: anywhere;
+  text-overflow: clip;
+  white-space: normal;
 }
 
 .section-body {
@@ -536,14 +730,22 @@ button {
 .trend-list {
   display: grid;
   gap: 9px;
+  position: relative;
 }
 
 .trend-row {
+  position: relative;
   display: grid;
   grid-template-columns: minmax(116px, 0.72fr) minmax(0, 1fr) 58px;
   align-items: center;
   gap: 10px;
   min-height: 24px;
+  outline: 0;
+}
+
+.trend-row:focus-visible {
+  border-radius: var(--radius-sm);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 34%, transparent);
 }
 
 .trend-name {
@@ -588,6 +790,109 @@ button {
   color: var(--muted);
   font-size: 12px;
   text-align: right;
+}
+
+.trend-tooltip {
+  position: absolute;
+  left: min(154px, 38%);
+  right: 42px;
+  top: calc(100% + 8px);
+  z-index: 12;
+  min-width: 280px;
+  max-width: 380px;
+  padding: 12px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius);
+  background: color-mix(in srgb, var(--surface) 97%, transparent);
+  box-shadow: var(--shadow);
+  opacity: 0;
+  pointer-events: none;
+  transform: translateY(-4px);
+  transition: opacity var(--motion), transform var(--motion);
+}
+
+.trend-row:hover .trend-tooltip,
+.trend-row:focus-within .trend-tooltip {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.trend-tooltip::before {
+  content: "";
+  position: absolute;
+  left: 22px;
+  top: -6px;
+  width: 10px;
+  height: 10px;
+  border-left: 1px solid var(--border-strong);
+  border-top: 1px solid var(--border-strong);
+  background: color-mix(in srgb, var(--surface) 97%, transparent);
+  transform: rotate(45deg);
+}
+
+.trend-tooltip-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  color: var(--text);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 740;
+}
+
+.trend-tooltip-meta {
+  margin-top: 4px;
+  color: var(--dim);
+  font-size: 11px;
+}
+
+.trend-tooltip-tools {
+  display: grid;
+  gap: 7px;
+  margin-top: 10px;
+}
+
+.trend-tooltip-tool {
+  display: grid;
+  grid-template-columns: minmax(92px, 0.7fr) minmax(72px, 1fr) 58px;
+  align-items: center;
+  gap: 8px;
+}
+
+.trend-tooltip-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.trend-tooltip-track {
+  height: 7px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface-3);
+  overflow: hidden;
+}
+
+.trend-tooltip-fill {
+  display: block;
+  height: 100%;
+  width: var(--tool-share);
+  border-radius: var(--radius-sm);
+  background: var(--tool-color, var(--accent));
+}
+
+.trend-tooltip-count,
+.trend-tooltip-empty {
+  color: var(--muted);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  text-align: right;
+}
+
+.trend-tooltip-empty {
+  text-align: left;
 }
 
 .toolbar {
@@ -762,6 +1067,15 @@ td {
 
 tbody tr.data-row {
   transition: background var(--motion);
+}
+
+tbody tr.skill-click-row {
+  cursor: pointer;
+}
+
+tbody tr.skill-click-row:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--accent) 55%, transparent);
+  outline-offset: -2px;
 }
 
 tbody tr.data-row:hover,
@@ -1316,7 +1630,23 @@ button.catalog-stat.active {
   border-bottom: 1px solid var(--border);
 }
 
-.matrix-toolbar,
+.matrix-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+.matrix-note {
+  flex: 1 1 260px;
+}
+
+.matrix-tool-mode {
+  flex: 0 0 auto;
+}
+
 .github-controls {
   display: grid;
   grid-template-columns: minmax(260px, 1fr) minmax(260px, 1fr) auto auto;
@@ -1356,6 +1686,40 @@ button.catalog-stat.active {
   color: var(--text);
   font-size: 13px;
   font-weight: 800;
+}
+
+.github-sortbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.github-sortbar[hidden] {
+  display: none;
+}
+
+.github-min-stars {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--dim);
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.github-min-stars input {
+  width: 92px;
+  min-height: 34px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--text);
+  padding: 0 9px;
+  font: inherit;
 }
 
 .matrix-shell {
@@ -1806,8 +2170,17 @@ button.catalog-stat.active {
 }
 
 @media (max-width: 1180px) {
+  .overview-grid {
+    grid-template-columns: 1fr;
+  }
+
   .metrics-grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+
+  .tool-audit-list {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+    max-height: 220px;
   }
 
   .content-grid {
@@ -1892,6 +2265,24 @@ button.catalog-stat.active {
     grid-template-columns: 1fr;
   }
 
+  .tool-audit-head {
+    align-items: start;
+    flex-direction: column;
+  }
+
+  .tool-audit-summary {
+    text-align: left;
+  }
+
+  .tool-audit-kpis {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .tool-audit-list {
+    grid-template-columns: 1fr;
+    max-height: 260px;
+  }
+
   .dashboard-controls {
     align-items: stretch;
     flex-direction: column;
@@ -1934,10 +2325,31 @@ button.catalog-stat.active {
     justify-content: stretch;
   }
 
-  .matrix-toolbar,
   .github-controls,
   .github-form {
     grid-template-columns: 1fr;
+  }
+
+  .matrix-toolbar,
+  .github-sortbar {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .matrix-tool-mode,
+  .github-sort-tabs,
+  .github-min-stars {
+    width: 100%;
+  }
+
+  .matrix-tool-mode button,
+  .github-sort-tabs button {
+    flex: 1 1 0;
+  }
+
+  .github-min-stars input {
+    flex: 1 1 auto;
+    width: auto;
   }
 
   .github-form,
@@ -1987,6 +2399,21 @@ button.catalog-stat.active {
   .trend-row {
     grid-template-columns: 1fr;
     gap: 6px;
+  }
+
+  .trend-tooltip {
+    left: 0;
+    right: auto;
+    width: min(320px, calc(100vw - 48px));
+    min-width: 0;
+  }
+
+  .trend-tooltip-tool {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .trend-tooltip-count {
+    text-align: left;
   }
 
   .trend-value {
@@ -2073,14 +2500,23 @@ button.catalog-stat.active {
         </div>
         <div class="mode-note" id="modeNote">同一工具、同一会话、同一 skill 在短时间内重复读取只算一次。</div>
       </div>
-      <div class="metrics-grid" id="metricsGrid"></div>
+      <div class="overview-grid">
+        <div class="metrics-grid" id="metricsGrid"></div>
+        <div class="tool-audit-panel" id="toolAuditPanel"></div>
+      </div>
 
       <div class="content-grid">
         <section class="section trend-section" aria-labelledby="trendHeading">
           <div class="section-head">
             <div class="section-title">
               <h3 id="trendHeading">活跃技能排行</h3>
-              <p>按调用次数排序的 Top 20</p>
+              <p id="trendSubtitle">全量榜 Top 20，按去重调用排序</p>
+            </div>
+            <div class="segmented rank-period-tabs" role="group" aria-label="排行时间范围">
+              <button type="button" class="active" data-ranking-period="all">全量</button>
+              <button type="button" data-ranking-period="day">日榜</button>
+              <button type="button" data-ranking-period="month">月榜</button>
+              <button type="button" data-ranking-period="year">年榜</button>
             </div>
           </div>
           <div class="section-body">
@@ -2295,6 +2731,10 @@ button.catalog-stat.active {
         <div class="section-body">
           <div class="matrix-toolbar">
             <div class="matrix-note" id="matrixNote">当前矩阵跟随顶部统计口径。</div>
+            <div class="segmented matrix-tool-mode" id="matrixToolMode" role="group" aria-label="Matrix tool visibility">
+              <button type="button" class="active" data-matrix-tool-mode="active">活跃工具</button>
+              <button type="button" data-matrix-tool-mode="all">全部工具</button>
+            </div>
             <button type="button" class="action-button" id="exportMatrixJson">导出矩阵 JSON</button>
           </div>
           <div class="matrix-shell" id="skillMatrix"></div>
@@ -2333,6 +2773,17 @@ button.catalog-stat.active {
             <div class="github-result-head">
               <h4>开源项目结果</h4>
               <span id="githubRepoSummary">来自 GitHub 公开仓库搜索</span>
+            </div>
+            <div class="github-sortbar" id="githubSortbar" hidden>
+              <div class="segmented github-sort-tabs" role="group" aria-label="GitHub result sort">
+                <button type="button" class="active" data-github-sort="relevance">相关度</button>
+                <button type="button" data-github-sort="stars">Stars</button>
+                <button type="button" data-github-sort="updated">最近更新</button>
+              </div>
+              <label class="github-min-stars">
+                最低 Stars
+                <input id="githubMinStars" type="number" min="0" step="10" value="0" inputmode="numeric">
+              </label>
             </div>
             <div class="repo-grid" id="githubRepoResults"></div>
           </div>
@@ -2554,9 +3005,13 @@ button.catalog-stat.active {
     };
   });
 
-  var tools = (window.DETECTED_TOOLS && window.DETECTED_TOOLS.length)
-    ? window.DETECTED_TOOLS.slice()
-    : unique(logRows.map(function (row) { return row.tool; }));
+  var detectedTools = (window.DETECTED_TOOLS && window.DETECTED_TOOLS.length)
+    ? window.DETECTED_TOOLS
+    : logRows.map(function (row) { return row.tool; });
+  var tools = unique(detectedTools.map(function (tool) {
+    return String(tool || "").trim();
+  }).filter(Boolean));
+  var toolReport = window.TOOL_REPORT || null;
 
   var dedupWindowMinutes = Number(window.DEDUP_WINDOW_MINUTES || 2);
   hydrateCountsFromLogs();
@@ -2566,6 +3021,7 @@ button.catalog-stat.active {
   var translatedSkills = skillRows.filter(function (row) { return !!row.zhDesc; }).length;
   var expandedSkills = {};
   var skillFilter = "all";
+  var rankingPeriod = "all";
   var skillPage = 0;
   var logTool = "all";
   var logPage = 0;
@@ -2584,7 +3040,12 @@ button.catalog-stat.active {
   var actionPriorityFilter = "all";
   var actionPage = 0;
   var actionPageSize = 8;
+  var matrixToolMode = "active";
   var githubTranslationCache = {};
+  var githubRepoItems = [];
+  var githubRepoRate = "";
+  var githubRepoQueryCount = 0;
+  var githubSortMode = "relevance";
   var pageTitles = {
     stats: "AI Skill Usage Analytics",
     log: "Skill Call Audit Stream",
@@ -2618,6 +3079,7 @@ button.catalog-stat.active {
     exportActionJson: document.getElementById("exportActionJson"),
     matrixSummary: document.getElementById("matrixSummary"),
     matrixNote: document.getElementById("matrixNote"),
+    matrixToolMode: document.getElementById("matrixToolMode"),
     skillMatrix: document.getElementById("skillMatrix"),
     exportMatrixJson: document.getElementById("exportMatrixJson"),
     githubKeyword: document.getElementById("githubKeyword"),
@@ -2632,9 +3094,13 @@ button.catalog-stat.active {
     githubSkillMatches: document.getElementById("githubSkillMatches"),
     githubUpdateResult: document.getElementById("githubUpdateResult"),
     githubRepoResults: document.getElementById("githubRepoResults"),
+    githubSortbar: document.getElementById("githubSortbar"),
+    githubMinStars: document.getElementById("githubMinStars"),
     manualGrid: document.getElementById("manualGrid"),
     pageHeading: document.getElementById("pageHeading"),
     modeNote: document.getElementById("modeNote"),
+    toolAuditPanel: document.getElementById("toolAuditPanel"),
+    trendSubtitle: document.getElementById("trendSubtitle"),
     skillSearch: document.getElementById("skillSearch"),
     skillTableBody: document.getElementById("skillTableBody"),
     skillPager: document.getElementById("skillPager"),
@@ -2657,6 +3123,7 @@ button.catalog-stat.active {
   initTheme();
   renderStaticChrome();
   renderMetrics();
+  renderToolAudit();
   renderTrend();
   renderToolFilters();
   renderCatalogCategoryOptions();
@@ -2698,6 +3165,16 @@ button.catalog-stat.active {
         renderTrend();
         renderSkills(true);
         renderMatrixLab();
+      });
+    });
+
+    document.querySelectorAll("[data-ranking-period]").forEach(function (button) {
+      button.addEventListener("click", function () {
+        rankingPeriod = button.getAttribute("data-ranking-period") || "all";
+        document.querySelectorAll("[data-ranking-period]").forEach(function (item) {
+          item.classList.toggle("active", item === button);
+        });
+        renderTrend();
       });
     });
 
@@ -2753,6 +3230,17 @@ button.catalog-stat.active {
     els.exportDuplicatePlan.addEventListener("click", exportDuplicateCleanupPlan);
     els.exportDuplicateScript.addEventListener("click", exportDuplicateArchiveScript);
     els.exportMatrixJson.addEventListener("click", exportMatrixJson);
+    if (els.matrixToolMode) {
+      els.matrixToolMode.addEventListener("click", function (event) {
+        var button = event.target.closest("[data-matrix-tool-mode]");
+        if (!button) return;
+        matrixToolMode = button.getAttribute("data-matrix-tool-mode") === "all" ? "all" : "active";
+        els.matrixToolMode.querySelectorAll("[data-matrix-tool-mode]").forEach(function (item) {
+          item.classList.toggle("active", item === button);
+        });
+        renderMatrixLab();
+      });
+    }
     els.actionSummary.addEventListener("click", function (event) {
       var button = event.target.closest("[data-action-priority-filter]");
       if (!button) return;
@@ -2782,11 +3270,41 @@ button.catalog-stat.active {
         checkGitHubRepo();
       }
     });
+    if (els.githubSortbar) {
+      els.githubSortbar.addEventListener("click", function (event) {
+        var button = event.target.closest("[data-github-sort]");
+        if (!button) return;
+        githubSortMode = button.getAttribute("data-github-sort") || "relevance";
+        els.githubSortbar.querySelectorAll("[data-github-sort]").forEach(function (item) {
+          item.classList.toggle("active", item === button);
+        });
+        renderGitHubProjects();
+      });
+    }
+    if (els.githubMinStars) {
+      els.githubMinStars.addEventListener("input", function () {
+        renderGitHubProjects();
+      });
+    }
 
     els.skillTableBody.addEventListener("click", function (event) {
       var button = event.target.closest("[data-expand-skill]");
-      if (!button) return;
-      var skill = decodeURIComponent(button.getAttribute("data-expand-skill"));
+      var row = event.target.closest("[data-skill-row]");
+      if (!button && event.target.closest("button, a, input, textarea, select, label")) return;
+      if (!button && !row) return;
+      var encoded = button ? button.getAttribute("data-expand-skill") : row.getAttribute("data-skill-row");
+      var skill = decodeURIComponent(encoded || "");
+      if (!skill) return;
+      expandedSkills[skill] = !expandedSkills[skill];
+      renderSkills(false);
+    });
+    els.skillTableBody.addEventListener("keydown", function (event) {
+      if (event.key !== "Enter" && event.key !== " ") return;
+      var row = event.target.closest("[data-skill-row]");
+      if (!row) return;
+      event.preventDefault();
+      var skill = decodeURIComponent(row.getAttribute("data-skill-row") || "");
+      if (!skill) return;
       expandedSkills[skill] = !expandedSkills[skill];
       renderSkills(false);
     });
@@ -2903,23 +3421,258 @@ button.catalog-stat.active {
     }).join("");
   }
 
+  function renderToolAudit() {
+    if (!els.toolAuditPanel) return;
+    if (!toolReport || !Array.isArray(toolReport.sources)) {
+      els.toolAuditPanel.innerHTML = '<div class="tool-audit-head"><h3 class="tool-audit-title">工具覆盖状态</h3><div class="tool-audit-summary">未生成 tool_report；运行 collect.ps1 后显示本机扫描结果</div></div>';
+      return;
+    }
+
+    var sources = toolReport.sources;
+    var toolNames = unique([].concat(
+      (toolReport.summary && toolReport.summary.supported_tools) || [],
+      sources.map(function (source) { return source.tool; })
+    )).filter(Boolean).sort();
+    var scannedFiles = sources.reduce(function (sum, row) { return sum + Number(row.files_scanned || 0); }, 0);
+    var rawHits = sources.reduce(function (sum, row) { return sum + Number(row.raw_hits || 0); }, 0);
+    var dedupHits = sources.reduce(function (sum, row) { return sum + Number(row.dedup_hits || 0); }, 0);
+    var detectedSources = sources.filter(function (row) { return row.detected === true; }).length;
+    var summary = "发现 " + formatNum(detectedSources) + " 个来源，扫描 " + formatNum(scannedFiles) + " 个文件，命中 " + formatNum(rawHits) + " 条记录";
+    var kpis = [
+      { label: "SUPPORTED", value: toolNames.length },
+      { label: "SOURCES", value: detectedSources },
+      { label: "FILES", value: scannedFiles },
+      { label: "DEDUP HITS", value: dedupHits }
+    ].map(function (item) {
+      return '<div class="tool-audit-kpi"><span>' + escapeHtml(item.label) + '</span><strong>' + formatNum(item.value) + '</strong></div>';
+    }).join("");
+    var rowModels = toolNames.map(function (tool) {
+      var rows = sources.filter(function (row) { return row.tool === tool; });
+      var detected = rows.filter(function (row) { return row.detected === true; });
+      var files = detected.reduce(function (sum, row) { return sum + Number(row.files_scanned || 0); }, 0);
+      var raw = detected.reduce(function (sum, row) { return sum + Number(row.raw_hits || 0); }, 0);
+      var dedup = detected.reduce(function (sum, row) { return sum + Number(row.dedup_hits || 0); }, 0);
+      var status = toolAuditStatus(detected, files, raw);
+      var note = toolAuditNote(detected, files, raw);
+      return {
+        tool: tool,
+        detected: detected,
+        rows: rows,
+        files: files,
+        raw: raw,
+        dedup: dedup,
+        status: status,
+        note: note,
+        rank: raw > 0 ? 0 : files > 0 ? 1 : detected.length ? 2 : 3
+      };
+    }).sort(function (a, b) {
+      return a.rank - b.rank || b.raw - a.raw || b.files - a.files || a.tool.localeCompare(b.tool);
+    });
+    var rowsHtml = rowModels.map(function (item) {
+      var pathRows = item.detected.length ? item.detected : item.rows;
+      var fullPathText = pathRows.length ? pathRows.map(function (row) { return row.path; }).join(" | ") : "default paths missing";
+      var compactPaths = pathRows.slice(0, 2).map(function (row) { return compactLocalPath(row.path); });
+      var pathText = compactPaths.length ? compactPaths.join(" | ") + (pathRows.length > 2 ? " +" + formatNum(pathRows.length - 2) : "") : "default paths missing";
+      return '<article class="tool-audit-row ' + escapeAttr(item.status.kind) + '">'
+        + '<div class="tool-audit-main">'
+        + '<span class="tool-audit-dot" aria-hidden="true"></span>'
+        + '<span class="tool-audit-tool" title="' + escapeAttr(item.tool) + '">' + escapeHtml(item.tool) + '</span>'
+        + '<span class="tool-audit-status">' + escapeHtml(item.status.label) + '</span>'
+        + '</div>'
+        + '<div class="tool-audit-stats" aria-label="sources files raw dedup">'
+        + '<span title="Sources">S <strong>' + formatNum(item.detected.length) + '</strong></span>'
+        + '<span title="Files">F <strong>' + formatNum(item.files) + '</strong></span>'
+        + '<span title="Raw hits">R <strong>' + formatNum(item.raw) + '</strong></span>'
+        + '<span title="Dedup hits">D <strong>' + formatNum(item.dedup) + '</strong></span>'
+        + '</div>'
+        + '<div class="tool-audit-note">' + escapeHtml(item.note) + '</div>'
+        + '<div class="tool-audit-path" title="' + escapeAttr(fullPathText) + '">' + escapeHtml(pathText) + '</div>'
+        + '</article>';
+    }).join("");
+    els.toolAuditPanel.innerHTML = '<div class="tool-audit-head"><h3 class="tool-audit-title">工具覆盖状态</h3><div class="tool-audit-summary">' + escapeHtml(summary) + '</div></div>'
+      + '<div class="tool-audit-kpis">' + kpis + '</div>'
+      + '<div class="tool-audit-list">' + rowsHtml + '</div>';
+  }
+
+  function toolAuditStatus(detected, files, raw) {
+    if (!detected.length) return { kind: "missing", label: "未发现" };
+    if (raw > 0) return { kind: "ok", label: "已读取" };
+    if (files > 0) return { kind: "warn", label: "未命中 skill" };
+    return { kind: "idle", label: "无日志文件" };
+  }
+
+  function toolAuditNote(detected, files, raw) {
+    if (!detected.length) return "默认路径不存在；如已安装，可在 config.json 的 custom_tools 指定日志目录。";
+    if (raw > 0) return "已从本机日志读取到高置信 skill 调用。";
+    if (files > 0) return "日志存在，但未发现 /skill、attributionSkill 或真实 SKILL.md 读取。";
+    return "路径存在，但没有可扫描的日志文件。";
+  }
+
+  function compactLocalPath(value) {
+    var text = String(value || "");
+    var home = String(window.USER_HOME || "");
+    if (!home && text.indexOf("C:\\Users\\") === 0) {
+      var parts = text.split("\\");
+      home = parts.slice(0, 3).join("\\");
+    }
+    if (home) {
+      var roamingPrefix = new RegExp("^" + escapeRegExp(home + "\\AppData\\Roaming"), "i");
+      var localPrefix = new RegExp("^" + escapeRegExp(home + "\\AppData\\Local"), "i");
+      text = text.replace(roamingPrefix, "%APPDATA%").replace(localPrefix, "%LOCALAPPDATA%");
+    }
+    if (home && text.toLowerCase().indexOf(home.toLowerCase()) === 0) {
+      text = "~" + text.slice(home.length);
+    }
+    return text.replace(/\\/g, "/");
+  }
+
   function renderTrend() {
-    var topSkills = sortedSkillRows().filter(function (row) { return getCount(row) > 0; }).slice(0, 20);
-    var maxCount = topSkills.reduce(function (max, row) { return Math.max(max, getCount(row)); }, 0);
+    var rows = rankingSkillRows();
+    var topSkills = rows.filter(function (row) { return Number(row.trendCount || 0) > 0; }).slice(0, 20);
+    var maxCount = topSkills.reduce(function (max, row) { return Math.max(max, row.trendCount); }, 0);
+    updateTrendSubtitle();
     if (!topSkills.length) {
-      els.trendList.innerHTML = '<div class="empty-state">暂无调用数据</div>';
+      els.trendList.innerHTML = '<div class="empty-state">' + escapeHtml(rankingPeriodLabel() + "暂无调用数据") + '</div>';
       return;
     }
 
     els.trendList.innerHTML = topSkills.map(function (row) {
-      var count = getCount(row);
+      var count = Number(row.trendCount || 0);
       var pct = maxCount ? Math.max(2, count / maxCount * 100) : 0;
-      return '<div class="trend-row">'
+      var tooltipText = trendTooltipText(row, count);
+      return '<div class="trend-row" tabindex="0" aria-label="' + escapeAttr(tooltipText) + '">'
         + '<div class="trend-name" title="' + escapeAttr(row.skill) + '">' + escapeHtml(row.skill) + '</div>'
         + '<div class="trend-track" aria-hidden="true"><div class="trend-fill" style="width:' + pct.toFixed(2) + '%"></div></div>'
         + '<div class="trend-value">' + formatNum(count) + '</div>'
+        + renderTrendTooltip(row, count)
         + '</div>';
     }).join("");
+  }
+
+  function rankingSkillRows() {
+    if (!logRows.length && rankingPeriod === "all") {
+      return sortedSkillRows().map(function (row) {
+        return Object.assign({}, row, { trendCount: getCount(row), trendTools: [] });
+      });
+    }
+
+    var bounds = rankingPeriodBounds();
+    var counts = {};
+    logRows.forEach(function (row) {
+      if (!row.skill || !isInRankingPeriod(row, bounds)) return;
+      if (countMode !== "raw" && row.dedup !== true) return;
+      if (!counts[row.skill]) counts[row.skill] = { total: 0, tools: {} };
+      var tool = row.tool || "Unknown";
+      counts[row.skill].total += 1;
+      counts[row.skill].tools[tool] = (counts[row.skill].tools[tool] || 0) + 1;
+    });
+
+    return Object.keys(counts).map(function (skill) {
+      var base = skillRowByName[skill] || { skill: skill, category: "通用技能", zhDesc: "" };
+      var stat = counts[skill];
+      var trendTools = Object.keys(stat.tools).map(function (tool) {
+        return { tool: tool, count: stat.tools[tool] };
+      }).sort(function (a, b) {
+        return b.count - a.count || a.tool.localeCompare(b.tool);
+      });
+      return Object.assign({}, base, { trendCount: stat.total || 0, trendTools: trendTools });
+    }).sort(function (a, b) {
+      return Number(b.trendCount || 0) - Number(a.trendCount || 0) || a.skill.localeCompare(b.skill);
+    });
+  }
+
+  function renderTrendTooltip(row, count) {
+    var modeText = countMode === "raw" ? "原始读取" : "去重调用";
+    var tools = Array.isArray(row.trendTools) ? row.trendTools : [];
+    var toolRows = tools.length ? tools.map(function (item) {
+      var share = count ? Math.max(3, item.count / count * 100) : 0;
+      var percentText = count ? Math.round(item.count / count * 100) + "%" : "0%";
+      return '<div class="trend-tooltip-tool">'
+        + '<span class="tool-tag trend-tooltip-name ' + toolClass(item.tool) + '">' + escapeHtml(item.tool) + '</span>'
+        + '<span class="trend-tooltip-track" aria-hidden="true"><span class="trend-tooltip-fill ' + toolClass(item.tool) + '" style="--tool-share:' + share.toFixed(2) + '%"></span></span>'
+        + '<span class="trend-tooltip-count">' + formatNum(item.count) + ' · ' + percentText + '</span>'
+        + '</div>';
+    }).join("") : '<div class="trend-tooltip-empty">暂无工具分布</div>';
+    return '<div class="trend-tooltip" role="tooltip">'
+      + '<div class="trend-tooltip-head"><span>' + escapeHtml(row.skill) + '</span><span>' + formatNum(count) + '</span></div>'
+      + '<div class="trend-tooltip-meta">' + escapeHtml(rankingPeriodLabel() + " · " + modeText + " · 工具来源分布") + '</div>'
+      + '<div class="trend-tooltip-tools">' + toolRows + '</div>'
+      + '</div>';
+  }
+
+  function trendTooltipText(row, count) {
+    var modeText = countMode === "raw" ? "原始读取" : "去重调用";
+    var tools = Array.isArray(row.trendTools) ? row.trendTools : [];
+    var breakdown = tools.map(function (item) {
+      return item.tool + " " + item.count + " 次";
+    }).join("，") || "暂无工具分布";
+    return row.skill + "，" + rankingPeriodLabel() + "，" + modeText + " " + count + " 次，" + breakdown;
+  }
+
+  function isInRankingPeriod(row, bounds) {
+    if (!bounds || bounds.period === "all") return true;
+    var parsed = Date.parse(row.time || "");
+    if (isNaN(parsed)) return false;
+    return parsed >= bounds.start && parsed < bounds.end;
+  }
+
+  function updateTrendSubtitle() {
+    var modeText = countMode === "raw" ? "原始读取" : "去重调用";
+    var rangeText = rankingPeriodRangeText();
+    els.trendSubtitle.textContent = rankingPeriodLabel() + " Top 20"
+      + (rangeText ? "（" + rangeText + "）" : "")
+      + "，按" + modeText + "排序";
+  }
+
+  function rankingPeriodLabel() {
+    return {
+      all: "全量榜",
+      day: "日榜",
+      month: "月榜",
+      year: "年榜"
+    }[rankingPeriod] || "全量榜";
+  }
+
+  function rankingPeriodRangeText() {
+    var bounds = rankingPeriodBounds();
+    if (!bounds || !bounds.anchor) return "";
+    if (bounds.period === "all") {
+      return bounds.earliest && bounds.latest
+        ? formatDateOnly(bounds.earliest) + "-" + formatDateOnly(bounds.latest)
+        : "";
+    }
+    if (bounds.period === "day") return formatDateOnly(bounds.anchor);
+    if (bounds.period === "month") return bounds.anchor.getFullYear() + "/" + pad2(bounds.anchor.getMonth() + 1);
+    if (bounds.period === "year") return String(bounds.anchor.getFullYear());
+    return "";
+  }
+
+  function rankingPeriodBounds() {
+    var range = logTimeRange();
+    var anchorTime = range.latest || Date.now();
+    var anchor = new Date(anchorTime);
+    if (rankingPeriod === "day") {
+      var dayStart = new Date(anchor.getFullYear(), anchor.getMonth(), anchor.getDate());
+      return { period: "day", anchor: anchor, start: dayStart.getTime(), end: new Date(anchor.getFullYear(), anchor.getMonth(), anchor.getDate() + 1).getTime() };
+    }
+    if (rankingPeriod === "month") {
+      return { period: "month", anchor: anchor, start: new Date(anchor.getFullYear(), anchor.getMonth(), 1).getTime(), end: new Date(anchor.getFullYear(), anchor.getMonth() + 1, 1).getTime() };
+    }
+    if (rankingPeriod === "year") {
+      return { period: "year", anchor: anchor, start: new Date(anchor.getFullYear(), 0, 1).getTime(), end: new Date(anchor.getFullYear() + 1, 0, 1).getTime() };
+    }
+    return { period: "all", anchor: anchor, earliest: range.earliest, latest: range.latest, start: 0, end: Infinity };
+  }
+
+  function logTimeRange() {
+    return logRows.reduce(function (range, row) {
+      var parsed = Date.parse(row.time || "");
+      if (isNaN(parsed)) return range;
+      return {
+        earliest: range.earliest ? Math.min(range.earliest, parsed) : parsed,
+        latest: range.latest ? Math.max(range.latest, parsed) : parsed
+      };
+    }, { earliest: 0, latest: 0 });
   }
 
   function renderToolFilters() {
@@ -3379,14 +4132,18 @@ button.catalog-stat.active {
     var matrix = buildSkillToolMatrix();
     var cards = [
       { label: "矩阵调用", value: matrix.total },
-      { label: "覆盖工具", value: matrix.tools.length },
+      { label: matrixToolMode === "all" ? "全部工具" : "展示工具", value: matrix.tools.length },
       { label: "活跃技能", value: matrix.rows.length },
-      { label: "最高单元", value: matrix.maxCell }
+      { label: "隐藏工具", value: matrix.hiddenTools.length }
     ];
     els.matrixSummary.innerHTML = cards.map(function (card) {
       return '<div class="catalog-stat"><span>' + escapeHtml(card.label) + '</span><strong>' + formatNum(card.value) + '</strong></div>';
     }).join("");
-    els.matrixNote.textContent = "当前使用 " + (countMode === "raw" ? "原始读取" : "去重调用") + " 口径；颜色越亮代表该工具越常触发该 skill。";
+    var toolPolicy = matrixToolMode === "all"
+      ? "当前显示全部检测工具"
+      : "默认只显示有真实命中的活跃工具";
+    els.matrixNote.textContent = "当前使用 " + (countMode === "raw" ? "原始读取" : "去重调用") + " 口径；" + toolPolicy
+      + (matrix.hiddenTools.length ? "，已隐藏 " + formatNum(matrix.hiddenTools.length) + " 个无命中工具。" : "。");
 
     if (!matrix.rows.length) {
       els.skillMatrix.innerHTML = '<div class="empty-state">暂无可生成矩阵的调用日志</div>';
@@ -3417,7 +4174,12 @@ button.catalog-stat.active {
     var sourceRows = logRows.filter(function (row) {
       return countMode === "raw" || row.dedup !== false;
     });
-    var toolNames = tools.length ? tools.slice() : unique(sourceRows.map(function (row) { return row.tool; }));
+    var activeTools = activeMatrixTools(sourceRows);
+    var allTools = unique((tools.length ? tools : []).concat(activeTools)).filter(Boolean);
+    var toolNames = matrixToolMode === "all" ? allTools.slice() : activeTools.slice();
+    var hiddenTools = allTools.filter(function (tool) {
+      return toolNames.indexOf(tool) === -1;
+    });
     var bySkill = {};
     var maxCell = 0;
 
@@ -3442,10 +4204,25 @@ button.catalog-stat.active {
 
     return {
       tools: toolNames,
+      allTools: allTools,
+      activeTools: activeTools,
+      hiddenTools: hiddenTools,
       rows: rows,
       total: sourceRows.length,
       maxCell: maxCell
     };
+  }
+
+  function activeMatrixTools(sourceRows) {
+    var counts = {};
+    sourceRows.forEach(function (row) {
+      var tool = String(row.tool || "").trim();
+      if (!tool) return;
+      counts[tool] = (counts[tool] || 0) + 1;
+    });
+    return Object.keys(counts).sort(function (a, b) {
+      return counts[b] - counts[a] || a.localeCompare(b);
+    });
   }
 
   function exportMatrixJson() {
@@ -3454,8 +4231,11 @@ button.catalog-stat.active {
       schema: "skill-tracker-skill-tool-matrix@1",
       generated_at: new Date().toISOString(),
       count_mode: countMode,
+      tool_mode: matrixToolMode,
       source_generated_at: window.GENERATED_AT || null,
       tools: matrix.tools,
+      all_tools: matrix.allTools,
+      active_tools: matrix.activeTools,
       rows: matrix.rows
     });
   }
@@ -3478,6 +4258,10 @@ button.catalog-stat.active {
     els.githubRepoSection.hidden = true;
     els.githubRepoResults.innerHTML = "";
     els.githubRepoSummary.textContent = "来自 GitHub 公开仓库搜索";
+    if (els.githubSortbar) els.githubSortbar.hidden = true;
+    githubRepoItems = [];
+    githubRepoRate = "";
+    githubRepoQueryCount = 0;
   }
 
   function showGitHubUpdateResult() {
@@ -3513,7 +4297,7 @@ button.catalog-stat.active {
         results.push(result);
         if (result.rate) rates.push(result.rate);
       }
-      var items = mergeGitHubProjectResults(results, intent).slice(0, 8);
+      var items = mergeGitHubProjectResults(results, intent).slice(0, 24);
       setGitHubStatus("搜索完成，正在翻译 " + formatNum(items.length) + " 条仓库描述...");
       await enrichGitHubProjectTranslations(items);
       renderGitHubProjects(items, rates.filter(Boolean).pop() || "", queries.length);
@@ -3527,7 +4311,7 @@ button.catalog-stat.active {
   async function fetchGitHubRepositorySearch(query) {
     var url = "https://api.github.com/search/repositories?q="
       + encodeURIComponent(query)
-      + "&sort=stars&order=desc&per_page=8";
+      + "&sort=stars&order=desc&per_page=20";
     var response = await fetch(url, { headers: { Accept: "application/vnd.github+json" } });
     var payload = await response.json();
     if (!response.ok) throw new Error(payload.message || "GitHub search failed");
@@ -3548,7 +4332,7 @@ button.catalog-stat.active {
     var wantsSkillSearch = /skill|agent|mcp|插件|技能|智能体/i.test(text);
     var concepts = [
       { test: /token|上下文|省|节省|压缩|精简|低成本|成本|context|compress|compact/i, queries: ["token compression agent skill", "context compression agent skill SKILL.md"], words: ["token saving", "context compression", "prompt compression", "agent skill"], skills: ["caveman", "caveman-compress", "caveman-stats"], relevance: ["token", "context", "compression", "compress", "compact"], skillSearch: true },
-      { test: /ppt|pptx|powerpoint|slide|slides|presentation|演示|幻灯片|简报|汇报|课件|生成ppt|做ppt|制作ppt/i, queries: ["powerpoint-generation", "pptx ai presentation generator"], words: ["ppt", "pptx", "powerpoint", "presentation", "slides", "deck", "powerpoint generation"], skills: ["ppt-master"], relevance: ["ppt", "pptx", "powerpoint", "presentation", "slides", "slide", "deck", "powerpoint-generation"], preferred: ["ppt-master", "presenton", "pptxgenjs", "pptagent"] },
+      { test: /ppt|pptx|powerpoint|slide|slides|presentation|演示|幻灯片|简报|汇报|课件|生成ppt|做ppt|制作ppt/i, queries: ["ppt-master master-ppt pptx presentation", "powerpoint-generation pptx ai presentation generator"], words: ["ppt", "pptx", "powerpoint", "presentation", "slides", "deck", "powerpoint generation"], skills: ["ppt-master"], relevance: ["ppt", "pptx", "powerpoint", "presentation", "slides", "slide", "deck", "powerpoint-generation"], preferred: ["ppt-master", "master-ppt", "presenton", "pptxgenjs", "pptagent"] },
       { test: /\bmcp\b|model context protocol|模型上下文协议|上下文协议/i, queries: ["mcp server in:name,description,topics", "model context protocol in:name,description,topics"], words: ["mcp", "model context protocol", "mcp server", "tool server"], skills: ["find-skills"], relevance: ["mcp", "model context protocol", "server", "tool"], preferred: ["modelcontextprotocol", "mcp"], skillSearch: true },
       { test: /记忆|记住|回忆|长期|memory|remember|recall/i, queries: ["agent memory skill", "memory agent workflow SKILL.md"], words: ["agent memory", "memory skill", "recall remember"], skills: ["remember", "recall", "agentmemory-mcp-tools"], relevance: ["memory", "remember", "recall"], skillSearch: true },
       { test: /测试|单测|tdd|质量|验证|test/i, queries: ["test driven development agent skill", "tdd agent workflow SKILL.md"], words: ["test driven development", "testing agent skill", "quality gate"], skills: ["tdd", "diagnose"], relevance: ["tdd", "test", "testing", "quality"], skillSearch: true },
@@ -3731,13 +4515,26 @@ button.catalog-stat.active {
   }
 
   function renderGitHubProjects(items, rate, queryCount) {
-    setGitHubStatus("搜索完成，执行 " + formatNum(queryCount || 1) + " 条查询，去重后展示 " + formatNum(items.length) + " 个候选仓库。" + rate);
-    showGitHubSearchResults("GitHub 搜索结果 · " + formatNum(items.length) + " 个候选仓库");
-    if (!items.length) {
+    if (Array.isArray(items)) githubRepoItems = items.slice();
+    if (typeof rate === "string") githubRepoRate = rate;
+    if (queryCount != null) githubRepoQueryCount = queryCount;
+    var visibleItems = sortedGitHubProjects(githubRepoItems).slice(0, 8);
+    var minStars = githubMinStarsValue();
+    var sortLabel = githubSortLabel();
+    setGitHubStatus("搜索完成，执行 " + formatNum(githubRepoQueryCount || 1) + " 条查询，去重后 " + formatNum(githubRepoItems.length)
+      + " 个候选仓库，按" + sortLabel + "显示 " + formatNum(visibleItems.length) + " 个"
+      + (minStars > 0 ? "，最低 Stars " + formatNum(minStars) : "") + "。" + githubRepoRate);
+    showGitHubSearchResults("GitHub 搜索结果 · " + formatNum(githubRepoItems.length) + " 个候选仓库");
+    if (els.githubSortbar) els.githubSortbar.hidden = !githubRepoItems.length;
+    if (!githubRepoItems.length) {
       els.githubRepoResults.innerHTML = '<div class="empty-state">没有找到匹配仓库，换一个关键词试试</div>';
       return;
     }
-    els.githubRepoResults.innerHTML = items.map(function (repo) {
+    if (!visibleItems.length) {
+      els.githubRepoResults.innerHTML = '<div class="empty-state">当前筛选没有结果，降低最低 Stars 或切换排序方式。</div>';
+      return;
+    }
+    els.githubRepoResults.innerHTML = visibleItems.map(function (repo) {
       var topics = (repo.topics || []).slice(0, 4);
       var tags = topics.length ? topics.map(function (topic) {
         return '<span class="repo-tag">' + escapeHtml(topic) + '</span>';
@@ -3764,6 +4561,46 @@ button.catalog-stat.active {
         + '</div>'
         + '</article>';
     }).join("");
+  }
+
+  function sortedGitHubProjects(items) {
+    var minStars = githubMinStarsValue();
+    return (items || []).filter(function (repo) {
+      return Number(repo.stargazers_count || 0) >= minStars;
+    }).slice().sort(function (a, b) {
+      if (githubSortMode === "stars") {
+        return Number(b.stargazers_count || 0) - Number(a.stargazers_count || 0)
+          || Number(b._skillTrackerScore || 0) - Number(a._skillTrackerScore || 0)
+          || repoName(a).localeCompare(repoName(b));
+      }
+      if (githubSortMode === "updated") {
+        return repoTime(b) - repoTime(a)
+          || Number(b._skillTrackerScore || 0) - Number(a._skillTrackerScore || 0)
+          || Number(b.stargazers_count || 0) - Number(a.stargazers_count || 0)
+          || repoName(a).localeCompare(repoName(b));
+      }
+      return Number(b._skillTrackerScore || 0) - Number(a._skillTrackerScore || 0)
+        || Number(b.stargazers_count || 0) - Number(a.stargazers_count || 0)
+        || repoName(a).localeCompare(repoName(b));
+    });
+  }
+
+  function githubMinStarsValue() {
+    var value = Number(els.githubMinStars ? els.githubMinStars.value : 0);
+    return isFinite(value) && value > 0 ? Math.floor(value) : 0;
+  }
+
+  function githubSortLabel() {
+    return githubSortMode === "stars" ? "Stars" : githubSortMode === "updated" ? "最近更新" : "相关度";
+  }
+
+  function repoName(repo) {
+    return String((repo && (repo.full_name || repo.name)) || "");
+  }
+
+  function repoTime(repo) {
+    var parsed = Date.parse((repo && (repo.pushed_at || repo.updated_at)) || "");
+    return isNaN(parsed) ? 0 : parsed;
   }
 
   function describeGitHubRepository(repo) {
@@ -4101,7 +4938,7 @@ button.catalog-stat.active {
       {
         title: "统计总览",
         step: "先看这里",
-        body: "用于快速判断当前机器上哪些 skill 最常被调用。切换去重/原始口径，可以分辨真实使用量和重复读取噪声。"
+        body: "用于快速判断当前机器上哪些 skill 最常被调用。活跃排行支持全量、日榜、月榜、年榜，切换去重/原始口径可以分辨真实使用量和重复读取噪声。"
       },
       {
         title: "调用日志",
@@ -4572,11 +5409,11 @@ button.catalog-stat.active {
         var expanded = !!expandedSkills[row.skill];
         var zhDesc = row.zhDesc || "暂未收录中文翻译。";
         var originalDesc = usefulOriginalDesc(row.desc) ? row.desc : "原始说明缺失或被截断。";
-        var html = '<tr class="data-row' + (expanded ? ' expanded' : '') + '">'
+        var html = '<tr class="data-row skill-click-row' + (expanded ? ' expanded' : '') + '" data-skill-row="' + key + '" tabindex="0" aria-expanded="' + (expanded ? 'true' : 'false') + '">'
           + '<td><div class="skill-cell"><span class="skill-name' + (count === 0 ? ' zero' : '') + '">' + escapeHtml(row.skill) + '</span><span class="skill-summary">[' + escapeHtml(row.category) + '] ' + escapeHtml(zhDesc) + '</span></div></td>'
           + '<td class="count-cell">' + formatNum(count) + '</td>'
           + '<td><div class="pct-cell"><div class="pct-track" aria-hidden="true"><div class="pct-fill" style="width:' + pctOfMax.toFixed(2) + '%"></div></div><span class="pct-value">' + share.toFixed(2) + '%</span></div></td>'
-          + '<td><button type="button" class="expand-btn" data-expand-skill="' + key + '" aria-label="展开 ' + escapeAttr(row.skill) + '"><span class="chevron"></span></button></td>'
+          + '<td><button type="button" class="expand-btn" data-expand-skill="' + key + '" aria-expanded="' + (expanded ? 'true' : 'false') + '" aria-label="展开 ' + escapeAttr(row.skill) + '"><span class="chevron"></span></button></td>'
           + '</tr>';
         if (expanded) {
           html += '<tr class="drawer-row"><td colspan="4"><div class="drawer"><div class="drawer-grid">'
@@ -4781,6 +5618,17 @@ button.catalog-stat.active {
       hour: "2-digit",
       minute: "2-digit"
     }).format(date);
+  }
+
+  function formatDateOnly(value) {
+    if (!value) return "--";
+    var date = new Date(value);
+    if (isNaN(date.getTime())) return "--";
+    return date.getFullYear() + "/" + pad2(date.getMonth() + 1) + "/" + pad2(date.getDate());
+  }
+
+  function pad2(value) {
+    return String(value).padStart(2, "0");
   }
 
   function usefulOriginalDesc(value) {

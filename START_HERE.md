@@ -68,5 +68,7 @@ Generated local telemetry stays on your machine and is ignored by Git:
 - `dashboard/skill_call_stats.json`
 - `dashboard/skill_catalog.json`
 - `dashboard/skill_catalog.js`
+- `dashboard/tool_report.json`
+- `dashboard/tool_report.js`
 
 Use the dashboard's anonymous export before sharing reports or screenshots publicly.

@@ -1,5 +1,6 @@
 {
   "skills_root": "",
+  "skills_roots": [],
   "output_dir": "./dashboard",
   "max_log_entries": 5000,
   "dedup_window_minutes": 2,

@@ -17,7 +17,7 @@ Modern AI coding agents can call skills, plugins, prompts, and local workflows, 
 
 Skill Tracker makes that hidden layer visible.
 
-- See which skills are used across Codex, Claude Code, Cursor, Windsurf, Antigravity, Continue, and Gemini CLI.
+- See which skills are used across Codex, Claude Code, Cursor, Windsurf, Antigravity, opencode, Aider, Cline/Roo/Kilo, Copilot, Continue, Gemini CLI, Hermes, Trae, and other local AI coding tools.
 - Translate each skill's purpose into Chinese so non-English users can understand the local skill library.
 - Search by natural language intent, such as "I need a skill that saves tokens".
 - Detect duplicated or overlapping skills and export reviewable cleanup plans.
@@ -28,7 +28,7 @@ Skill Tracker makes that hidden layer visible.
 
 Skill Tracker 是一个本地优先的 AI Agent 技能调用可视化工具。它扫描本机 AI 编程工具的会话日志，统计哪些 `SKILL.md` 被调用，并在静态 dashboard 中展示技能热度、调用链路、中文功能说明、重复 skill 治理、GitHub 搜索和可导出的行动方案。
 
-它适合想管理 Codex / Claude Code / Cursor / Windsurf / Antigravity / Gemini CLI 等工具技能体系的开发者。
+它适合想管理 Codex / Claude Code / Cursor / Windsurf / Antigravity / Gemini CLI / Hermes / Trae 等工具技能体系的开发者。
 
 ## Quick Start
 
@@ -59,6 +59,12 @@ Manual mode:
 ```powershell
 powershell -ExecutionPolicy Bypass -File .\collect.ps1
 start .\dashboard\index.html
+```
+
+Collector verification before release:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\verify-collector.ps1
 ```
 
 If no local logs have been collected yet, the dashboard opens with synthetic demo data from `dashboard/demo_data.js`, so contributors can inspect the interface immediately after cloning.
@@ -104,14 +110,41 @@ Skill Tracker currently detects common local paths for:
 | Tool | Example log path |
 |---|---|
 | Antigravity IDE | `~/.gemini/antigravity-ide/brain/` |
+| Aider | `.aider.chat.history.md`, `.aider.llm.history` in the current project or configured project path |
+| Amazon Q Developer | `%APPDATA%/Code/User/globalStorage/amazonwebservices.amazon-q-vscode/` |
+| Amp | `~/.config/amp/`, `%APPDATA%/amp/` |
+| Augment Code | `%APPDATA%/Code/User/globalStorage/augment.vscode-augment/` |
 | Claude Code | `~/.claude/projects/` |
+| Cline | `%APPDATA%/Code/User/globalStorage/saoudrizwan.claude-dev/` |
 | Codex | `~/.codex/sessions/`, `~/.codex/archived_sessions/` |
 | Cursor | `%APPDATA%/Cursor/logs/` |
-| Windsurf | `%APPDATA%/Windsurf/logs/` |
 | Continue | `~/.continue/sessions/` |
 | Gemini CLI | `~/.gemini/sessions/` |
+| GitHub Copilot | `%APPDATA%/Code/User/globalStorage/github.copilot-chat/`, `%APPDATA%/Code/User/workspaceStorage/` |
+| Goose | `~/.config/goose/sessions/`, `~/.local/share/goose/sessions/` |
+| Hermes | `~/.hermes/sessions/`, `~/.hermes/logs/` |
+| JetBrains AI / Junie | `%LOCALAPPDATA%/JetBrains/`, `%APPDATA%/JetBrains/`, `~/.junie/logs/` |
+| Kilo Code | `%APPDATA%/Code/User/globalStorage/kilocode.kilo-code/`, `~/.kilo/` |
+| opencode | `~/.local/share/opencode/log/`, `~/.config/opencode/` |
+| Qwen Code | `~/.qwen/logs/openai/`, `~/.qwen/debug/`, `~/.qwen/` |
+| Roo Code | `%APPDATA%/Code/User/globalStorage/rooveterinaryinc.roo-cline/` |
+| Sourcegraph Cody | `%APPDATA%/Code/User/globalStorage/sourcegraph.cody-ai/` |
+| Tabby | `%APPDATA%/Code/User/globalStorage/TabbyML.vscode-tabby/` |
+| Tabnine | `%APPDATA%/Code/User/globalStorage/TabNine.tabnine-vscode/`, `~/.tabnine/` |
+| Trae | `%APPDATA%/Trae/logs/`, `%APPDATA%/Trae/User/workspaceStorage/` |
+| Windsurf | `%APPDATA%/Windsurf/logs/` |
+| Zed Assistant | `%LOCALAPPDATA%/Zed/logs/`, `~/.config/zed/conversations/` |
 
 Skill roots are auto-detected from common local skill folders. You can also set your own path in `config.json`.
+
+After collection, Skill Tracker writes a local tool coverage report:
+
+- `dashboard/tool_report.json`
+- `dashboard/tool_report.js`
+
+This report shows every built-in or custom source path, whether it exists on the user's machine, how many log files were scanned, and how many raw/deduplicated skill hits were found. It is the source of truth for checking whether a downloaded copy can read that user's local tools correctly.
+
+Unknown tools cannot be guaranteed automatically unless their log path and log format expose skill calls. Add those paths through `custom_tools`, then run the collector verification command below.
 
 ## Configuration
 
@@ -120,6 +153,7 @@ Edit `config.json`:
 ```json
 {
   "skills_root": "",
+  "skills_roots": [],
   "output_dir": "./dashboard",
   "max_log_entries": 5000,
   "dedup_window_minutes": 2,
@@ -131,7 +165,8 @@ Edit `config.json`:
 
 Fields:
 
-- `skills_root`: Local skill directory. Leave empty to auto-detect common folders.
+- `skills_root`: One local skill directory. Leave empty to auto-detect common folders.
+- `skills_roots`: Optional extra skill directories. Hermes skills such as `~/.hermes/skills` are auto-detected when present.
 - `output_dir`: Dashboard data output directory.
 - `max_log_entries`: Maximum log entries emitted for the dashboard.
 - `dedup_window_minutes`: Time bucket used to collapse repeated reads.
@@ -146,6 +181,8 @@ Running `collect.ps1` generates or updates:
 - `dashboard/skill_call_stats.json`
 - `dashboard/skill_catalog.json`
 - `dashboard/skill_catalog.js`
+- `dashboard/tool_report.json`
+- `dashboard/tool_report.js`
 
 These real local telemetry files are ignored by Git on purpose. They may contain private session IDs, local paths, and internal skill metadata. The public demo data is `dashboard/demo_data.js`.
 
@@ -168,7 +205,7 @@ AI agents usually load a skill by reading a path like:
 skills/<name>/SKILL.md
 ```
 
-Skill Tracker scans local session logs for those reads, extracts skill name, source tool, timestamp, and session identifier, then emits static JS/JSON data files for `dashboard/index.html`.
+Skill Tracker scans local session logs for high-confidence skill signals: explicit `/skill` invocations, Claude Code `attributionSkill` records, and real tool reads of `SKILL.md`. Generated skill inventories, grep/search output, command output, and duplicate transcript copies are filtered out before data is emitted.
 
 Default deduplication key:
 
@@ -177,6 +214,23 @@ tool + session/file + skill + time bucket
 ```
 
 For example, with `dedup_window_minutes = 2`, repeated reads of the same skill in the same session within two minutes count as one deduplicated call while the raw read count is preserved.
+
+## Verification
+
+After running collection, validate local tool detection and skill-call data:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\verify-collector.ps1 -SkipCollect
+```
+
+The verifier checks:
+
+- no duplicate detected tools;
+- every emitted log row has a known tool and skill;
+- deduplicated rows have unique dedup keys;
+- visible raw log rows are not duplicated;
+- `tool_report.js` exists and every detected tool has a source coverage row;
+- report `raw_hits` is at least the number of emitted log rows.
 
 ## Open Source Positioning
 

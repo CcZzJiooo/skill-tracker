@@ -92,3 +92,41 @@ var SKILL_LOG = [
 var GENERATED_AT = "Demo data";
 var DEDUP_WINDOW_MINUTES = 2;
 var DETECTED_TOOLS = ["Codex", "ClaudeCode", "Antigravity"];
+var TOOL_REPORT = {
+  generated_at: "Demo data",
+  summary: {
+    supported_tools: ["Aider", "Amazon Q", "Amp", "Antigravity", "Augment", "ClaudeCode", "Cline", "Codex", "Continue", "Cursor", "Gemini CLI", "GitHub Copilot", "Goose", "Hermes", "JetBrains AI", "Junie", "Kilo Code", "Qwen Code", "Roo Code", "Sourcegraph Cody", "Tabby", "Tabnine", "Trae", "Windsurf", "Zed", "opencode"],
+    detected_source_count: 3,
+    scanned_file_count: 8,
+    raw_hits: 9,
+    dedup_hits: 7
+  },
+  sources: [
+    { tool: "Antigravity", path: "demo://antigravity", source: "demo", detected: true, files_scanned: 2, raw_hits: 3, dedup_hits: 3, status: "ok" },
+    { tool: "Aider", path: "demo://aider", source: "demo", detected: false, files_scanned: 0, raw_hits: 0, dedup_hits: 0, status: "missing" },
+    { tool: "Amazon Q", path: "demo://amazon-q", source: "demo", detected: false, files_scanned: 0, raw_hits: 0, dedup_hits: 0, status: "missing" },
+    { tool: "Amp", path: "demo://amp", source: "demo", detected: false, files_scanned: 0, raw_hits: 0, dedup_hits: 0, status: "missing" },
+    { tool: "Augment", path: "demo://augment", source: "demo", detected: false, files_scanned: 0, raw_hits: 0, dedup_hits: 0, status: "missing" },
+    { tool: "ClaudeCode", path: "demo://claudecode", source: "demo", detected: true, files_scanned: 2, raw_hits: 3, dedup_hits: 2, status: "ok" },
+    { tool: "Cline", path: "demo://cline", source: "demo", detected: false, files_scanned: 0, raw_hits: 0, dedup_hits: 0, status: "missing" },
+    { tool: "Codex", path: "demo://codex", source: "demo", detected: true, files_scanned: 4, raw_hits: 3, dedup_hits: 2, status: "ok" },
+    { tool: "Continue", path: "demo://continue", source: "demo", detected: false, files_scanned: 0, raw_hits: 0, dedup_hits: 0, status: "missing" },
+    { tool: "Cursor", path: "demo://cursor", source: "demo", detected: false, files_scanned: 0, raw_hits: 0, dedup_hits: 0, status: "missing" },
+    { tool: "Gemini CLI", path: "demo://gemini-cli", source: "demo", detected: false, files_scanned: 0, raw_hits: 0, dedup_hits: 0, status: "missing" },
+    { tool: "GitHub Copilot", path: "demo://github-copilot", source: "demo", detected: false, files_scanned: 0, raw_hits: 0, dedup_hits: 0, status: "missing" },
+    { tool: "Goose", path: "demo://goose", source: "demo", detected: false, files_scanned: 0, raw_hits: 0, dedup_hits: 0, status: "missing" },
+    { tool: "Hermes", path: "demo://hermes", source: "demo", detected: false, files_scanned: 0, raw_hits: 0, dedup_hits: 0, status: "missing" },
+    { tool: "JetBrains AI", path: "demo://jetbrains-ai", source: "demo", detected: false, files_scanned: 0, raw_hits: 0, dedup_hits: 0, status: "missing" },
+    { tool: "Junie", path: "demo://junie", source: "demo", detected: false, files_scanned: 0, raw_hits: 0, dedup_hits: 0, status: "missing" },
+    { tool: "Kilo Code", path: "demo://kilo-code", source: "demo", detected: false, files_scanned: 0, raw_hits: 0, dedup_hits: 0, status: "missing" },
+    { tool: "Qwen Code", path: "demo://qwen-code", source: "demo", detected: false, files_scanned: 0, raw_hits: 0, dedup_hits: 0, status: "missing" },
+    { tool: "Roo Code", path: "demo://roo-code", source: "demo", detected: false, files_scanned: 0, raw_hits: 0, dedup_hits: 0, status: "missing" },
+    { tool: "Sourcegraph Cody", path: "demo://sourcegraph-cody", source: "demo", detected: false, files_scanned: 0, raw_hits: 0, dedup_hits: 0, status: "missing" },
+    { tool: "Tabby", path: "demo://tabby", source: "demo", detected: false, files_scanned: 0, raw_hits: 0, dedup_hits: 0, status: "missing" },
+    { tool: "Tabnine", path: "demo://tabnine", source: "demo", detected: false, files_scanned: 0, raw_hits: 0, dedup_hits: 0, status: "missing" },
+    { tool: "Trae", path: "demo://trae", source: "demo", detected: false, files_scanned: 0, raw_hits: 0, dedup_hits: 0, status: "missing" },
+    { tool: "Windsurf", path: "demo://windsurf", source: "demo", detected: false, files_scanned: 0, raw_hits: 0, dedup_hits: 0, status: "missing" },
+    { tool: "Zed", path: "demo://zed", source: "demo", detected: false, files_scanned: 0, raw_hits: 0, dedup_hits: 0, status: "missing" },
+    { tool: "opencode", path: "demo://opencode", source: "demo", detected: false, files_scanned: 0, raw_hits: 0, dedup_hits: 0, status: "missing" }
+  ]
+};

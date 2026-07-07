@@ -82,6 +82,8 @@ Private generated files stay local and are not included in this release package:
 - dashboard/skill_call_stats.json
 - dashboard/skill_catalog.json
 - dashboard/skill_catalog.js
+- dashboard/tool_report.json
+- dashboard/tool_report.js
 
 If Windows blocks the script, run this from PowerShell:
 powershell -NoProfile -ExecutionPolicy Bypass -File .\collect.ps1
@@ -94,7 +96,9 @@ $ForbiddenFiles = @(
     "dashboard\skill_log.js",
     "dashboard\skill_call_stats.json",
     "dashboard\skill_catalog.json",
-    "dashboard\skill_catalog.js"
+    "dashboard\skill_catalog.js",
+    "dashboard\tool_report.json",
+    "dashboard\tool_report.js"
 )
 foreach ($file in $ForbiddenFiles) {
     if (Test-Path -LiteralPath (Join-Path $StageDir $file)) {
