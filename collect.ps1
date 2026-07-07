@@ -60,19 +60,29 @@ $AUTO_DETECT_TOOLS = @(
 )
 
 $activeSources = [System.Collections.Generic.List[hashtable]]::new()
+$activeSourceKeys = @{}
 foreach ($tool in $AUTO_DETECT_TOOLS) {
     foreach ($p in $tool.Paths) {
         if (Test-Path $p) {
-            $activeSources.Add(@{ Name=$tool.Name; Root=$p; TsField=$tool.TsField })
-            Write-Host "  [FOUND] $($tool.Name)  ->  $p"
-            break
+            $resolvedPath = (Resolve-Path -LiteralPath $p).Path
+            $sourceKey = "$($tool.Name)|$resolvedPath"
+            if (-not $activeSourceKeys.ContainsKey($sourceKey)) {
+                $activeSources.Add(@{ Name=$tool.Name; Root=$resolvedPath; TsField=$tool.TsField })
+                $activeSourceKeys[$sourceKey] = $true
+                Write-Host "  [FOUND] $($tool.Name)  ->  $resolvedPath"
+            }
         }
     }
 }
 foreach ($ct in $cfg.custom_tools) {
     if ($ct.path -and (Test-Path $ct.path)) {
-        $activeSources.Add(@{ Name=$ct.name; Root=$ct.path; TsField="timestamp" })
-        Write-Host "  [CUSTOM] $($ct.name)  ->  $($ct.path)"
+        $resolvedPath = (Resolve-Path -LiteralPath $ct.path).Path
+        $sourceKey = "$($ct.name)|$resolvedPath"
+        if (-not $activeSourceKeys.ContainsKey($sourceKey)) {
+            $activeSources.Add(@{ Name=$ct.name; Root=$resolvedPath; TsField="timestamp" })
+            $activeSourceKeys[$sourceKey] = $true
+            Write-Host "  [CUSTOM] $($ct.name)  ->  $resolvedPath"
+        }
     }
 }
 if ($activeSources.Count -eq 0) { Write-Warning "No AI tools detected."; exit 1 }
@@ -193,6 +203,14 @@ foreach ($src in $activeSources) {
             while (-not $sr.EndOfStream) {
                 $line = $sr.ReadLine()
                 if (-not $line -or -not $line.Contains('SKILL.md')) { continue }
+                # Codex session files include a generated "available skills" manifest at
+                # the start of a turn. That manifest lists every installed SKILL.md and is
+                # not an actual skill invocation, so skip it before path extraction.
+                if (
+                    $line.Contains('<skills_instructions>') -or
+                    $line.Contains('### Available skills') -or
+                    $line.Contains('### Skill roots')
+                ) { continue }
 
                 # Extract timestamp (ISO string first, then Unix epoch)
                 $ts = ''
