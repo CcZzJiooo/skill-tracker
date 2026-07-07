@@ -4599,6 +4599,7 @@ button.catalog-stat.active {
     var query = els.logSearch.value.trim().toLowerCase();
     filteredLogs = logRows.filter(function (row) {
       if (logTool !== "all" && row.tool !== logTool) return false;
+      if (countMode !== "raw" && row.dedup === false) return false;
       if (query && (row.skill + " " + row.session + " " + row.tool).toLowerCase().indexOf(query) === -1) return false;
       return true;
     });
@@ -4648,6 +4649,9 @@ button.catalog-stat.active {
     });
     var firstTime = rows[0] ? formatDate(rows[0].time) : "--";
     var lastTime = rows[rows.length - 1] ? formatDate(rows[rows.length - 1].time) : "--";
+    var timelineRows = countMode === "raw" ? rows : rows.filter(function (row) {
+      return row.dedup !== false;
+    });
 
     els.sessionModalId.textContent = sessionId || "--";
     els.sessionModalBody.innerHTML =
@@ -4658,7 +4662,7 @@ button.catalog-stat.active {
       + '<div class="summary-item"><span>涉及技能</span><strong>' + formatNum(uniqueSkills.length) + '</strong></div>'
       + '</div>'
       + '<div class="session-timeline">'
-      + rows.map(function (row) {
+      + timelineRows.map(function (row) {
         var catalog = catalogBySkill[row.skill] || {};
         var skillRow = skillRowByName[row.skill] || {};
         var zhDesc = skillRow.zhDesc || catalog.zh_desc || ZH_DESC[row.skill] || "";
