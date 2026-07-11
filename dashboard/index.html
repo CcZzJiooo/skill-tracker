@@ -2534,6 +2534,128 @@ button.catalog-stat.active {
   }
 }
 
+/* --- Single-slot sync status --- */
+.toast-stack {
+  position: fixed;
+  top: 24px;
+  right: 24px;
+  z-index: 1000;
+  width: min(380px, calc(100vw - 48px));
+  min-height: 88px;
+  pointer-events: none;
+}
+
+.toast {
+  position: absolute;
+  inset: 0;
+  box-sizing: border-box;
+  pointer-events: auto;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 14px 18px;
+  border-radius: 12px;
+  border: 1px solid color-mix(in srgb, var(--toast-color, var(--accent)) 25%, var(--border));
+  background: color-mix(in srgb, var(--surface) 80%, transparent);
+  backdrop-filter: blur(12px) saturate(180%);
+  -webkit-backdrop-filter: blur(12px) saturate(180%);
+  box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.12),
+              0 2px 8px 0 color-mix(in srgb, var(--toast-color, var(--accent)) 6%, transparent);
+  transform-origin: top right;
+  transform: translateY(-8px) scale(0.985);
+  opacity: 0;
+  animation: toast-in 220ms cubic-bezier(0.2, 0.8, 0.2, 1) forwards;
+}
+
+.toast.state-changing {
+  animation: toast-state-change 180ms ease-out both;
+}
+
+.toast.dismissing {
+  animation: toast-out 180ms ease-in both;
+}
+
+.toast-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--toast-color, var(--accent)) 12%, transparent);
+  color: var(--toast-color, var(--accent));
+  flex-shrink: 0;
+  box-shadow: inset 0 1px 0 0 rgba(255, 255, 255, 0.05);
+}
+
+.toast-icon svg.spin {
+  animation: toast-spin 1.2s linear infinite;
+}
+
+.toast-content {
+  flex-grow: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.toast strong {
+  display: block;
+  color: var(--text);
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+.toast span {
+  display: block;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.toast.info { --toast-color: var(--accent-3); }
+.toast.success { --toast-color: var(--accent); }
+.toast.warning { --toast-color: var(--accent-2); }
+.toast.error { --toast-color: var(--danger); }
+
+@keyframes toast-in {
+  from {
+    transform: translateY(-8px) scale(0.985);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0) scale(1);
+    opacity: 1;
+  }
+}
+
+@keyframes toast-state-change {
+  from {
+    transform: translateY(0) scale(0.985);
+    opacity: 0.55;
+  }
+  to {
+    transform: translateY(0) scale(1);
+    opacity: 1;
+  }
+}
+
+@keyframes toast-out {
+  from {
+    transform: translateY(0) scale(1);
+    opacity: 1;
+  }
+  to {
+    transform: translateY(-4px) scale(0.985);
+    opacity: 0;
+  }
+}
+
+@keyframes toast-spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
 </style>
 </head>
 <body>
@@ -2600,6 +2722,7 @@ button.catalog-stat.active {
         <h2 id="pageHeading">AI Skill Usage Analytics</h2>
       </div>
       <div class="topbar-actions">
+        <button type="button" class="action-button manual-refresh-btn" id="manualRefresh" aria-label="同步本地数据">同步</button>
         <button type="button" class="action-button" id="exportAnonymous">匿名导出</button>
         <div class="tool-strip" id="toolBadges" aria-label="Detected tools"></div>
       </div>
@@ -2940,6 +3063,8 @@ button.catalog-stat.active {
     </section>
   </main>
 </div>
+
+<div class="toast-stack" id="syncToastStack" aria-live="polite" aria-atomic="true"></div>
 
 <div class="modal-backdrop" id="sessionModal" aria-hidden="true">
   <section class="session-modal" role="dialog" aria-modal="true" aria-labelledby="sessionModalTitle">
@@ -5909,6 +6034,274 @@ button.catalog-stat.active {
   function escapeAttr(value) {
     return escapeHtml(value).replace(/`/g, "&#96;");
   }
+  // Real-time synchronization (Watch mode)
+  (function () {
+    var lastGeneratedAt = window.GENERATED_AT || "";
+    var lastBuildId = window.BUILD_ID != null ? String(window.BUILD_ID) : "";
+    var isReloading = false;
+    var isManualChecking = false;
+    var toastId = 0;
+    var activeSyncToast = null;
+    var syncToastTimer = null;
+
+    function setManualRefreshBusy(isBusy) {
+      document.querySelectorAll(".manual-refresh-btn").forEach(function (button) {
+        button.disabled = isBusy;
+        button.setAttribute("aria-busy", String(isBusy));
+        button.textContent = isBusy ? "同步中..." : "同步";
+      });
+    }
+
+    function dismissToast(toast) {
+      if (!toast || toast.classList.contains("dismissing")) return;
+      toast.classList.add("dismissing");
+      var dismissId = String(Number(toast.dataset.dismissId || 0) + 1);
+      toast.dataset.dismissId = dismissId;
+      window.setTimeout(function () {
+        if (toast.dataset.dismissId !== dismissId || !toast.classList.contains("dismissing")) return;
+        if (toast.parentNode) toast.parentNode.removeChild(toast);
+        if (activeSyncToast === toast) activeSyncToast = null;
+      }, 250);
+    }
+
+    function clearAllToasts() {
+      var stack = document.getElementById("syncToastStack");
+      if (!stack) return;
+      var toasts = stack.querySelectorAll(".toast");
+      for (var i = 0; i < toasts.length; i++) {
+        if (toasts[i] !== activeSyncToast) dismissToast(toasts[i]);
+      }
+    }
+
+    function showSyncToast(title, message, type, timeout) {
+      var stack = document.getElementById("syncToastStack");
+      if (!stack) return;
+
+      var iconHtml = "";
+      if (type === "success") {
+        iconHtml = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>';
+      } else if (type === "error") {
+        iconHtml = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>';
+      } else if (type === "warning") {
+        iconHtml = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>';
+      } else {
+        // info / spinner
+        iconHtml = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="spin"><path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"></path></svg>';
+      }
+
+      var toast = activeSyncToast;
+      var isNewToast = !toast || !toast.parentNode;
+      if (isNewToast) {
+        toast = document.createElement("div");
+        toast.setAttribute("role", "status");
+        activeSyncToast = toast;
+        stack.appendChild(toast);
+      } else {
+        toast.dataset.dismissId = String(Number(toast.dataset.dismissId || 0) + 1);
+        toast.classList.remove("dismissing", "state-changing");
+        void toast.offsetWidth;
+        toast.classList.add("state-changing");
+      }
+
+      toastId += 1;
+      toast.className = "toast " + (type || "info") + (isNewToast ? "" : " state-changing");
+      toast.dataset.toastId = String(toastId);
+      toast.innerHTML = '<div class="toast-icon">' + iconHtml + '</div>' +
+                        '<div class="toast-content">' +
+                        '<strong>' + escapeHtml(title) + '</strong>' +
+                        '<span>' + escapeHtml(message || "") + '</span>' +
+                        '</div>';
+
+      if (syncToastTimer) window.clearTimeout(syncToastTimer);
+      syncToastTimer = window.setTimeout(function () {
+        dismissToast(toast);
+      }, timeout || 2800);
+    }
+
+    function loadScript(src, callback, onError) {
+      var script = document.createElement("script");
+      script.src = src + "?cb=" + Date.now();
+      script.onload = function () {
+        if (script.parentNode) script.parentNode.removeChild(script);
+        if (callback) callback();
+      };
+      script.onerror = function () {
+        if (script.parentNode) script.parentNode.removeChild(script);
+        console.warn("[Live Sync] Failed to load " + src);
+        if (onError) onError(src);
+      };
+      document.body.appendChild(script);
+    }
+
+    function checkUpdates(options) {
+      var manual = !!(options && options.manual);
+      if (isReloading) {
+        if (manual) {
+          setManualRefreshBusy(true);
+          showSyncToast("同步进行中", "正在读取本地数据文件，请稍候。", "info", 3600);
+        }
+        return;
+      }
+      if (isManualChecking && !manual) return;
+      if (manual) {
+        if (isManualChecking) return;
+        isManualChecking = true;
+        setManualRefreshBusy(true);
+        clearAllToasts();
+        showSyncToast("正在同步", "正在检查本地数据文件是否有更新。", "info", 3000);
+      }
+
+      function failSync(src) {
+        isReloading = false;
+        isManualChecking = false;
+        setManualRefreshBusy(false);
+        if (manual) showSyncToast("同步失败", "无法读取 " + src + "，请确认本地文件已生成。", "error", 5200);
+      }
+
+      function proceedCheck() {
+        loadScript("skill_data.js", function () {
+          var currentGen = window.GENERATED_AT || "";
+          var currentBuildId = window.BUILD_ID != null ? String(window.BUILD_ID) : "";
+          if ((currentBuildId && currentBuildId !== lastBuildId) || (currentGen && currentGen !== lastGeneratedAt)) {
+            isReloading = true;
+            console.log("[Live Sync] New data detected: build=" + currentBuildId + " (prev: " + lastBuildId + "), generated_at=" + currentGen + " (prev: " + lastGeneratedAt + "). Updating...");
+
+            // Load other files
+            loadScript("skill_log.js", function () {
+              loadScript("tool_report.js", function () {
+                loadScript("skill_catalog.js", function () {
+                  // Update local model state
+                  lastGeneratedAt = currentGen;
+                  lastBuildId = currentBuildId;
+
+                  catalogBySkill = {};
+                  (window.SKILL_CATALOG || []).forEach(function (item) {
+                    if (item && item.skill && !isInternalSkillName(item.skill)) catalogBySkill[item.skill] = item;
+                  });
+
+                  skillRows = (window.SKILL_DATA || []).filter(function (row) {
+                    return row && !isInternalSkillName(row.skill);
+                  }).map(function (row) {
+                    var skillName = String(row.skill || "");
+                    var catalog = catalogBySkill[skillName] || {};
+                    var rawCount = Number(row.raw_count != null ? row.raw_count : row.count || 0);
+                    var dedupCount = Number(row.dedup_count != null ? row.dedup_count : row.count || 0);
+                    var currentZh = catalogDirty[skillName] ? skillRowByName[skillName].zhDesc : (row.zh_desc || catalog.zh_desc || ZH_DESC[skillName] || "");
+                    return {
+                      skill: skillName,
+                      count: dedupCount,
+                      rawCount: rawCount,
+                      dedupCount: dedupCount,
+                      hasCollectorCounts: row.raw_count != null || row.dedup_count != null,
+                      desc: String(row.desc || ""),
+                      category: String(row.category || catalog.category || "通用技能"),
+                      zhDesc: String(currentZh)
+                    };
+                  }).sort(function (a, b) {
+                    return b.dedupCount - a.dedupCount || a.skill.localeCompare(b.skill);
+                  });
+
+                  var previousSkillRowByName = skillRowByName;
+                  skillRowByName = {};
+                  skillRows.forEach(function (row) {
+                    skillRowByName[row.skill] = row;
+                  });
+
+                  (window.SKILL_CATALOG || []).forEach(function (catalog) {
+                    if (!catalog || !catalog.skill || isInternalSkillName(catalog.skill) || skillRowByName[catalog.skill]) return;
+                    var currentZh = catalogDirty[catalog.skill] && previousSkillRowByName[catalog.skill]
+                      ? previousSkillRowByName[catalog.skill].zhDesc
+                      : (catalog.zh_desc || ZH_DESC[catalog.skill] || "");
+                    var row = {
+                      skill: String(catalog.skill),
+                      count: 0,
+                      rawCount: 0,
+                      dedupCount: 0,
+                      hasCollectorCounts: true,
+                      desc: String(catalog.english_desc || ""),
+                      category: String(catalog.category || "通用技能"),
+                      zhDesc: String(currentZh)
+                    };
+                    skillRows.push(row);
+                    skillRowByName[row.skill] = row;
+                  });
+                  skillRows.sort(function (a, b) {
+                    return b.dedupCount - a.dedupCount || a.skill.localeCompare(b.skill);
+                  });
+
+                  logRows = (window.SKILL_LOG || []).filter(function (row) {
+                    return row && !isInternalSkillName(row.skill);
+                  }).map(function (row) {
+                    return {
+                      skill: String(row.skill || ""),
+                      tool: String(row.tool || "Unknown"),
+                      time: String(row.time || ""),
+                      session: String(row.session || ""),
+                      dedup: row.dedup === true,
+                      dedupKey: String(row.dedup_key || "")
+                    };
+                  });
+
+                  detectedTools = (window.DETECTED_TOOLS && window.DETECTED_TOOLS.length)
+                    ? window.DETECTED_TOOLS
+                    : logRows.map(function (row) { return row.tool; });
+                  tools = unique(detectedTools.map(function (tool) {
+                    return String(tool || "").trim();
+                  }).filter(Boolean));
+                  toolReport = window.TOOL_REPORT || null;
+
+                  dedupWindowMinutes = Number(window.DEDUP_WINDOW_MINUTES || 2);
+                  hydrateCountsFromLogs();
+                  totalRawCalls = skillRows.reduce(function (sum, row) { return sum + row.rawCount; }, 0);
+                  totalDedupCalls = skillRows.reduce(function (sum, row) { return sum + row.dedupCount; }, 0);
+                  translatedSkills = skillRows.filter(function (row) { return !!row.zhDesc; }).length;
+
+                  // Update UI elements
+                  renderStaticChrome();
+
+                  // Call all UI renderers
+                  renderMetrics();
+                  renderToolAudit();
+                  renderTrend();
+                  renderSkills(false);
+                  renderLogs(false);
+                  renderCatalog(false);
+                  renderGovernance();
+                  renderActionLab();
+                  renderMatrixLab();
+
+                  isReloading = false;
+                  isManualChecking = false;
+                  setManualRefreshBusy(false);
+                  if (manual) showSyncToast("同步完成", "已刷新到 " + currentGen + "。", "success", 4800);
+                  console.log("[Live Sync] Update complete.");
+                }, failSync);
+              }, failSync);
+            }, failSync);
+          } else {
+            isManualChecking = false;
+            setManualRefreshBusy(false);
+            if (manual) showSyncToast("已是最新", "本地数据没有变化。", "success", 4800);
+          }
+        }, failSync);
+      }
+
+      if (manual) {
+        window.setTimeout(proceedCheck, 800);
+      } else {
+        proceedCheck();
+      }
+    }
+
+    // Check for updates every 5 seconds
+    setInterval(checkUpdates, 5000);
+    document.querySelectorAll(".manual-refresh-btn").forEach(function (button) {
+      button.addEventListener("click", function () {
+        checkUpdates({ manual: true });
+      });
+    });
+    console.log("[Live Sync] Real-time watcher started (5s interval)");
+  })();
 })();
 </script>
 </body>

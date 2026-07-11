@@ -19,11 +19,8 @@ function Read-JsAssignment {
     )
     if (-not (Test-Path $Path)) { Fail "Missing generated file: $Path" }
     $prefix = "var $Name = "
-    $line = Get-Content -LiteralPath $Path -Raw -Encoding UTF8
-    if ($line -notlike "$prefix*") {
-        $line = Get-Content -LiteralPath $Path -Encoding UTF8 | Where-Object { $_.StartsWith($prefix) } | Select-Object -First 1
-    }
-    if (-not $line -or -not $line.StartsWith($prefix)) { Fail "Cannot find JS assignment: $Name in $Path" }
+    $line = Get-Content -LiteralPath $Path -Encoding UTF8 | Where-Object { $_.StartsWith($prefix) } | Select-Object -First 1
+    if (-not $line) { Fail "Cannot find JS assignment: $Name in $Path" }
     $json = $line.Substring($prefix.Length).Trim()
     if ($json.EndsWith(";")) { $json = $json.Substring(0, $json.Length - 1) }
     $items = New-Object System.Collections.ArrayList
@@ -40,11 +37,8 @@ function Read-JsValue {
     )
     if (-not (Test-Path $Path)) { Fail "Missing generated file: $Path" }
     $prefix = "var $Name = "
-    $line = Get-Content -LiteralPath $Path -Raw -Encoding UTF8
-    if ($line -notlike "$prefix*") {
-        $line = Get-Content -LiteralPath $Path -Encoding UTF8 | Where-Object { $_.StartsWith($prefix) } | Select-Object -First 1
-    }
-    if (-not $line -or -not $line.StartsWith($prefix)) { Fail "Cannot find JS assignment: $Name in $Path" }
+    $line = Get-Content -LiteralPath $Path -Encoding UTF8 | Where-Object { $_.StartsWith($prefix) } | Select-Object -First 1
+    if (-not $line) { Fail "Cannot find JS assignment: $Name in $Path" }
     $json = $line.Substring($prefix.Length).Trim()
     if ($json.EndsWith(";")) { $json = $json.Substring(0, $json.Length - 1) }
     return ($json | ConvertFrom-Json)
