@@ -36,6 +36,9 @@ if (Test-Path -LiteralPath $StageRoot) { Remove-Item -LiteralPath $StageRoot -Re
 if (Test-Path -LiteralPath $ZipPath) { Remove-Item -LiteralPath $ZipPath -Force }
 New-Item -ItemType Directory -Path $StageDir -Force | Out-Null
 
+$Launcher = Get-ChildItem -LiteralPath $RepoRoot -Filter "*.vbs" -File | Select-Object -First 1
+if (-not $Launcher) { throw "Missing Windows launcher (.vbs) in $RepoRoot" }
+
 $RootFiles = @(
     "README.md",
     "LICENSE",
@@ -48,8 +51,10 @@ $RootFiles = @(
     "START_HERE.md",
     "config.json",
     "collect.ps1",
-    "run.bat"
+    "run.bat",
+    "start-dashboard.ps1"
 )
+$RootFiles += $Launcher.Name
 
 foreach ($file in $RootFiles) {
     Copy-Item -LiteralPath (Join-Path $RepoRoot $file) -Destination $StageDir -Force
@@ -67,10 +72,12 @@ Skill Tracker Windows Portable
 
 Fastest path:
 1. Unzip this package.
-2. Double-click run.bat.
-3. Use the dashboard in your browser.
+2. Double-click the .vbs launcher.
+3. Use the dashboard in your browser. A reusable Skill Tracker Dashboard shortcut is created on the Desktop.
 
-No server, installer, account, API key, or .exe is required.
+run.bat is available as a fallback if .vbs files are blocked by local policy.
+
+No installer, account, API key, or .exe is required.
 
 If no local AI-agent logs are found, the dashboard still opens with demo data.
 
@@ -86,8 +93,7 @@ Private generated files stay local and are not included in this release package:
 - dashboard/tool_report.js
 
 If Windows blocks the script, run this from PowerShell:
-powershell -NoProfile -ExecutionPolicy Bypass -File .\collect.ps1
-start .\dashboard\index.html
+powershell -NoProfile -ExecutionPolicy Bypass -File .\start-dashboard.ps1
 "@
 [System.IO.File]::WriteAllText((Join-Path $StageDir "START_HERE.txt"), $StartHere, [System.Text.Encoding]::UTF8)
 
