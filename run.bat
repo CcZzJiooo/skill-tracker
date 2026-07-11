@@ -23,3 +23,8 @@ if errorlevel 1 (
   echo powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0start-dashboard.ps1"
   pause
 )
+exit /b 0
+
+:open_dashboard
+start "" "%~dp0dashboard\index.html"
+exit /b 0

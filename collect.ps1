@@ -71,6 +71,9 @@ function Get-EditorGlobalStoragePaths {
 }
 
 $skillRootCandidates = @(
+    "$PSScriptRoot\.agents\skills",
+    "$PSScriptRoot\.cursor\skills",
+    "$PSScriptRoot\.codex\skills",
     "$userHome\.codex\skills",
     "$userHome\.agents\skills",
     "$userHome\.config\agents\skills",
