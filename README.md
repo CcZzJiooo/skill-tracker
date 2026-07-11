@@ -54,11 +54,12 @@ cd skill-tracker
 .\run.bat
 ```
 
+For the smoothest Windows launch, double-click `启动看板.vbs`. It starts the local no-cache dashboard server and the background collector, then creates a reusable desktop shortcut named `Skill Tracker Dashboard`.
+
 Manual mode:
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File .\collect.ps1
-start .\dashboard\index.html
+powershell -NoProfile -ExecutionPolicy Bypass -File .\start-dashboard.ps1
 ```
 
 Collector verification before release:
@@ -84,7 +85,7 @@ GitHub's default "Source code" assets work for developers, but they look raw to 
 powershell -ExecutionPolicy Bypass -File .\scripts\package-release.ps1 -Version v0.1.0
 ```
 
-Upload the generated `dist/skill-tracker-v0.1.0-windows-portable.zip` to the GitHub release. Users can unzip it and double-click `run.bat`.
+Upload the generated `dist/skill-tracker-v0.1.0-windows-portable.zip` to the GitHub release. Users can unzip it and double-click `启动看板.vbs` (preferred) or `run.bat`; the first launch creates `Skill Tracker Dashboard.lnk` on the Desktop.
 
 An `.exe` wrapper is optional later, mainly for one-click onboarding. It is not required for the current architecture because there is no server, installer, or background service.
 

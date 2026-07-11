@@ -6,12 +6,16 @@ dashboard/skill_catalog.js
 dashboard/skill_catalog.json
 dashboard/tool_report.js
 dashboard/tool_report.json
+dashboard/.collector.pid
 dashboard/preview-*.png
 
 # Local agent/workspace artifacts
 .agents/
 .codex/
+.codegraph/
+.cursor/rules/codegraph.mdc
 .playwright-mcp/
+sync-button-*.png
 
 # OS
 .DS_Store

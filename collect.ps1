@@ -5,7 +5,10 @@
 param(
     [string]$SkillsRoot = "",
     [string]$ConfigFile = "$PSScriptRoot\config.json",
-    [string]$OutputDir  = ""
+    [string]$OutputDir  = "",
+    [switch]$Watch,
+    [int]$RecentFiles = 250,
+    [int]$RecentDays = 45
 )
 
 # ── Load config ────────────────────────────────────────────────────────────────
@@ -157,14 +160,19 @@ function Add-SourceReport {
     $sourceKey = "$ToolName|$resolvedPath"
     if (-not $sourceReportByKey.ContainsKey($sourceKey)) {
         $report = [PSCustomObject]@{
-            tool          = $ToolName
-            path          = $resolvedPath
-            source        = $SourceType
-            detected      = [bool]$exists
-            files_scanned = 0
-            raw_hits      = 0
-            dedup_hits    = 0
-            status        = if ($exists) { "detected" } else { "missing" }
+            tool            = $ToolName
+            path            = $resolvedPath
+            source          = $SourceType
+            detected        = [bool]$exists
+            path_kind       = if ($exists) { if (Test-Path -LiteralPath $Path -PathType Leaf) { "file" } else { "directory" } } else { "missing" }
+            files_scanned   = 0
+            files_with_hits = 0
+            raw_hits        = 0
+            dedup_hits      = 0
+            latest_log_at   = ""
+            latest_hit_at   = ""
+            status          = if ($exists) { "detected" } else { "missing" }
+            status_reason   = if ($exists) { "path_detected" } else { "path_missing" }
         }
         $sourceReports.Add($report)
         $sourceReportByKey[$sourceKey] = $report
@@ -301,7 +309,8 @@ if (Test-Path $catalogPath) {
 }
 
 # Regex: match skill path, match any known timestamp field (supports ISO and Unix epoch)
-$skillRx  = [System.Text.RegularExpressions.Regex]'skills[/\\]+([A-Za-z0-9\-_]+)[/\\]+SKILL\.md'
+$skillRx  = [System.Text.RegularExpressions.Regex]'skills(?:[/\\]|\\\\)+([A-Za-z0-9\-_]+)(?:[/\\]|\\\\)+SKILL\.md'
+$skillFileReadRx = [System.Text.RegularExpressions.Regex]'(?i)\b(Get-Content|cat|type)\b[^\r\n]*skills(?:[/\\]|\\\\)+([A-Za-z0-9\-_]+)(?:[/\\]|\\\\)+SKILL\.md'
 $claudeAttributionSkillRx = [System.Text.RegularExpressions.Regex]'"attributionSkill"\s*:\s*"([^"]+)"'
 $slashSkillRx = [System.Text.RegularExpressions.Regex]'/([A-Za-z0-9][A-Za-z0-9:_\-]*)(?=\s|\\r|\\n|<|$)'
 $timeRx   = [System.Text.RegularExpressions.Regex]'"(?:created_at|timestamp)"\s*:\s*"([^"]+)"'
@@ -340,9 +349,14 @@ function Get-ToolLogFiles {
         return @()
     }
 
+    $cutoffUtc = (Get-Date).ToUniversalTime().AddDays(-1 * [Math]::Max(1, $RecentDays))
+    $limit = [Math]::Max(20, $RecentFiles)
+
     if ($ToolName -eq "Antigravity") {
         return @(Get-ChildItem -Path $Root -Recurse -Filter "transcript.jsonl" -File -ErrorAction SilentlyContinue |
-            Where-Object { $_.FullName -match '\\\.system_generated\\logs\\transcript\.jsonl$' })
+            Where-Object { $_.FullName -match '\\\.system_generated\\logs\\transcript\.jsonl$' -and $_.LastWriteTimeUtc -ge $cutoffUtc } |
+            Sort-Object LastWriteTimeUtc -Descending |
+            Select-Object -First $limit)
     }
 
     if ($ToolName -eq "Aider") {
@@ -351,31 +365,42 @@ function Get-ToolLogFiles {
                 $_.Name -match '^\.aider\..*history(\.md)?$' -or
                 $_.Name -eq ".aider.chat.history.md" -or
                 $_.Name -eq ".aider.llm.history"
-            })
+            } |
+            Sort-Object LastWriteTimeUtc -Descending |
+            Select-Object -First $limit)
     }
 
     if ($ToolName -in @("JetBrains AI", "Junie")) {
         return @(Get-ChildItem -Path $Root -Recurse -File -ErrorAction SilentlyContinue |
             Where-Object {
                 ($extensions -contains $_.Extension.ToLowerInvariant()) -and
+                $_.LastWriteTimeUtc -ge $cutoffUtc -and
                 ($_.FullName -match '(?i)([\\/]log[\\/]|ai-assistant|junie|matterhorn|\.junie)')
-            })
+            } |
+            Sort-Object LastWriteTimeUtc -Descending |
+            Select-Object -First $limit)
     }
 
     if ($ToolName -eq "GitHub Copilot" -and $Root -match '(?i)[\\/]workspaceStorage$') {
         return @(Get-ChildItem -Path $Root -Recurse -File -ErrorAction SilentlyContinue |
             Where-Object {
                 ($extensions -contains $_.Extension.ToLowerInvariant()) -and
+                $_.LastWriteTimeUtc -ge $cutoffUtc -and
                 ($_.FullName -match '(?i)(github\.copilot|copilot-chat|chatSessions|chatEditingSessions)')
-            })
+            } |
+            Sort-Object LastWriteTimeUtc -Descending |
+            Select-Object -First $limit)
     }
 
     return @(Get-ChildItem -Path $Root -Recurse -File -ErrorAction SilentlyContinue |
         Where-Object {
             $extensions -contains $_.Extension.ToLowerInvariant() -and
+            $_.LastWriteTimeUtc -ge $cutoffUtc -and
             (-not ($_.Name -eq "history.jsonl" -and $ToolName -in @("ClaudeCode", "Codex", "Antigravity"))) -and
             $_.Name -ne "transcript_full.jsonl"
-        })
+        } |
+        Sort-Object LastWriteTimeUtc -Descending |
+        Select-Object -First $limit)
 }
 
 function Test-GeneratedSkillInventoryLine {
@@ -416,6 +441,85 @@ function Test-SkillReadLine {
     )
 }
 
+# ── Watch Loop Setup ───────────────────────────────────────────────────────────
+$fileStates = @{}
+
+$pidPath = Join-Path $cfg.output_dir ".collector.pid"
+if ($Watch) {
+    [System.IO.File]::WriteAllText($pidPath, $pid, [System.Text.Encoding]::UTF8)
+}
+
+function Get-LogFilesState {
+    $state = @{}
+    foreach ($src in $activeSources) {
+        $files = Get-ToolLogFiles -Root $src.Root -ToolName $src.Name
+        foreach ($f in $files) {
+            $state[$f.FullName] = @{
+                LastWriteTimeUtc = $f.LastWriteTimeUtc
+                Length           = $f.Length
+            }
+        }
+    }
+    return $state
+}
+
+$global:fileCache = @{}
+$firstRun = $true
+
+try {
+    while ($true) {
+    if ($Watch) {
+        $currentState = Get-LogFilesState
+        $changed = $false
+
+        if ($firstRun) {
+            $changed = $true
+            $firstRun = $false
+        } else {
+            # Check for additions or modifications
+            foreach ($key in $currentState.Keys) {
+                if (-not $fileStates.ContainsKey($key)) {
+                    $changed = $true
+                    break
+                } else {
+                    $old = $fileStates[$key]
+                    $new = $currentState[$key]
+                    if ($old.LastWriteTimeUtc -ne $new.LastWriteTimeUtc -or $old.Length -ne $new.Length) {
+                        $changed = $true
+                        break
+                    }
+                }
+            }
+            # Check for deletions
+            if (-not $changed) {
+                foreach ($key in $fileStates.Keys) {
+                    if (-not $currentState.ContainsKey($key)) {
+                        $changed = $true
+                        break
+                    }
+                }
+            }
+        }
+
+        if (-not $changed) {
+            Start-Sleep -Seconds 5
+            continue
+        }
+
+        $fileStates = $currentState
+        $nowStr = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
+        Write-Host "[$nowStr] Log files updated. Re-scanning..."
+    }
+
+    # Reset accumulator variables for clean scan
+    foreach ($key in $counts.Keys | Get-Unique) {
+        $counts[$key] = 0
+        $dedupCounts[$key] = 0
+    }
+    $logEntries.Clear()
+    $rawSeen.Clear()
+    $dedupSeen.Clear()
+
 # ── Scan each tool ─────────────────────────────────────────────────────────────
 foreach ($src in $activeSources) {
     $root     = $src.Root
@@ -427,96 +531,180 @@ foreach ($src in $activeSources) {
     $sourceReport = $sourceReportByKey[$sourceKey]
     if ($sourceReport) {
         $sourceReport.files_scanned = $files.Count
+        $sourceReport.files_with_hits = 0
+        $latestLogTimeUtc = $null
+        if ($files.Count -gt 0) {
+            $latestLogTimeUtc = ($files | Measure-Object -Property LastWriteTimeUtc -Maximum).Maximum
+        }
+        $sourceReport.latest_log_at = if ($latestLogTimeUtc) { ([datetime]$latestLogTimeUtc).ToString("yyyy-MM-ddTHH:mm:ssZ") } else { "" }
         $sourceReport.status = if ($files.Count -gt 0) { "scanned" } else { "no_log_files" }
+        $sourceReport.status_reason = if ($files.Count -gt 0) { "log_files_detected" } else { "path_detected_but_no_log_files" }
     }
     Write-Host "Scanning $toolName  ($($files.Count) files)..."
 
     foreach ($f in $files) {
         $sessionId = ''
+        $fileHitCount = 0
+        $fileLatestHitUtc = $null
         if ($f.FullName -match '([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})') {
             $sessionId = $Matches[1]
         }
-        try {
-            $sr = [System.IO.StreamReader]::new($f.FullName, [System.Text.Encoding]::UTF8)
-            while (-not $sr.EndOfStream) {
-                $line = $sr.ReadLine()
-                if (-not $line) { continue }
-                if (Test-GeneratedSkillInventoryLine $line) { continue }
-                $lineSkills = [System.Collections.Generic.List[string]]::new()
 
-                # Claude Code exposes an explicit attribution field. Other tools are
-                # counted only from explicit slash invocations or real skill-file reads.
-                if ($line.Contains('"attributionSkill"')) {
-                    foreach ($m in $claudeAttributionSkillRx.Matches($line)) {
-                        [void]$lineSkills.Add($m.Groups[1].Value)
-                    }
-                }
+        # Query Cache
+        $cacheKey = $f.FullName
+        $cacheEntry = $global:fileCache[$cacheKey]
+        $rawHits = @()
+        if ($cacheEntry -and $cacheEntry.LastWriteTimeUtc -eq $f.LastWriteTimeUtc -and $cacheEntry.Length -eq $f.Length) {
+            $rawHits = $cacheEntry.RawHits
+        } else {
+            $fs = $null
+            $sr = $null
+            try {
+                $fs = [System.IO.FileStream]::new(
+                    $f.FullName,
+                    [System.IO.FileMode]::Open,
+                    [System.IO.FileAccess]::Read,
+                    [System.IO.FileShare]::ReadWrite -bor [System.IO.FileShare]::Delete
+                )
+                $sr = [System.IO.StreamReader]::new($fs, [System.Text.Encoding]::UTF8)
+                while (-not $sr.EndOfStream) {
+                    $line = $sr.ReadLine()
+                    if (-not $line) { continue }
+                    if (Test-GeneratedSkillInventoryLine $line) { continue }
+                    $lineSkills = [System.Collections.Generic.List[string]]::new()
 
-                if (Test-ExplicitSkillCommandLine $line) {
-                    foreach ($m in $slashSkillRx.Matches($line)) {
-                        [void]$lineSkills.Add($m.Groups[1].Value)
-                    }
-                }
-
-                if (Test-SkillReadLine $line) {
-                    foreach ($m in $skillRx.Matches($line)) {
-                        [void]$lineSkills.Add($m.Groups[1].Value)
-                    }
-                }
-                if ($lineSkills.Count -eq 0) { continue }
-
-                # Extract timestamp (ISO string first, then Unix epoch)
-                $ts = ''
-                $tm = $timeRx.Match($line)
-                if ($tm.Success) {
-                    $ts = $tm.Groups[1].Value
-                } else {
-                    $um = $unixRx.Match($line)
-                    if ($um.Success) {
-                        $unixMs = [long]$um.Groups[1].Value
-                        # If > 1e11 treat as milliseconds, otherwise seconds
-                        if ($unixMs -gt 100000000000) { $unixMs = [long]($unixMs / 1000) }
-                        $ts = $epoch.AddSeconds($unixMs).ToString("yyyy-MM-ddTHH:mm:ssZ")
-                    }
-                }
-
-                foreach ($skill in @($lineSkills | Select-Object -Unique)) {
-                    if ($counts.ContainsKey($skill)) {
-                        $sessionKey = if ($sessionId) { "session:$sessionId" } else { "file:$(Get-StableId $f.FullName)" }
-                        $rawKeyTime = if ($ts) { $ts } else { "line:$(Get-StableId $line)" }
-                        $rawKey = "$toolName|$sessionKey|$skill|$rawKeyTime"
-                        if ($rawSeen.ContainsKey($rawKey)) { continue }
-                        $rawSeen[$rawKey] = $true
-
-                        $counts[$skill]++
-                        $bucket = Get-TimeBucket -Timestamp $ts -FallbackUtc $f.LastWriteTimeUtc -WindowMinutes $dedupWindowMinutes
-                        $dedupKey = "$toolName|$sessionKey|$skill|$bucket"
-                        $isDedupedCall = -not $dedupSeen.ContainsKey($dedupKey)
-                        if ($isDedupedCall) {
-                            $dedupSeen[$dedupKey] = $true
-                            $dedupCounts[$skill]++
-                            $dedupHits++
+                    if ($line.Contains('SKILL.md') -and
+                        -not $line.Contains('"type":"function_call_output"') -and
+                        -not $line.Contains('[external_agent_tool_result]') -and
+                        -not $line.Contains('"type":"GREP_SEARCH"') -and
+                        -not $line.Contains('"type":"RUN_COMMAND"')) {
+                        foreach ($m in $skillFileReadRx.Matches($line)) {
+                            [void]$lineSkills.Add($m.Groups[2].Value)
                         }
-                        $logEntries.Add([PSCustomObject]@{
-                            skill     = $skill
-                            tool      = $toolName
-                            time      = if ($ts) { $ts } else { $f.LastWriteTimeUtc.ToString("yyyy-MM-ddTHH:mm:ssZ") }
-                            session   = $sessionId
-                            dedup     = $isDedupedCall
-                            dedup_key = $dedupKey
-                        })
-                        $hits++
+                        foreach ($m in $skillRx.Matches($line)) {
+                            [void]$lineSkills.Add($m.Groups[1].Value)
+                        }
                     }
+
+                    # Claude Code exposes an explicit attribution field. Other tools are
+                    # counted only from explicit slash invocations or real skill-file reads.
+                    if ($line.Contains('"attributionSkill"')) {
+                        foreach ($m in $claudeAttributionSkillRx.Matches($line)) {
+                            [void]$lineSkills.Add($m.Groups[1].Value)
+                        }
+                    }
+
+                    if (Test-ExplicitSkillCommandLine $line) {
+                        foreach ($m in $slashSkillRx.Matches($line)) {
+                            [void]$lineSkills.Add($m.Groups[1].Value)
+                        }
+                    }
+
+                    if (Test-SkillReadLine $line) {
+                        foreach ($m in $skillFileReadRx.Matches($line)) {
+                            [void]$lineSkills.Add($m.Groups[2].Value)
+                        }
+                        foreach ($m in $skillRx.Matches($line)) {
+                            [void]$lineSkills.Add($m.Groups[1].Value)
+                        }
+                    }
+
+                    if ($lineSkills.Count -eq 0) { continue }
+
+                    # Extract timestamp (ISO string first, then Unix epoch)
+                    $ts = ''
+                    $tm = $timeRx.Match($line)
+                    if ($tm.Success) {
+                        $ts = $tm.Groups[1].Value
+                    } else {
+                        $um = $unixRx.Match($line)
+                        if ($um.Success) {
+                            $unixMs = [long]$um.Groups[1].Value
+                            # If > 1e11 treat as milliseconds, otherwise seconds
+                            if ($unixMs -gt 100000000000) { $unixMs = [long]($unixMs / 1000) }
+                            $ts = $epoch.AddSeconds($unixMs).ToString("yyyy-MM-ddTHH:mm:ssZ")
+                        }
+                    }
+
+                    $lineHash = Get-StableId $line
+                    foreach ($skill in @($lineSkills | Select-Object -Unique)) {
+                        $rawHits += [PSCustomObject]@{
+                            skill    = $skill
+                            ts       = $ts
+                            lineHash = $lineHash
+                        }
+                    }
+                }
+            } catch { } finally {
+                if ($sr) { $sr.Close() }
+                elseif ($fs) { $fs.Close() }
+            }
+            $global:fileCache[$cacheKey] = @{
+                LastWriteTimeUtc = $f.LastWriteTimeUtc
+                Length           = $f.Length
+                RawHits          = $rawHits
+            }
+        }
+
+        # Process accumulated or cached raw hits
+        foreach ($hit in $rawHits) {
+            $skill = $hit.skill
+            if ($counts.ContainsKey($skill)) {
+                $ts = $hit.ts
+                $sessionKey = if ($sessionId) { "session:$sessionId" } else { "file:$(Get-StableId $f.FullName)" }
+                $rawKeyTime = if ($ts) { $ts } else { "line:$($hit.lineHash)" }
+                $rawKey = "$toolName|$sessionKey|$skill|$rawKeyTime"
+                if ($rawSeen.ContainsKey($rawKey)) { continue }
+                $rawSeen[$rawKey] = $true
+
+                $counts[$skill]++
+                $bucket = Get-TimeBucket -Timestamp $ts -FallbackUtc $f.LastWriteTimeUtc -WindowMinutes $dedupWindowMinutes
+                $dedupKey = "$toolName|$sessionKey|$skill|$bucket"
+                $isDedupedCall = -not $dedupSeen.ContainsKey($dedupKey)
+                if ($isDedupedCall) {
+                    $dedupSeen[$dedupKey] = $true
+                    $dedupCounts[$skill]++
+                    $dedupHits++
+                }
+                $logEntries.Add([PSCustomObject]@{
+                    skill     = $skill
+                    tool      = $toolName
+                    time      = if ($ts) { $ts } else { $f.LastWriteTimeUtc.ToString("yyyy-MM-ddTHH:mm:ssZ") }
+                    session   = $sessionId
+                    dedup     = $isDedupedCall
+                    dedup_key = $dedupKey
+                })
+                $hits++
+                $fileHitCount++
+                $hitUtc = $f.LastWriteTimeUtc
+                if ($ts) {
+                    try { $hitUtc = ([datetimeoffset]::Parse($ts)).UtcDateTime } catch { $hitUtc = $f.LastWriteTimeUtc }
+                }
+                if (-not $fileLatestHitUtc -or $hitUtc -gt $fileLatestHitUtc) {
+                    $fileLatestHitUtc = $hitUtc
                 }
             }
-            $sr.Close()
-        } catch { }
+        }
+
+        if ($sourceReport -and $fileHitCount -gt 0) {
+            $sourceReport.files_with_hits++
+            if ($fileLatestHitUtc) {
+                $latestSourceHitUtc = $null
+                if ($sourceReport.latest_hit_at) {
+                    try { $latestSourceHitUtc = ([datetimeoffset]::Parse($sourceReport.latest_hit_at)).UtcDateTime } catch { $latestSourceHitUtc = $null }
+                }
+                if (-not $latestSourceHitUtc -or $fileLatestHitUtc -gt $latestSourceHitUtc) {
+                    $sourceReport.latest_hit_at = $fileLatestHitUtc.ToString("yyyy-MM-ddTHH:mm:ssZ")
+                }
+            }
+        }
     }
     if ($sourceReport) {
         $sourceReport.raw_hits = $hits
         $sourceReport.dedup_hits = $dedupHits
         if ($files.Count -gt 0) {
             $sourceReport.status = if ($hits -gt 0) { "ok" } else { "no_skill_hits" }
+            $sourceReport.status_reason = if ($hits -gt 0) { "skill_hits_detected" } else { "log_files_scanned_but_no_skill_hits" }
         }
     }
     Write-Host "  -> $hits hits"
@@ -553,10 +741,12 @@ foreach ($kv in $counts.GetEnumerator() | Sort-Object Name) {
     }
 }
 $genAt = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
+$buildId = [DateTimeOffset]::UtcNow.ToUnixTimeMilliseconds()
 $detectedTools = @($activeSources | ForEach-Object { [string]$_.Name } | Sort-Object -Unique)
 $jsonObj = [PSCustomObject]@{
     skill_call_stats = $arr
     generated_at     = $genAt
+    build_id         = $buildId
     tools_detected   = $detectedTools
     dedup_window_minutes = $dedupWindowMinutes
 }
@@ -574,6 +764,7 @@ $skillDataJson = @($arr) | ConvertTo-Json -Depth 6 -Compress
 $detectedToolsJson = ConvertTo-Json -InputObject $detectedTools -Depth 3 -Compress
 [void]$sb.AppendLine("var SKILL_DATA = $skillDataJson;")
 [void]$sb.AppendLine("var GENERATED_AT = `"$genAt`";")
+[void]$sb.AppendLine("var BUILD_ID = $buildId;")
 [void]$sb.AppendLine("var DEDUP_WINDOW_MINUTES = $dedupWindowMinutes;")
 [void]$sb.AppendLine("var DETECTED_TOOLS = $detectedToolsJson;")
 $jsPath = Join-Path $cfg.output_dir "skill_data.js"
@@ -585,28 +776,71 @@ $sorted = $logEntries | Sort-Object { $_.time } -Descending | Select-Object -Fir
 $lb = [System.Text.StringBuilder]::new()
 $logJson = @($sorted) | ConvertTo-Json -Depth 6 -Compress
 [void]$lb.AppendLine("var SKILL_LOG = $logJson;")
+[void]$lb.AppendLine("var BUILD_ID = $buildId;")
 $logPath = Join-Path $cfg.output_dir "skill_log.js"
 [System.IO.File]::WriteAllText($logPath, $lb.ToString(), [System.Text.Encoding]::UTF8)
 
 # ── Output tool source coverage report ────────────────────────────────────────
 $toolReports = @($sourceReports | Sort-Object tool, path)
+$supportedToolNames = @($AUTO_DETECT_TOOLS | ForEach-Object { $_.Name } | Sort-Object -Unique)
+$toolSummaries = @()
+foreach ($toolName in $supportedToolNames) {
+    $rows = @($toolReports | Where-Object { $_.tool -eq $toolName })
+    $detectedRows = @($rows | Where-Object { $_.detected })
+    $files = [int](($detectedRows | Measure-Object files_scanned -Sum).Sum)
+    $filesWithHits = [int](($detectedRows | Measure-Object files_with_hits -Sum).Sum)
+    $raw = [int](($detectedRows | Measure-Object raw_hits -Sum).Sum)
+    $dedup = [int](($detectedRows | Measure-Object dedup_hits -Sum).Sum)
+    $status = "missing"
+    if ($detectedRows.Count -gt 0) {
+        if ($raw -gt 0) {
+            $status = "ok"
+        } elseif ($files -gt 0) {
+            $status = "no_skill_hits"
+        } else {
+            $status = "no_log_files"
+        }
+    }
+    $latestHitAt = @($detectedRows | Where-Object { $_.latest_hit_at } | Select-Object -ExpandProperty latest_hit_at | Sort-Object -Descending | Select-Object -First 1)
+    $latestLogAt = @($detectedRows | Where-Object { $_.latest_log_at } | Select-Object -ExpandProperty latest_log_at | Sort-Object -Descending | Select-Object -First 1)
+    $toolSummaries += [PSCustomObject]@{
+        tool            = $toolName
+        status          = $status
+        source_count    = $detectedRows.Count
+        files_scanned   = $files
+        files_with_hits = $filesWithHits
+        raw_hits        = $raw
+        dedup_hits      = $dedup
+        latest_log_at   = if ($latestLogAt) { [string]$latestLogAt[0] } else { "" }
+        latest_hit_at   = if ($latestHitAt) { [string]$latestHitAt[0] } else { "" }
+    }
+}
+$statusCounts = [ordered]@{
+    ok            = @($toolSummaries | Where-Object { $_.status -eq "ok" }).Count
+    no_skill_hits = @($toolSummaries | Where-Object { $_.status -eq "no_skill_hits" }).Count
+    no_log_files  = @($toolSummaries | Where-Object { $_.status -eq "no_log_files" }).Count
+    missing       = @($toolSummaries | Where-Object { $_.status -eq "missing" }).Count
+}
 $toolReportObj = [PSCustomObject]@{
     generated_at = $genAt
+    build_id = $buildId
     summary = [PSCustomObject]@{
-        supported_tools       = @($AUTO_DETECT_TOOLS | ForEach-Object { $_.Name } | Sort-Object -Unique)
+        supported_tools       = $supportedToolNames
         skill_roots           = @($skillRoots)
         detected_source_count = @($toolReports | Where-Object { $_.detected }).Count
         scanned_file_count    = [int](($toolReports | Measure-Object files_scanned -Sum).Sum)
         raw_hits              = [int](($toolReports | Measure-Object raw_hits -Sum).Sum)
         dedup_hits            = [int](($toolReports | Measure-Object dedup_hits -Sum).Sum)
+        status_counts         = [PSCustomObject]$statusCounts
     }
+    tools = $toolSummaries
     sources = $toolReports
 }
 $toolReportJsonPath = Join-Path $cfg.output_dir "tool_report.json"
 [System.IO.File]::WriteAllText($toolReportJsonPath, ($toolReportObj | ConvertTo-Json -Depth 8), [System.Text.Encoding]::UTF8)
 $toolReportJsPath = Join-Path $cfg.output_dir "tool_report.js"
 $toolReportJson = $toolReportObj | ConvertTo-Json -Depth 8 -Compress
-[System.IO.File]::WriteAllText($toolReportJsPath, "var TOOL_REPORT = $toolReportJson;`n", [System.Text.Encoding]::UTF8)
+[System.IO.File]::WriteAllText($toolReportJsPath, "var TOOL_REPORT = $toolReportJson;`nvar BUILD_ID = $buildId;`n", [System.Text.Encoding]::UTF8)
 
 Write-Host ""
 Write-Host "=== Done === Total entries: $($logEntries.Count)"
@@ -617,3 +851,15 @@ Write-Host ""
 Write-Host "=== Top 10 ==="
 $arr | Sort-Object count -Descending | Select-Object -First 10 |
     ForEach-Object { Write-Host "  $($_.skill): $($_.count)" }
+
+    if (-not $Watch) {
+        break
+    }
+    Write-Host "Watching for changes... (Press Ctrl+C to stop)"
+    Start-Sleep -Seconds 5
+}
+} finally {
+    if ($Watch -and (Test-Path $pidPath)) {
+        Remove-Item $pidPath -Force -ErrorAction SilentlyContinue
+    }
+}
