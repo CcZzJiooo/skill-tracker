@@ -8,11 +8,11 @@ Use the release package, not GitHub's auto-generated "Source code" download.
 
 1. Download `skill-tracker-*-windows-portable.zip` from the GitHub release.
 2. Unzip it anywhere, for example `Desktop\skill-tracker`.
-3. Double-click `启动看板.vbs`.
+3. Double-click `run.bat`.
 
-The dashboard opens in your browser. The first launch also creates `Skill Tracker Dashboard.lnk` on your Desktop, so later you only need to double-click that shortcut. `run.bat` remains available when `.vbs` files are blocked by local policy.
+The visible launcher first reads your local AI-agent logs and generates local dashboard data. It then opens the dashboard in your browser. Later, double-click `run.bat` again to refresh and open it.
 
-If this is your first run and no local AI-agent logs are found, the dashboard still opens with demo data. That is expected.
+If no supported local logs are found, the dashboard opens with an empty local scan report. Demo data is only a static fallback for inspecting the interface without running the launcher.
 
 ## Download Links
 
@@ -44,20 +44,21 @@ Skill Tracker is a local-first observability tool:
 
 - `collect.ps1` scans local AI-agent session logs.
 - `dashboard/index.html` visualizes skill usage, Chinese descriptions, governance findings, and GitHub discovery.
-- `启动看板.vbs` is the preferred one-click Windows entry point and creates the desktop shortcut.
-- `run.bat` is the fallback Windows entry point.
+- `run.bat` is the one-click Windows entry point.
 
 It is not a single agent `skill`, because it observes and manages many skills across tools. It is not currently an `.exe`, because the project does not need an installer or background service.
 
 ## If Windows Blocks It
 
-Right-click `启动看板.vbs` or `run.bat`, choose **Properties**, and unblock it if Windows shows an unblock checkbox.
+Right-click `run.bat`, choose **Properties**, and unblock it if Windows shows an unblock checkbox.
 
 Or run this from PowerShell inside the project folder:
 
 ```powershell
 powershell -NoProfile -ExecutionPolicy Bypass -File .\start-dashboard.ps1
 ```
+
+This portable package is unsigned. It does not require you to disable security software or add a blanket exclusion. If your organization blocks unsigned scripts, contact its IT administrator or use a future signed installer release.
 
 ## Privacy
 

@@ -1,28 +1,40 @@
 param(
     [switch]$Server,
-    [int]$Port = 17830
+    [int]$Port = 17830,
+    [switch]$NoBrowser,
+    [switch]$NoWatch
 )
 
 $ErrorActionPreference = "Stop"
 $Root = $PSScriptRoot
 $DashboardDir = Join-Path $Root "dashboard"
-$ProjectPattern = [regex]::Escape($Root)
+$CollectorPath = Join-Path $Root "collect.ps1"
+$ServerInstanceId = ([System.BitConverter]::ToString(
+    [System.Security.Cryptography.SHA256]::Create().ComputeHash(
+        [System.Text.Encoding]::UTF8.GetBytes([System.IO.Path]::GetFullPath($Root).ToLowerInvariant())
+    )
+) -replace '-', '').ToLowerInvariant()
+$RequiredGeneratedFiles = @(
+    "skill_data.js",
+    "skill_log.js",
+    "skill_catalog.js",
+    "tool_report.js"
+)
 
-function Stop-ExistingProjectProcess {
-    param([string]$Pattern)
+function Test-SkillTrackerServer {
+    param([int]$ListenPort)
 
-    Get-CimInstance Win32_Process -Filter "Name = 'powershell.exe'" |
-        Where-Object {
-            $_.ProcessId -ne $PID -and
-            $_.CommandLine -match $ProjectPattern -and
-            $_.CommandLine -match $Pattern
-        } |
-        ForEach-Object {
-            Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue
-        }
+    try {
+        $response = Invoke-WebRequest -Uri "http://127.0.0.1:$ListenPort/index.html" -UseBasicParsing -TimeoutSec 2
+        return $response.StatusCode -eq 200 -and
+            $response.Headers["X-Skill-Tracker-Server"] -eq "1" -and
+            $response.Headers["X-Skill-Tracker-Instance"] -eq $ServerInstanceId
+    } catch {
+        return $false
+    }
 }
 
-function Wait-DashboardServer {
+function Wait-SkillTrackerServer {
     param(
         [int]$ListenPort,
         [int]$TimeoutSeconds = 20
@@ -30,14 +42,22 @@ function Wait-DashboardServer {
 
     $deadline = (Get-Date).AddSeconds($TimeoutSeconds)
     do {
-        try {
-            $response = Invoke-WebRequest -Uri "http://127.0.0.1:$ListenPort/index.html" -UseBasicParsing -TimeoutSec 2
-            if ($response.StatusCode -eq 200) { return $true }
-        } catch { }
+        if (Test-SkillTrackerServer -ListenPort $ListenPort) { return $true }
         Start-Sleep -Milliseconds 300
     } while ((Get-Date) -lt $deadline)
 
     return $false
+}
+
+function Test-AnyHttpServer {
+    param([int]$ListenPort)
+
+    try {
+        Invoke-WebRequest -Uri "http://127.0.0.1:$ListenPort/" -UseBasicParsing -TimeoutSec 2 | Out-Null
+        return $true
+    } catch {
+        return $false
+    }
 }
 
 function Start-NoCacheServer {
@@ -45,14 +65,18 @@ function Start-NoCacheServer {
 
     $listener = [System.Net.HttpListener]::new()
     $listener.Prefixes.Add("http://127.0.0.1:$ListenPort/")
-    $listener.Start()
+    try {
+        $listener.Start()
+    } catch {
+        throw "Cannot start Skill Tracker on http://127.0.0.1:$ListenPort/. Another application may already be using this port."
+    }
 
     while ($listener.IsListening) {
         $context = $listener.GetContext()
         try {
             $requestPath = [Uri]::UnescapeDataString($context.Request.Url.AbsolutePath.TrimStart('/'))
             if ([string]::IsNullOrWhiteSpace($requestPath)) { $requestPath = "index.html" }
-            $requestPath = $requestPath -replace '/', '\'
+            $requestPath = $requestPath -replace '/', '\\'
             $fullPath = [System.IO.Path]::GetFullPath((Join-Path $DashboardDir $requestPath))
             $dashboardFullPath = [System.IO.Path]::GetFullPath($DashboardDir)
 
@@ -75,6 +99,8 @@ function Start-NoCacheServer {
                 $bytes = [System.IO.File]::ReadAllBytes($fullPath)
             }
 
+            $context.Response.Headers["X-Skill-Tracker-Server"] = "1"
+            $context.Response.Headers["X-Skill-Tracker-Instance"] = $ServerInstanceId
             $context.Response.Headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
             $context.Response.Headers["Pragma"] = "no-cache"
             $context.Response.Headers["Expires"] = "0"
@@ -88,6 +114,37 @@ function Start-NoCacheServer {
     }
 }
 
+function Assert-GeneratedDashboardData {
+    foreach ($file in $RequiredGeneratedFiles) {
+        $path = Join-Path $DashboardDir $file
+        if (-not (Test-Path -LiteralPath $path -PathType Leaf)) {
+            throw "Initial local collection did not generate $file."
+        }
+    }
+}
+
+function Test-CollectorWatcher {
+    $pidPath = Join-Path $DashboardDir ".collector.pid"
+    if (-not (Test-Path -LiteralPath $pidPath -PathType Leaf)) { return $false }
+
+    $watcherPidText = (Get-Content -LiteralPath $pidPath -Raw -ErrorAction SilentlyContinue).Trim()
+    [int]$watcherPid = 0
+    if (-not [int]::TryParse($watcherPidText, [ref]$watcherPid) -or $watcherPid -le 0) {
+        Remove-Item -LiteralPath $pidPath -Force -ErrorAction SilentlyContinue
+        return $false
+    }
+
+    $process = Get-CimInstance Win32_Process -Filter "ProcessId = $watcherPid" -ErrorAction SilentlyContinue
+    if (-not $process -or -not $process.CommandLine -or
+        -not $process.CommandLine.Contains($CollectorPath) -or
+        -not $process.CommandLine.Contains("-Watch")) {
+        Remove-Item -LiteralPath $pidPath -Force -ErrorAction SilentlyContinue
+        return $false
+    }
+
+    return $true
+}
+
 if ($Server) {
     Start-NoCacheServer -ListenPort $Port
     exit 0
@@ -96,29 +153,45 @@ if ($Server) {
 if (-not (Test-Path -LiteralPath $DashboardDir -PathType Container)) {
     throw "Dashboard directory not found: $DashboardDir"
 }
-
-Stop-ExistingProjectProcess -Pattern "collect\.ps1"
-Stop-ExistingProjectProcess -Pattern "start-dashboard\.ps1.*-Server"
-
-Start-Process -FilePath "powershell" -WindowStyle Hidden -ArgumentList @(
-    "-NoProfile",
-    "-ExecutionPolicy", "Bypass",
-    "-File", "`"$PSCommandPath`"",
-    "-Server",
-    "-Port", "$Port"
-)
-
-if (-not (Wait-DashboardServer -ListenPort $Port -TimeoutSeconds 20)) {
-    throw "Dashboard server did not become ready on http://127.0.0.1:$Port/"
+if (-not (Test-Path -LiteralPath $CollectorPath -PathType Leaf)) {
+    throw "Collector script not found: $CollectorPath"
 }
 
-Start-Process -FilePath "powershell" -WindowStyle Hidden -ArgumentList @(
-    "-NoProfile",
-    "-ExecutionPolicy", "Bypass",
-    "-File", "`"$(Join-Path $Root 'collect.ps1')`"",
-    "-Watch",
-    "-RecentFiles", "250",
-    "-RecentDays", "45"
-)
+Write-Host "Reading local AI-agent logs..."
+& $CollectorPath -RecentFiles 250 -RecentDays 45
+if (-not $?) {
+    throw "Initial local collection failed."
+}
+Assert-GeneratedDashboardData
 
-Start-Process "http://127.0.0.1:$Port/index.html"
+if (-not (Test-SkillTrackerServer -ListenPort $Port)) {
+    if (Test-AnyHttpServer -ListenPort $Port) {
+        throw "Port $Port is already used by another local application. Close it or start Skill Tracker with a different -Port value."
+    }
+
+    Start-Process -FilePath "powershell" -WindowStyle Hidden -ArgumentList @(
+        "-NoProfile",
+        "-ExecutionPolicy", "Bypass",
+        "-File", "`"$PSCommandPath`"",
+        "-Server",
+        "-Port", "$Port"
+    )
+    if (-not (Wait-SkillTrackerServer -ListenPort $Port -TimeoutSeconds 20)) {
+        throw "Dashboard server did not become ready on http://127.0.0.1:$Port/."
+    }
+}
+
+if (-not $NoWatch -and -not (Test-CollectorWatcher)) {
+    Start-Process -FilePath "powershell" -WindowStyle Hidden -ArgumentList @(
+        "-NoProfile",
+        "-ExecutionPolicy", "Bypass",
+        "-File", "`"$CollectorPath`"",
+        "-Watch",
+        "-RecentFiles", "250",
+        "-RecentDays", "45"
+    )
+}
+
+if (-not $NoBrowser) {
+    Start-Process "http://127.0.0.1:$Port/index.html"
+}

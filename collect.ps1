@@ -108,11 +108,11 @@ if ($skillRoots.Count -eq 0) {
     foreach ($c in $skillRootCandidates) { Add-SkillRoot -Path $c }
 }
 if ($skillRoots.Count -eq 0) {
-    Write-Error "Cannot find skills directory. Set 'skills_root' or 'skills_roots' in config.json."
-    exit 1
+    Write-Warning "No skills directory was found. Continuing with skills discovered from local logs."
+} else {
+    Write-Host "Skills roots:"
+    foreach ($root in $skillRoots) { Write-Host "  $root" }
 }
-Write-Host "Skills roots:"
-foreach ($root in $skillRoots) { Write-Host "  $root" }
 
 # ── Auto-detect installed AI tools ────────────────────────────────────────────
 # Each tool specifies: Name, one or more scan roots, and a timestamp field preference
@@ -213,7 +213,9 @@ foreach ($ct in $cfg.custom_tools) {
         }
     }
 }
-if ($activeSources.Count -eq 0) { Write-Warning "No AI tools detected."; exit 1 }
+if ($activeSources.Count -eq 0) {
+    Write-Warning "No AI tools detected. Writing an empty local scan report."
+}
 
 # ── Load skill names + descriptions from SKILL.md frontmatter ─────────────────
 $skillNames = @()
@@ -448,7 +450,20 @@ function Test-SkillReadLine {
 $fileStates = @{}
 
 $pidPath = Join-Path $cfg.output_dir ".collector.pid"
+$watcherMutex = $null
+$ownsWatcherMutex = $false
 if ($Watch) {
+    $mutexHash = Get-StableId ([System.IO.Path]::GetFullPath($cfg.output_dir).ToLowerInvariant())
+    $watcherMutex = [System.Threading.Mutex]::new($false, "Local\SkillTrackerCollector_$mutexHash")
+    try {
+        if (-not $watcherMutex.WaitOne(0, $false)) {
+            Write-Host "A Skill Tracker watcher is already running for $($cfg.output_dir)."
+            exit 0
+        }
+    } catch [System.Threading.AbandonedMutexException] {
+        # An earlier watcher ended unexpectedly; this process now owns the lock.
+    }
+    $ownsWatcherMutex = $true
     [System.IO.File]::WriteAllText($pidPath, $pid, [System.Text.Encoding]::UTF8)
 }
 
@@ -649,6 +664,17 @@ foreach ($src in $activeSources) {
             }
         }
 
+        # Ensure skills seen in local logs remain visible even when their source
+        # folder is not installed or has not been configured yet.
+        foreach ($hit in $rawHits) {
+            if (-not $counts.ContainsKey($hit.skill)) {
+                $skillNames += $hit.skill
+                $counts[$hit.skill] = 0
+                $dedupCounts[$hit.skill] = 0
+                $descs[$hit.skill] = ""
+            }
+        }
+
         # Process accumulated or cached raw hits
         foreach ($hit in $rawHits) {
             $skill = $hit.skill
@@ -756,14 +782,14 @@ $jsonObj = [PSCustomObject]@{
 $jsonPath = Join-Path $cfg.output_dir "skill_call_stats.json"
 [System.IO.File]::WriteAllText($jsonPath, ($jsonObj | ConvertTo-Json -Depth 5), [System.Text.Encoding]::UTF8)
 
-[System.IO.File]::WriteAllText($catalogPath, ($catalogArr | ConvertTo-Json -Depth 8), [System.Text.Encoding]::UTF8)
+[System.IO.File]::WriteAllText($catalogPath, (ConvertTo-Json -InputObject @($catalogArr) -Depth 8 -Compress), [System.Text.Encoding]::UTF8)
 $catalogJsPath = Join-Path $cfg.output_dir "skill_catalog.js"
-$catalogJson = @($catalogArr) | ConvertTo-Json -Depth 8 -Compress
+$catalogJson = ConvertTo-Json -InputObject @($catalogArr) -Depth 8 -Compress
 [System.IO.File]::WriteAllText($catalogJsPath, "var SKILL_CATALOG = $catalogJson;`n", [System.Text.Encoding]::UTF8)
 
 # ── Output skill_data.js ───────────────────────────────────────────────────────
 $sb = [System.Text.StringBuilder]::new()
-$skillDataJson = @($arr) | ConvertTo-Json -Depth 6 -Compress
+$skillDataJson = ConvertTo-Json -InputObject @($arr) -Depth 6 -Compress
 $detectedToolsJson = ConvertTo-Json -InputObject $detectedTools -Depth 3 -Compress
 [void]$sb.AppendLine("var SKILL_DATA = $skillDataJson;")
 [void]$sb.AppendLine("var GENERATED_AT = `"$genAt`";")
@@ -777,7 +803,7 @@ $jsPath = Join-Path $cfg.output_dir "skill_data.js"
 $maxE  = [Math]::Max(1, [int]$cfg.max_log_entries)
 $sorted = $logEntries | Sort-Object { $_.time } -Descending | Select-Object -First $maxE
 $lb = [System.Text.StringBuilder]::new()
-$logJson = @($sorted) | ConvertTo-Json -Depth 6 -Compress
+$logJson = ConvertTo-Json -InputObject @($sorted) -Depth 6 -Compress
 [void]$lb.AppendLine("var SKILL_LOG = $logJson;")
 [void]$lb.AppendLine("var BUILD_ID = $buildId;")
 $logPath = Join-Path $cfg.output_dir "skill_log.js"
@@ -864,5 +890,11 @@ $arr | Sort-Object count -Descending | Select-Object -First 10 |
 } finally {
     if ($Watch -and (Test-Path $pidPath)) {
         Remove-Item $pidPath -Force -ErrorAction SilentlyContinue
+    }
+    if ($watcherMutex) {
+        if ($ownsWatcherMutex) {
+            try { $watcherMutex.ReleaseMutex() } catch { }
+        }
+        $watcherMutex.Dispose()
     }
 }

@@ -1,5 +1,7 @@
 # Skill Tracker v0.2.0
 
+> Superseded by v0.2.1. Download the latest Windows portable ZIP from GitHub Releases and run `run.bat`; the VBS launcher described below is no longer shipped or supported.
+
 ## Highlights
 
 - Added a one-click Windows launcher (`启动看板.vbs`) that creates a `Skill Tracker Dashboard` desktop shortcut on first launch.

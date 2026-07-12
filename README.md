@@ -54,7 +54,7 @@ cd skill-tracker
 .\run.bat
 ```
 
-For the smoothest Windows launch, double-click `启动看板.vbs`. It starts the local no-cache dashboard server and the background collector, then creates a reusable desktop shortcut named `Skill Tracker Dashboard`.
+For the smoothest Windows launch, double-click `run.bat`. It reads local AI-agent logs first, verifies the generated local dashboard data, then opens the browser. The launcher keeps a local watcher running only after the initial scan completes.
 
 Manual mode:
 
@@ -68,7 +68,7 @@ Collector verification before release:
 powershell -ExecutionPolicy Bypass -File .\scripts\verify-collector.ps1
 ```
 
-If no local logs have been collected yet, the dashboard opens with synthetic demo data from `dashboard/demo_data.js`, so contributors can inspect the interface immediately after cloning.
+Opening `dashboard/index.html` directly uses the static `dashboard/demo_data.js` fallback so contributors can inspect the interface. Launching through `run.bat` performs a local scan first; when no supported logs exist, it produces an empty local report rather than synthetic activity.
 
 ## Project Type
 
@@ -82,10 +82,10 @@ It has two runtime parts:
 GitHub's default "Source code" assets work for developers, but they look raw to non-technical users. For releases, maintainers should attach a Windows portable ZIP:
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File .\scripts\package-release.ps1 -Version v0.1.0
+powershell -ExecutionPolicy Bypass -File .\scripts\package-release.ps1 -Version v0.2.1
 ```
 
-Upload the generated `dist/skill-tracker-v0.1.0-windows-portable.zip` to the GitHub release. Users can unzip it and double-click `启动看板.vbs` (preferred) or `run.bat`; the first launch creates `Skill Tracker Dashboard.lnk` on the Desktop.
+Upload both `dist/skill-tracker-v0.2.1-windows-portable.zip` and `dist/SHA256SUMS.txt` to the GitHub release. Users unzip the portable ZIP and double-click `run.bat`; it collects real local data before opening the dashboard. The release does not include a VBS launcher or create desktop shortcuts automatically.
 
 An `.exe` wrapper is optional later, mainly for one-click onboarding. It is not required for the current architecture because there is no server, installer, or background service.
 
