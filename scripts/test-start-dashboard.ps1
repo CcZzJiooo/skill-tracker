@@ -6,6 +6,9 @@ $repoRoot = Split-Path -Parent $PSScriptRoot
 $tempRoot = Join-Path ([System.IO.Path]::GetTempPath()) ("skill-tracker-launch-test-" + [guid]::NewGuid().ToString("N"))
 $packageRoot = Join-Path $tempRoot "package"
 $logDir = Join-Path $tempRoot "logs"
+$skillsRoot = Join-Path $packageRoot "fixtures\skills"
+$skillDir = Join-Path $skillsRoot "launch-test-skill"
+$fakeHome = Join-Path $tempRoot "home"
 $port = Get-Random -Minimum 21000 -Maximum 25000
 
 function Copy-RequiredFile {
@@ -28,9 +31,15 @@ try {
     foreach ($relativePath in @("collect.ps1", "start-dashboard.ps1", "dashboard/index.html", "dashboard/demo_data.js")) {
         Copy-RequiredFile -RelativePath $relativePath
     }
+    New-Item -ItemType Directory -Path $skillDir -Force | Out-Null
+    [System.IO.File]::WriteAllText(
+        (Join-Path $skillDir "SKILL.md"),
+        "---`nname: launch-test-skill`ndescription: Local launcher fixture.`n---`n",
+        [System.Text.Encoding]::UTF8
+    )
     $config = [ordered]@{
         skills_root = ""
-        skills_roots = @()
+        skills_roots = @($skillsRoot)
         output_dir = "./dashboard"
         max_log_entries = 100
         dedup_window_minutes = 2
@@ -47,9 +56,24 @@ try {
         [System.Text.Encoding]::UTF8
     )
 
-    & powershell -NoProfile -ExecutionPolicy Bypass -File (Join-Path $packageRoot "start-dashboard.ps1") -Port $port -NoBrowser -NoWatch
-    if ($LASTEXITCODE -ne 0) {
-        throw "Launcher exited with code $LASTEXITCODE."
+    $priorUserProfile = $env:USERPROFILE
+    $priorHome = $env:HOME
+    $priorAppData = $env:APPDATA
+    $priorLocalAppData = $env:LOCALAPPDATA
+    try {
+        $env:USERPROFILE = $fakeHome
+        $env:HOME = $fakeHome
+        $env:APPDATA = Join-Path $fakeHome "AppData\Roaming"
+        $env:LOCALAPPDATA = Join-Path $fakeHome "AppData\Local"
+        & powershell -NoProfile -ExecutionPolicy Bypass -File (Join-Path $packageRoot "start-dashboard.ps1") -Port $port -NoBrowser -NoWatch
+        if ($LASTEXITCODE -ne 0) {
+            throw "Launcher exited with code $LASTEXITCODE."
+        }
+    } finally {
+        $env:USERPROFILE = $priorUserProfile
+        $env:HOME = $priorHome
+        $env:APPDATA = $priorAppData
+        $env:LOCALAPPDATA = $priorLocalAppData
     }
 
     $skillDataPath = Join-Path $packageRoot "dashboard\skill_data.js"

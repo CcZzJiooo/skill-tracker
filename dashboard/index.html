@@ -357,7 +357,67 @@ button {
   display: flex;
   justify-content: flex-end;
   gap: 8px;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
+  align-items: center;
+}
+
+.tool-overflow {
+  position: relative;
+  flex: 0 0 auto;
+}
+
+.tool-overflow summary {
+  min-height: 30px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
+  color: var(--text);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 9px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  list-style: none;
+  white-space: nowrap;
+}
+
+.tool-overflow summary::-webkit-details-marker {
+  display: none;
+}
+
+.tool-overflow summary::after {
+  content: "+";
+  color: var(--accent);
+  font-size: 14px;
+  line-height: 1;
+}
+
+.tool-overflow[open] summary::after {
+  content: "-";
+}
+
+.tool-overflow-panel {
+  position: absolute;
+  z-index: 20;
+  top: calc(100% + 8px);
+  right: 0;
+  width: min(360px, calc(100vw - 48px));
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius);
+  background: var(--surface);
+  box-shadow: 0 7px 14px color-mix(in srgb, var(--text) 12%, transparent);
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  padding: 10px;
+}
+
+.tool-overflow-panel .tool-chip {
+  width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .topbar-actions {
@@ -666,10 +726,13 @@ button {
 }
 
 .dashboard-controls {
-  display: flex;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  grid-template-areas:
+    "mode date"
+    "note note";
   align-items: center;
-  justify-content: space-between;
-  gap: 12px;
+  gap: 9px 14px;
   margin: 0;
   padding: 10px 12px;
   border-bottom: 1px solid var(--border);
@@ -677,8 +740,59 @@ button {
 }
 
 .mode-note {
+  grid-area: note;
   color: var(--dim);
   font-size: 12px;
+}
+
+.date-range-control {
+  grid-area: date;
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  min-width: 0;
+}
+
+.date-range-label,
+.date-range-summary {
+  color: var(--dim);
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.date-range-input {
+  min-height: 32px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--text);
+  padding: 4px 7px;
+  font: inherit;
+  font-size: 12px;
+}
+
+.date-range-input:focus-visible,
+.tool-overflow summary:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--accent) 76%, white);
+  outline-offset: 2px;
+}
+
+.date-range-reset {
+  min-height: 32px;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--dim);
+  cursor: pointer;
+  font: inherit;
+  font-size: 12px;
+  padding: 4px 6px;
+}
+
+.date-range-reset:hover {
+  background: var(--surface-hover);
+  color: var(--text);
 }
 
 .metric-card {
@@ -1019,6 +1133,7 @@ button {
 }
 
 .metric-mode {
+  grid-area: mode;
   display: inline-flex;
   gap: 3px;
   padding: 3px;
@@ -2297,6 +2412,14 @@ button.catalog-stat.active {
 }
 
 @media (max-width: 1180px) {
+  .topbar {
+    grid-template-columns: 1fr;
+  }
+
+  .topbar-actions {
+    justify-content: space-between;
+  }
+
   .overview-grid {
     grid-template-columns: 1fr;
   }
@@ -2355,12 +2478,32 @@ button.catalog-stat.active {
   }
 
   .nav {
-    grid-template-columns: minmax(0, 1fr);
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 6px;
+  }
+
+  .nav button {
+    gap: 8px;
+    min-width: 0;
+    padding: 8px;
+  }
+
+  .nav-label strong {
+    font-size: 13px;
+  }
+
+  .nav-label span {
+    font-size: 11px;
   }
 
   .sidebar-foot {
-    grid-template-columns: 1fr;
-    align-items: stretch;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .theme-toggle {
+    min-width: 82px;
   }
 
   .main {
@@ -2377,15 +2520,23 @@ button.catalog-stat.active {
   }
 
   .tool-strip {
-    width: 100%;
-    display: grid;
-    grid-template-columns: minmax(0, 1fr);
-    justify-content: stretch;
+    width: auto;
+    flex: 1 1 220px;
+    justify-content: flex-end;
   }
 
-  .tool-chip {
+  .tool-strip > .tool-chip {
     justify-content: center;
     overflow: hidden;
+  }
+
+  .tool-strip > .tool-chip:nth-child(n + 3) {
+    display: none;
+  }
+
+  .tool-overflow-panel {
+    width: min(320px, calc(100vw - 44px));
+    grid-template-columns: 1fr;
   }
 
   .metrics-grid {
@@ -2415,8 +2566,17 @@ button.catalog-stat.active {
   }
 
   .dashboard-controls {
+    grid-template-columns: 1fr;
+    grid-template-areas:
+      "mode"
+      "date"
+      "note";
     align-items: stretch;
-    flex-direction: column;
+  }
+
+  .date-range-control {
+    justify-content: flex-start;
+    flex-wrap: wrap;
   }
 
   .section-head,
@@ -2752,6 +2912,16 @@ button.catalog-stat.active {
           <div class="metric-mode" role="group" aria-label="统计口径">
             <button type="button" class="active" data-count-mode="dedup">去重调用</button>
             <button type="button" data-count-mode="raw">原始读取</button>
+          </div>
+          <div class="date-range-control" role="group" aria-label="统计日期范围">
+            <span class="date-range-label">统计范围</span>
+            <label class="sr-only" for="statsDateStart">开始日期</label>
+            <input class="date-range-input" id="statsDateStart" type="date">
+            <span class="date-range-label" aria-hidden="true">至</span>
+            <label class="sr-only" for="statsDateEnd">结束日期</label>
+            <input class="date-range-input" id="statsDateEnd" type="date">
+            <button class="date-range-reset" id="statsDateReset" type="button" title="恢复全部日期">重置</button>
+            <span class="date-range-summary" id="statsDateSummary"></span>
           </div>
           <div class="mode-note" id="modeNote">同一工具、同一会话、同一 skill 在短时间内重复读取只算一次。</div>
         </div>
@@ -3283,6 +3453,9 @@ button.catalog-stat.active {
   var expandedSkills = {};
   var skillFilter = "all";
   var rankingPeriod = "all";
+  var statsDateStart = "";
+  var statsDateEnd = "";
+  var scopedSkillCountsCache = null;
   var skillPage = 0;
   var logTool = "all";
   var logPage = 0;
@@ -3360,6 +3533,10 @@ button.catalog-stat.active {
     manualGrid: document.getElementById("manualGrid"),
     pageHeading: document.getElementById("pageHeading"),
     modeNote: document.getElementById("modeNote"),
+    statsDateStart: document.getElementById("statsDateStart"),
+    statsDateEnd: document.getElementById("statsDateEnd"),
+    statsDateReset: document.getElementById("statsDateReset"),
+    statsDateSummary: document.getElementById("statsDateSummary"),
     toolAuditPanel: document.getElementById("toolAuditPanel"),
     trendSubtitle: document.getElementById("trendSubtitle"),
     skillSearch: document.getElementById("skillSearch"),
@@ -3383,6 +3560,7 @@ button.catalog-stat.active {
 
   initTheme();
   renderStaticChrome();
+  renderStatsDateRange();
   renderMetrics();
   renderToolAudit();
   renderTrend();
@@ -3425,8 +3603,18 @@ button.catalog-stat.active {
         renderMetrics();
         renderTrend();
         renderSkills(true);
+        renderLogs(true);
         renderMatrixLab();
       });
+    });
+
+    [els.statsDateStart, els.statsDateEnd].forEach(function (input) {
+      input.addEventListener("change", applyStatsDateRange);
+    });
+    els.statsDateReset.addEventListener("click", function () {
+      els.statsDateStart.value = "";
+      els.statsDateEnd.value = "";
+      applyStatsDateRange();
     });
 
     document.querySelectorAll("[data-ranking-period]").forEach(function (button) {
@@ -3604,9 +3792,22 @@ button.catalog-stat.active {
 
   function renderStaticChrome() {
     els.generatedAt.textContent = window.GENERATED_AT || "--";
-    els.toolBadges.innerHTML = tools.length ? tools.map(function (tool) {
-      return '<span class="tool-chip ' + toolClass(tool) + '">' + escapeHtml(tool) + '</span>';
-    }).join("") : '<span class="tool-chip">No tools</span>';
+    if (!tools.length) {
+      els.toolBadges.innerHTML = '<span class="tool-chip">No tools</span>';
+      return;
+    }
+    var visibleTools = tools.slice(0, 4);
+    var visible = visibleTools.map(function (tool) {
+      return '<span class="tool-chip ' + toolClass(tool) + '" title="' + escapeAttr(tool) + '">' + escapeHtml(tool) + '</span>';
+    }).join("");
+    var overflow = tools.length > visibleTools.length
+      ? '<details class="tool-overflow"><summary>+' + formatNum(tools.length - visibleTools.length) + ' 工具</summary><div class="tool-overflow-panel" aria-label="全部检测到的工具">'
+        + tools.map(function (tool) {
+          return '<span class="tool-chip ' + toolClass(tool) + '" title="' + escapeAttr(tool) + '">' + escapeHtml(tool) + '</span>';
+        }).join("")
+        + '</div></details>'
+      : "";
+    els.toolBadges.innerHTML = visible + overflow;
   }
 
   function hydrateCountsFromLogs() {
@@ -3645,11 +3846,16 @@ button.catalog-stat.active {
   }
 
   function getCount(row) {
-    return countMode === "raw" ? Number(row.rawCount || 0) : Number(row.dedupCount || 0);
+    var counts = getScopedSkillCounts(row);
+    return countMode === "raw" ? counts.raw : counts.dedup;
   }
 
   function getTotalCalls() {
-    return countMode === "raw" ? totalRawCalls : totalDedupCalls;
+    if (!hasStatsDateFilter()) return countMode === "raw" ? totalRawCalls : totalDedupCalls;
+    var rows = statsScopedLogRows();
+    return countMode === "raw"
+      ? rows.length
+      : rows.filter(function (row) { return row.dedup !== false; }).length;
   }
 
   function sortedSkillRows() {
@@ -3658,17 +3864,121 @@ button.catalog-stat.active {
     });
   }
 
+  function hasStatsDateFilter() {
+    return !!(statsDateStart || statsDateEnd);
+  }
+
+  function parseDateBoundary(value, isEnd) {
+    if (!value) return null;
+    var match = String(value).match(/^(\d{4})-(\d{2})-(\d{2})$/);
+    if (!match) return null;
+    return new Date(Number(match[1]), Number(match[2]) - 1, Number(match[3]) + (isEnd ? 1 : 0)).getTime();
+  }
+
+  function statsDateBounds() {
+    return {
+      start: parseDateBoundary(statsDateStart, false),
+      end: parseDateBoundary(statsDateEnd, true)
+    };
+  }
+
+  function isInStatsDateRange(row) {
+    if (!hasStatsDateFilter()) return true;
+    var parsed = Date.parse(row.time || "");
+    if (isNaN(parsed)) return false;
+    var bounds = statsDateBounds();
+    return (!bounds.start || parsed >= bounds.start) && (!bounds.end || parsed < bounds.end);
+  }
+
+  function statsScopedLogRows() {
+    return hasStatsDateFilter() ? logRows.filter(isInStatsDateRange) : logRows;
+  }
+
+  function getScopedSkillCounts(row) {
+    if (!hasStatsDateFilter()) {
+      return { raw: Number(row.rawCount || 0), dedup: Number(row.dedupCount || 0) };
+    }
+    if (!scopedSkillCountsCache) {
+      scopedSkillCountsCache = {};
+      statsScopedLogRows().forEach(function (item) {
+        if (!item.skill) return;
+        if (!scopedSkillCountsCache[item.skill]) scopedSkillCountsCache[item.skill] = { raw: 0, dedup: 0 };
+        scopedSkillCountsCache[item.skill].raw += 1;
+        if (item.dedup !== false) scopedSkillCountsCache[item.skill].dedup += 1;
+      });
+    }
+    return scopedSkillCountsCache[row.skill] || { raw: 0, dedup: 0 };
+  }
+
+  function formatInputDate(value) {
+    if (!value) return "";
+    var date = new Date(value);
+    if (isNaN(date.getTime())) return "";
+    return date.getFullYear() + "-" + pad2(date.getMonth() + 1) + "-" + pad2(date.getDate());
+  }
+
+  function renderStatsDateRange(validationMessage) {
+    if (!els.statsDateStart || !els.statsDateEnd || !els.statsDateSummary) return;
+    var range = logTimeRange();
+    var min = formatInputDate(range.earliest);
+    var max = formatInputDate(range.latest);
+    els.statsDateStart.min = min;
+    els.statsDateStart.max = max;
+    els.statsDateEnd.min = min;
+    els.statsDateEnd.max = max;
+    if (validationMessage) {
+      els.statsDateSummary.textContent = validationMessage;
+      return;
+    }
+    if (!range.earliest || !range.latest) {
+      els.statsDateSummary.textContent = "暂无带时间的调用记录";
+      return;
+    }
+    var selected = hasStatsDateFilter();
+    var startLabel = statsDateStart ? statsDateStart.replace(/-/g, "/") : formatDateOnly(range.earliest);
+    var endLabel = statsDateEnd ? statsDateEnd.replace(/-/g, "/") : formatDateOnly(range.latest);
+    els.statsDateSummary.textContent = (selected ? "已筛选 " : "全部记录 ") + startLabel + " - " + endLabel;
+  }
+
+  function applyStatsDateRange() {
+    var start = els.statsDateStart.value || "";
+    var end = els.statsDateEnd.value || "";
+    if (start && end && start > end) {
+      els.statsDateEnd.setCustomValidity("结束日期不能早于开始日期");
+      renderStatsDateRange("结束日期不能早于开始日期");
+      return;
+    }
+    els.statsDateStart.setCustomValidity("");
+    els.statsDateEnd.setCustomValidity("");
+    statsDateStart = start;
+    statsDateEnd = end;
+    scopedSkillCountsCache = null;
+    renderStatsDateRange();
+    renderMetrics();
+    renderTrend();
+    renderSkills(true);
+    renderLogs(true);
+    renderGovernance();
+    renderActionLab();
+    renderMatrixLab();
+  }
+
   function renderMetrics() {
     var sorted = sortedSkillRows();
     var top = sorted[0] || { skill: "--", rawCount: 0, dedupCount: 0 };
     var totalCalls = getTotalCalls();
+    var scopedRows = statsScopedLogRows();
     var activeSkills = skillRows.filter(function (row) { return getCount(row) > 0; }).length;
     var zeroSkills = skillRows.length - activeSkills;
-    var savedReads = Math.max(0, totalRawCalls - totalDedupCalls);
-    var totalToolCount = tools.length || unique(logRows.map(function (row) { return row.tool; })).length;
+    var scopedRawCalls = hasStatsDateFilter() ? scopedRows.length : totalRawCalls;
+    var scopedDedupCalls = hasStatsDateFilter()
+      ? scopedRows.filter(function (row) { return row.dedup !== false; }).length
+      : totalDedupCalls;
+    var savedReads = Math.max(0, scopedRawCalls - scopedDedupCalls);
+    var totalToolCount = unique(scopedRows.map(function (row) { return row.tool; }).filter(Boolean)).length || tools.length;
     var skillCoverage = skillRows.length ? activeSkills / skillRows.length * 100 : 0;
     var topShare = totalCalls ? getCount(top) / totalCalls * 100 : 0;
-    var savedShare = totalRawCalls ? savedReads / totalRawCalls * 100 : 0;
+    var savedShare = scopedRawCalls ? savedReads / scopedRawCalls * 100 : 0;
     els.modeNote.textContent = countMode === "dedup"
       ? "当前使用去重调用：同一工具、同一会话、同一 skill 在 " + dedupWindowMinutes + " 分钟内重复读取只算一次。"
       : "当前使用原始读取：每次日志里读取 SKILL.md 都计入一次。";
@@ -3698,7 +4008,7 @@ button.catalog-stat.active {
 
   function renderOverviewSignals(summary) {
     if (!els.signalGrid) return;
-    var rows = logRows.filter(function (row) {
+    var rows = statsScopedLogRows().filter(function (row) {
       return countMode === "raw" || row.dedup !== false;
     });
     var toolCounts = {};
@@ -3715,7 +4025,7 @@ button.catalog-stat.active {
     var supportedTools = (reportSummary.supported_tools || []).length || tools.length;
     var scannedFiles = Number(reportSummary.scanned_file_count || 0);
     var detectedSources = Number(reportSummary.detected_source_count || 0);
-    var highConfidence = countMode === "raw" ? Number(reportSummary.raw_hits || totalRawCalls) : Number(reportSummary.dedup_hits || totalDedupCalls);
+    var highConfidence = getTotalCalls();
     var signals = [
       { label: "主力工具", value: topTool, sub: topTool === "--" ? "暂无工具命中" : formatNum(toolCounts[topTool]) + " 次命中" },
       { label: "中文覆盖", value: translatedPct.toFixed(1) + "%", sub: formatNum(translatedSkills) + " / " + formatNum(skillRows.length) + " 已翻译" },
@@ -3870,7 +4180,7 @@ button.catalog-stat.active {
 
     var bounds = rankingPeriodBounds();
     var counts = {};
-    logRows.forEach(function (row) {
+    statsScopedLogRows().forEach(function (row) {
       if (!row.skill || !isInRankingPeriod(row, bounds)) return;
       if (countMode !== "raw" && row.dedup !== true) return;
       if (!counts[row.skill]) counts[row.skill] = { total: 0, tools: {} };
@@ -3960,7 +4270,7 @@ button.catalog-stat.active {
   }
 
   function rankingPeriodBounds() {
-    var range = logTimeRange();
+    var range = statsLogTimeRange();
     var anchorTime = range.latest || Date.now();
     var anchor = new Date(anchorTime);
     if (rankingPeriod === "day") {
@@ -3978,6 +4288,17 @@ button.catalog-stat.active {
 
   function logTimeRange() {
     return logRows.reduce(function (range, row) {
+      var parsed = Date.parse(row.time || "");
+      if (isNaN(parsed)) return range;
+      return {
+        earliest: range.earliest ? Math.min(range.earliest, parsed) : parsed,
+        latest: range.latest ? Math.max(range.latest, parsed) : parsed
+      };
+    }, { earliest: 0, latest: 0 });
+  }
+
+  function statsLogTimeRange() {
+    return statsScopedLogRows().reduce(function (range, row) {
       var parsed = Date.parse(row.time || "");
       if (isNaN(parsed)) return range;
       return {
@@ -5738,7 +6059,7 @@ button.catalog-stat.active {
 
   function renderLogs(resetPage) {
     var query = els.logSearch.value.trim().toLowerCase();
-    filteredLogs = logRows.filter(function (row) {
+    filteredLogs = statsScopedLogRows().filter(function (row) {
       if (logTool !== "all" && row.tool !== logTool) return false;
       if (countMode !== "raw" && row.dedup === false) return false;
       if (query && (row.skill + " " + row.session + " " + row.tool).toLowerCase().indexOf(query) === -1) return false;
@@ -6266,9 +6587,11 @@ button.catalog-stat.active {
                   totalRawCalls = skillRows.reduce(function (sum, row) { return sum + row.rawCount; }, 0);
                   totalDedupCalls = skillRows.reduce(function (sum, row) { return sum + row.dedupCount; }, 0);
                   translatedSkills = skillRows.filter(function (row) { return !!row.zhDesc; }).length;
+                  scopedSkillCountsCache = null;
 
                   // Update UI elements
                   renderStaticChrome();
+                  renderStatsDateRange();
 
                   // Call all UI renderers
                   renderMetrics();

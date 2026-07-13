@@ -7,6 +7,7 @@ $tempRoot = Join-Path ([System.IO.Path]::GetTempPath()) ("skill-tracker-port-con
 $packageA = Join-Path $tempRoot "package-a"
 $packageB = Join-Path $tempRoot "package-b"
 $logDir = Join-Path $tempRoot "logs"
+$fakeHome = Join-Path $tempRoot "home"
 $port = Get-Random -Minimum 38001 -Maximum 42000
 
 function Copy-PackageFiles {
@@ -19,9 +20,18 @@ function Copy-PackageFiles {
         Copy-Item -LiteralPath $source -Destination $destination -Force
     }
 
+    $skillsRoot = Join-Path $DestinationRoot "fixtures\skills"
+    $skillDir = Join-Path $skillsRoot "port-conflict-skill"
+    New-Item -ItemType Directory -Path $skillDir -Force | Out-Null
+    [System.IO.File]::WriteAllText(
+        (Join-Path $skillDir "SKILL.md"),
+        "---`nname: port-conflict-skill`ndescription: Local port-conflict fixture.`n---`n",
+        [System.Text.Encoding]::UTF8
+    )
+
     $config = [ordered]@{
         skills_root = ""
-        skills_roots = @()
+        skills_roots = @($skillsRoot)
         output_dir = "./dashboard"
         max_log_entries = 50
         dedup_window_minutes = 2
@@ -44,18 +54,34 @@ try {
     Copy-PackageFiles -DestinationRoot $packageA
     Copy-PackageFiles -DestinationRoot $packageB
 
-    & powershell -NoProfile -ExecutionPolicy Bypass -File (Join-Path $packageA "start-dashboard.ps1") -Port $port -NoBrowser -NoWatch
-    if ($LASTEXITCODE -ne 0) {
-        throw "First package failed to start its local server."
-    }
-
-    $priorErrorActionPreference = $ErrorActionPreference
+    $priorUserProfile = $env:USERPROFILE
+    $priorHome = $env:HOME
+    $priorAppData = $env:APPDATA
+    $priorLocalAppData = $env:LOCALAPPDATA
     try {
-        $ErrorActionPreference = "Continue"
-        $secondOutput = & powershell -NoProfile -ExecutionPolicy Bypass -File (Join-Path $packageB "start-dashboard.ps1") -Port $port -NoBrowser -NoWatch 2>&1
-        $secondExitCode = $LASTEXITCODE
+        $env:USERPROFILE = $fakeHome
+        $env:HOME = $fakeHome
+        $env:APPDATA = Join-Path $fakeHome "AppData\Roaming"
+        $env:LOCALAPPDATA = Join-Path $fakeHome "AppData\Local"
+
+        & powershell -NoProfile -ExecutionPolicy Bypass -File (Join-Path $packageA "start-dashboard.ps1") -Port $port -NoBrowser -NoWatch
+        if ($LASTEXITCODE -ne 0) {
+            throw "First package failed to start its local server."
+        }
+
+        $priorErrorActionPreference = $ErrorActionPreference
+        try {
+            $ErrorActionPreference = "Continue"
+            $secondOutput = & powershell -NoProfile -ExecutionPolicy Bypass -File (Join-Path $packageB "start-dashboard.ps1") -Port $port -NoBrowser -NoWatch 2>&1
+            $secondExitCode = $LASTEXITCODE
+        } finally {
+            $ErrorActionPreference = $priorErrorActionPreference
+        }
     } finally {
-        $ErrorActionPreference = $priorErrorActionPreference
+        $env:USERPROFILE = $priorUserProfile
+        $env:HOME = $priorHome
+        $env:APPDATA = $priorAppData
+        $env:LOCALAPPDATA = $priorLocalAppData
     }
     if ($secondExitCode -eq 0) {
         throw "Second extracted package incorrectly reused the first package's server."
