@@ -1189,6 +1189,19 @@ button {
   color: var(--bg);
 }
 
+.rank-period-tabs {
+  flex: 0 0 240px;
+  width: 240px;
+  align-self: flex-start;
+}
+
+.rank-period-tabs button {
+  flex: 1 1 0;
+  min-width: 0;
+  padding-inline: 0;
+  text-align: center;
+}
+
 .search-wrap {
   min-width: 240px;
   max-width: 320px;
@@ -2583,6 +2596,12 @@ button.catalog-stat.active {
   .toolbar {
     align-items: stretch;
     flex-direction: column;
+  }
+
+  .rank-period-tabs {
+    width: 100%;
+    flex-basis: auto;
+    align-self: stretch;
   }
 
   .section-title.compact-title {
