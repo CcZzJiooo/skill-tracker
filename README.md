@@ -82,10 +82,10 @@ It has two runtime parts:
 GitHub's default "Source code" assets work for developers, but they look raw to non-technical users. For releases, maintainers should attach a Windows portable ZIP:
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File .\scripts\package-release.ps1 -Version v0.2.1
+powershell -ExecutionPolicy Bypass -File .\scripts\package-release.ps1 -Version v0.2.2
 ```
 
-Upload both `dist/skill-tracker-v0.2.1-windows-portable.zip` and `dist/SHA256SUMS.txt` to the GitHub release. Users unzip the portable ZIP and double-click `run.bat`; it collects real local data before opening the dashboard. The release does not include a VBS launcher or create desktop shortcuts automatically.
+Upload both `dist/skill-tracker-v0.2.2-windows-portable.zip` and `dist/SHA256SUMS.txt` to the GitHub release. Users unzip the portable ZIP and double-click `run.bat`; it collects real local data before opening the dashboard. The release does not include a VBS launcher or create desktop shortcuts automatically.
 
 An `.exe` wrapper is optional later, mainly for one-click onboarding. It is not required for the current architecture because there is no server, installer, or background service.
 
@@ -103,6 +103,12 @@ An `.exe` wrapper is optional later, mainly for one-click onboarding. It is not 
 | GitHub radar | Searches public GitHub repositories, checks repository freshness, latest release, and API rate limit state. |
 | Anonymous export | Exports privacy-safe reports without real session IDs, local paths, raw skill names, or full descriptions. |
 | Built-in manual | Explains every dashboard section inside the app, because many GitHub users do not read README files first. |
+
+### Automatic local skill summaries
+
+The collector reads each installed `SKILL.md` frontmatter (`description`, optional Chinese description, and `triggers`) plus a bounded excerpt of the document body. New skills are summarized locally into `zh_desc` during every scan; no skill content is uploaded to a translation service. Watch mode also detects newly created or modified `SKILL.md` files without requiring a restart.
+
+Each catalog entry records `zh_desc_source` (`manual`, `frontmatter`, or `auto_rule`), a source hash, and the local summary version. Existing entries without a source marker are treated as manual text, so historical edits remain safe. Editing a summary in the dashboard marks it as manual when the catalog JSON is exported.
 
 ## Supported Sources
 

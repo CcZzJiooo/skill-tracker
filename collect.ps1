@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
   Skill Tracker — collect AI skill call logs across all AI coding tools.
 #>
@@ -108,7 +108,7 @@ if ($skillRoots.Count -eq 0) {
     foreach ($c in $skillRootCandidates) { Add-SkillRoot -Path $c }
 }
 if ($skillRoots.Count -eq 0) {
-    Write-Warning "No skills directory was found. Continuing with skills discovered from local logs."
+    Write-Warning "No skills directory was found. Only calls backed by a local SKILL.md can be emitted, so the catalog may remain empty."
 } else {
     Write-Host "Skills roots:"
     foreach ($root in $skillRoots) { Write-Host "  $root" }
@@ -217,39 +217,201 @@ if ($activeSources.Count -eq 0) {
     Write-Warning "No AI tools detected. Writing an empty local scan report."
 }
 
-# ── Load skill names + descriptions from SKILL.md frontmatter ─────────────────
+# ── Load SKILL.md metadata and bounded semantic context ───────────────────────
+function ConvertTo-NormalizedSkillText {
+    param([string]$Text)
+
+    if ($null -eq $Text) { return "" }
+    $value = [string]$Text
+    $value = $value -replace '^\uFEFF', ''
+    $value = $value -replace "[`r`n`t]+", ' '
+    $value = $value -replace '\s+', ' '
+    return $value.Trim()
+}
+
+function Get-FrontmatterField {
+    param(
+        [string[]]$Lines,
+        [string]$Name
+    )
+
+    $pattern = '^(?<indent>\s*)' + [regex]::Escape($Name) + '\s*:\s*(?<value>.*)$'
+    for ($index = 0; $index -lt $Lines.Count; $index += 1) {
+        $match = [regex]::Match([string]$Lines[$index], $pattern, [System.Text.RegularExpressions.RegexOptions]::IgnoreCase)
+        if ($match.Success) {
+            return [PSCustomObject]@{
+                index  = $index
+                indent = $match.Groups['indent'].Value.Length
+                value  = $match.Groups['value'].Value.Trim()
+            }
+        }
+    }
+    return $null
+}
+
+function Get-FrontmatterText {
+    param(
+        [string[]]$Lines,
+        [string]$Name
+    )
+
+    $field = Get-FrontmatterField -Lines $Lines -Name $Name
+    if ($null -eq $field) { return "" }
+    $value = [string]$field.value
+    if ($value -match '^[>|][+-]?$') {
+        $parts = [System.Collections.Generic.List[string]]::new()
+        for ($index = [int]$field.index + 1; $index -lt $Lines.Count; $index += 1) {
+            $line = [string]$Lines[$index]
+            if (-not $line.Trim()) { continue }
+            $indent = $line.Length - $line.TrimStart().Length
+            if ($indent -le [int]$field.indent) { break }
+            [void]$parts.Add($line.Trim())
+        }
+        return ConvertTo-NormalizedSkillText -Text ($parts -join ' ')
+    }
+    if ($value.Length -ge 2 -and (
+        ($value.StartsWith('"') -and $value.EndsWith('"')) -or
+        ($value.StartsWith("'") -and $value.EndsWith("'"))
+    )) {
+        $value = $value.Substring(1, $value.Length - 2)
+    }
+    return ConvertTo-NormalizedSkillText -Text $value
+}
+
+function Get-FrontmatterList {
+    param(
+        [string[]]$Lines,
+        [string]$Name
+    )
+
+    $field = Get-FrontmatterField -Lines $Lines -Name $Name
+    if ($null -eq $field) { return @() }
+    $values = [System.Collections.Generic.List[string]]::new()
+    $value = [string]$field.value
+    if ($value.StartsWith('[') -and $value.EndsWith(']') -and $value.Length -ge 2) {
+        foreach ($piece in ($value.Substring(1, $value.Length - 2) -split ',')) {
+            $normalized = ConvertTo-NormalizedSkillText -Text $piece.Trim(' ', '"', "'")
+            if ($normalized) { [void]$values.Add($normalized) }
+        }
+    } elseif ($value) {
+        $normalized = ConvertTo-NormalizedSkillText -Text $value.Trim(' ', '"', "'")
+        if ($normalized) { [void]$values.Add($normalized) }
+    } else {
+        for ($index = [int]$field.index + 1; $index -lt $Lines.Count; $index += 1) {
+            $line = [string]$Lines[$index]
+            if (-not $line.Trim()) { continue }
+            $indent = $line.Length - $line.TrimStart().Length
+            if ($indent -le [int]$field.indent) { break }
+            $itemMatch = [regex]::Match($line.Trim(), '^[-*]\s*(?<item>.+)$')
+            if (-not $itemMatch.Success) { continue }
+            $normalized = ConvertTo-NormalizedSkillText -Text $itemMatch.Groups['item'].Value.Trim(' ', '"', "'")
+            if ($normalized -and -not $values.Contains($normalized)) { [void]$values.Add($normalized) }
+        }
+    }
+    return @($values)
+}
+
+function Get-SkillDocumentMetadata {
+    param([string]$Path)
+
+    $metadata = [PSCustomObject]@{
+        description    = ""
+        zh_description = ""
+        triggers       = @()
+        body_excerpt   = ""
+    }
+    try {
+        $content = [System.IO.File]::ReadAllText($Path, [System.Text.Encoding]::UTF8)
+        $body = $content
+        $frontMatch = [regex]::Match($content, '(?s)\A\uFEFF?---[ \t]*\r?\n(?<front>.*?)\r?\n---[ \t]*(?:\r?\n|$)')
+        if ($frontMatch.Success) {
+            $frontLines = @($frontMatch.Groups['front'].Value -split "`r?`n")
+            $metadata.description = Get-FrontmatterText -Lines $frontLines -Name 'description'
+            if (-not $metadata.description) {
+                $metadata.description = Get-FrontmatterText -Lines $frontLines -Name 'summary'
+            }
+            $metadata.zh_description = Get-FrontmatterText -Lines $frontLines -Name 'description_zh'
+            if (-not $metadata.zh_description) {
+                $metadata.zh_description = Get-FrontmatterText -Lines $frontLines -Name 'zh_desc'
+            }
+            if (-not $metadata.zh_description -and $metadata.description -match '^\s*[\p{IsCJKUnifiedIdeographs}]') {
+                $metadata.zh_description = $metadata.description
+            }
+            $metadata.triggers = Get-FrontmatterList -Lines $frontLines -Name 'triggers'
+            $body = $content.Substring($frontMatch.Index + $frontMatch.Length)
+        }
+        $body = $body -replace '(?s)```.*?```', ' '
+        $body = $body -replace '(?m)^\s{0,3}#{1,6}\s*', ''
+        $body = ConvertTo-NormalizedSkillText -Text $body
+        if ($body.Length -gt 1800) { $body = $body.Substring(0, 1800) }
+        $metadata.body_excerpt = $body
+    } catch {
+        Write-Warning "Could not read SKILL.md metadata: $Path"
+    }
+    return $metadata
+}
+
 $skillNames = @()
 $skillSourcePaths = @{}
+$skillMetadata = @{}
 $counts = @{}
 $dedupCounts = @{}
-$descs  = @{}
-$descRx = [System.Text.RegularExpressions.Regex]'description:\s*["'']?(.+?)["'']?\s*$'
+$descs = @{}
 
 foreach ($root in $skillRoots) {
     $skillFiles = Get-ChildItem -Path $root -Recurse -Filter "SKILL.md" -File -ErrorAction SilentlyContinue |
-                  Where-Object { $_.Directory.Name -notmatch '^\.' }
+                  Where-Object { $_.FullName.Substring($root.Length) -notmatch '[\\/]\.[^\\/]' }
     foreach ($skillFile in $skillFiles) {
         $s = $skillFile.Directory.Name
         $skillMd = $skillFile.FullName
+        $metadata = Get-SkillDocumentMetadata -Path $skillMd
         if (-not $counts.ContainsKey($s)) {
             $skillNames += $s
             $counts[$s] = 0
             $dedupCounts[$s] = 0
             $descs[$s] = ""
             $skillSourcePaths[$s] = $skillMd
+            $skillMetadata[$s] = $metadata
+        } elseif ((-not $skillMetadata[$s].description) -and $metadata.description) {
+            $skillMetadata[$s] = $metadata
+            $skillSourcePaths[$s] = $skillMd
         }
-        if (-not $descs[$s]) {
-            try {
-                $lines = Get-Content $skillMd -TotalCount 20 -Encoding UTF8 -ErrorAction SilentlyContinue
-                foreach ($ln in $lines) {
-                    $m = $descRx.Match($ln)
-                    if ($m.Success) { $descs[$s] = $m.Groups[1].Value.Trim('"', "'"); break }
-                }
-            } catch { }
+        if (-not $descs[$s] -and $metadata.description) {
+            $descs[$s] = $metadata.description
         }
     }
 }
 $skillNames = @($skillNames | Sort-Object -Unique)
+
+function Update-SkillInventory {
+    foreach ($root in $skillRoots) {
+        $skillFiles = Get-ChildItem -Path $root -Recurse -Filter "SKILL.md" -File -ErrorAction SilentlyContinue |
+                      Where-Object { $_.FullName.Substring($root.Length) -notmatch '[\\/]\.[^\\/]' }
+        foreach ($skillFile in $skillFiles) {
+            $skill = $skillFile.Directory.Name
+            $skillMd = $skillFile.FullName
+            $metadata = Get-SkillDocumentMetadata -Path $skillMd
+            if (-not $script:counts.ContainsKey($skill)) {
+                $script:skillNames += $skill
+                $script:counts[$skill] = 0
+                $script:dedupCounts[$skill] = 0
+                $script:descs[$skill] = [string]$metadata.description
+                $script:skillSourcePaths[$skill] = $skillMd
+                $script:skillMetadata[$skill] = $metadata
+                continue
+            }
+
+            $currentPath = if ($script:skillSourcePaths.ContainsKey($skill)) { [string]$script:skillSourcePaths[$skill] } else { "" }
+            if ($currentPath -eq $skillMd -or -not $script:skillMetadata.ContainsKey($skill) -or -not $script:skillMetadata[$skill].description) {
+                $script:skillSourcePaths[$skill] = $skillMd
+                $script:skillMetadata[$skill] = $metadata
+                $script:descs[$skill] = [string]$metadata.description
+            }
+        }
+    }
+    $script:skillNames = @($script:skillNames | Sort-Object -Unique)
+}
+
 Write-Host ""
 Write-Host "Tracking $($skillNames.Count) skills."
 Write-Host ""
@@ -300,24 +462,160 @@ function Get-SkillCategory {
     return 'General'
 }
 
+$translationVersion = "local-semantic-v5"
+$categoryLabels = @{
+    Research    = "研究与学术写作"
+    Memory      = "记忆与上下文管理"
+    Media       = "音视频与媒体处理"
+    Visual      = "视觉与前端开发"
+    Finance     = "金融与市场分析"
+    Engineering = "工程开发"
+    Compression = "提示词压缩"
+    Integration = "工具与服务集成"
+    General     = "通用自动化"
+}
+$skillSemanticRules = @(
+    @{ pattern = '(?i)\bwebflow\b'; label = 'Webflow' },
+    @{ pattern = '(?i)\bthree\.?js\b|\bthreejs\b'; label = 'Three.js' },
+    @{ pattern = '(?i)\breact\b'; label = 'React' },
+    @{ pattern = '(?i)\bnext\.?js\b'; label = 'Next.js' },
+    @{ pattern = '(?i)\bgsap\b|scrolltrigger'; label = 'GSAP 动效' },
+    @{ pattern = '(?i)framer\s+motion'; label = 'Framer Motion' },
+    @{ pattern = '(?i)tailwind'; label = 'Tailwind CSS' },
+    @{ pattern = '(?i)frontend|front-end|user interface|\bui\b|\bux\b'; label = '前端界面' },
+    @{ pattern = '(?i)\bdesign\b|fonts?|spacing|shadows?|card structures?|visual design|design system|brand|typography|\blayout\b|bento'; label = '视觉设计与排版' },
+    @{ pattern = '(?i)accessibility|\ba11y\b|\bwcag\b'; label = '可访问性' },
+    @{ pattern = '(?i)responsive|mobile'; label = '响应式布局' },
+    @{ pattern = '(?i)animation|motion|scroll'; label = '动效与交互' },
+    @{ pattern = '(?i)performance|optimi[sz]'; label = '性能优化' },
+    @{ pattern = '(?i)\bapi\b|\bmcp\b|\bsdk\b|\bhttp\b|webhook'; label = 'API 与工具集成' },
+    @{ pattern = '(?i)deploy|deployment|ci/cd|publish'; label = '部署与发布' },
+    @{ pattern = '(?i)\btest\b|testing|\btdd\b'; label = '测试' },
+    @{ pattern = '(?i)debug|diagnos|troubleshoot|\berror\b'; label = '问题诊断' },
+    @{ pattern = '(?i)security|authentication|authorization|permission'; label = '安全与权限' },
+    @{ pattern = '(?i)code review|\breview\b|\baudit\b|\blint\b'; label = '代码与界面审查' },
+    @{ pattern = '(?i)image generation|image editing|photo generation|\bflux\b'; label = '图像生成与处理' },
+    @{ pattern = '(?i)\bvideo\b'; label = '视频处理' },
+    @{ pattern = '(?i)audio|music|speech|voice|tts'; label = '音频与语音' },
+    @{ pattern = '(?i)\bpdf\b|\bdocx\b|latex|document'; label = '文档处理' },
+    @{ pattern = '(?i)\bpptx?\b|presentation|slides?'; label = '演示文稿' },
+    @{ pattern = '(?i)spreadsheet|\bexcel\b|\bcsv\b'; label = '表格与数据' },
+    @{ pattern = '(?i)github|gitlab|\bissue\b|pull request'; label = '代码仓库协作' },
+    @{ pattern = '(?i)memory|recall|remember|context'; label = '记忆与上下文' },
+    @{ pattern = '(?i)browser|chrome|playwright'; label = '浏览器自动化' },
+    @{ pattern = '(?i)database|postgres|\bsql\b'; label = '数据库' },
+    @{ pattern = '(?i)research|paper|citation|literature|peer review'; label = '学术研究与论文' },
+    @{ pattern = '(?i)agent|prompt|skill'; label = 'AI Agent 与技能' }
+)
+
+function Get-LocalSkillAction {
+    param([string]$Text)
+
+    if ($Text -match '(?i)backward compatibility|legacy|original v\d|exact behavior') { return '兼容' }
+    if ($Text -match '(?i)\baudit\b|\breview\b|\binspect\b|\bcheck\b|\blint\b') { return '审查' }
+    if ($Text -match '(?i)\bdebug\b|diagnos|troubleshoot|\bfix\b') { return '诊断' }
+    if ($Text -match '(?i)\bdeploy\b|\bpublish\b') { return '部署' }
+    if ($Text -match '(?i)\bconvert\b|\btranslate\b|\bmigrate\b|\bexport\b') { return '转换' }
+    if ($Text -match '(?i)\bgenerate\b|\bgeneration\b|\bsynthesize\b') { return '生成' }
+    if ($Text -match '(?i)\bcreate\b|\bbuild\b|\bscaffold\b|\bimplement\b') { return '创建' }
+    if ($Text -match '(?i)analy[sz]e|\bresearch\b') { return '分析' }
+    if ($Text -match '(?i)\bmanage\b|\bmaintain\b|\borganize\b') { return '管理' }
+    if ($Text -match '(?i)optimi[sz]|\bperformance\b') { return '优化' }
+    if ($Text -match '(?i)\brender\b') { return '渲染' }
+    if ($Text -match '(?i)\bdownload\b|\bfetch\b|\bcapture\b') { return '获取' }
+    if ($Text -match '(?i)\bwrite\b|\bauthor\b') { return '编写' }
+    if ($Text -match '(?i)\bguide\b|\blearn\b|\bonboard\b') { return '指导' }
+    if ($Text -match '(?i)\bdesign\b|\bux/?ui\b|\bvisual\b') { return '设计' }
+    return '处理'
+}
+
+function Get-AutoChineseSkillDescription {
+    param(
+        [string]$Skill,
+        [string]$Category,
+        [object]$Metadata
+    )
+
+    $description = ConvertTo-NormalizedSkillText -Text ([string]$Metadata.description)
+    $bodyExcerpt = ConvertTo-NormalizedSkillText -Text ([string]$Metadata.body_excerpt)
+    $source = if ($description) { $description } else { $bodyExcerpt }
+    if ($source -match '^\s*[\p{IsCJKUnifiedIdeographs}]') {
+        $candidate = ConvertTo-NormalizedSkillText -Text (($source -split '[。！？!?]')[0])
+        if ($candidate.Length -gt 110) { $candidate = $candidate.Substring(0, 110).Trim() }
+        if ($candidate) { return $candidate }
+    }
+
+    $semanticText = "$Skill $source"
+    $labels = [System.Collections.Generic.List[string]]::new()
+    foreach ($rule in $skillSemanticRules) {
+        if ([regex]::IsMatch($semanticText, [string]$rule.pattern) -and -not $labels.Contains([string]$rule.label)) {
+            [void]$labels.Add([string]$rule.label)
+        }
+    }
+    if ($labels.Count -gt 1) {
+        [void]$labels.Remove('AI Agent 与技能')
+    }
+    if ($labels.Contains('GSAP 动效')) {
+        [void]$labels.Remove('动效与交互')
+    }
+    $action = Get-LocalSkillAction -Text $source
+    switch ($action) {
+        '审查' { [void]$labels.Remove('代码与界面审查') }
+        '诊断' { [void]$labels.Remove('问题诊断') }
+        '部署' { [void]$labels.Remove('部署与发布') }
+        '优化' { [void]$labels.Remove('性能优化') }
+    }
+    $categoryLabel = if ($categoryLabels.ContainsKey($Category)) { [string]$categoryLabels[$Category] } else { "通用自动化" }
+    $subject = if ($labels.Count) { (@($labels | Select-Object -First 4) -join '、') } else { $categoryLabel }
+    $displaySubject = if ($subject -match '^[A-Za-z0-9]') { " $subject" } else { $subject }
+
+    switch ($action) {
+        '兼容' { return "保留${displaySubject}的旧版行为，适合需要精确兼容和稳定复现的项目。" }
+        '审查' { return "用于审查${displaySubject}，检查质量、规范和潜在问题。" }
+        '诊断' { return "用于诊断并解决${displaySubject}相关问题，帮助定位原因并给出修复建议。" }
+        '部署' { return "用于部署${displaySubject}，覆盖发布前检查、配置和交付流程。" }
+        '转换' { return "用于转换${displaySubject}，帮助完成格式、内容或工程迁移。" }
+        '生成' { return "用于生成${displaySubject}，提供从输入到成品的结构化流程。" }
+        '创建' { return "用于创建${displaySubject}，提供实现步骤、约束和常用实践。" }
+        '分析' { return "用于分析${displaySubject}，整理关键信息并给出可执行结论。" }
+        '管理' { return "用于管理${displaySubject}，帮助维护配置、内容和工作流程。" }
+        '优化' { return "用于优化${displaySubject}，关注性能、质量和可维护性。" }
+        '渲染' { return "用于渲染${displaySubject}，处理生成、预览和输出流程。" }
+        '获取' { return "用于获取${displaySubject}，处理采集、下载或读取后的后续操作。" }
+        '编写' { return "用于编写${displaySubject}，提供结构、规范和质量检查建议。" }
+        '指导' { return "用于指导${displaySubject}的使用，帮助选择正确流程并完成配置。" }
+        '设计' { return "用于设计${displaySubject}，覆盖视觉规范、排版、布局与交互实现。" }
+        default { return "用于处理${displaySubject}相关任务，提供本地 SKILL.md 中定义的流程、约束和实践建议。" }
+    }
+}
+
 $catalogPath = Join-Path $cfg.output_dir "skill_catalog.json"
-$existingCatalog = @{}
-if (Test-Path $catalogPath) {
+function Read-ExistingCatalog {
+    param([string]$Path)
+
+    $catalog = @{}
+    if (-not (Test-Path $Path)) { return $catalog }
     try {
-        $catalogItems = Get-Content $catalogPath -Raw -Encoding UTF8 | ConvertFrom-Json
+        $catalogItems = @(Get-Content $Path -Raw -Encoding UTF8 | ConvertFrom-Json)
         foreach ($item in $catalogItems) {
-            if ($item.skill) { $existingCatalog[$item.skill] = $item }
+            foreach ($entry in @($item)) {
+                if ($entry.skill) { $catalog[[string]$entry.skill] = $entry }
+            }
         }
     } catch {
-        Write-Warning "Could not parse existing skill_catalog.json; translations will be regenerated as blank entries."
+        Write-Warning "Could not parse existing skill_catalog.json; keeping the last generated catalog for this scan."
     }
+    return $catalog
 }
 
 # Regex: match skill path, match any known timestamp field (supports ISO and Unix epoch)
 $skillRx  = [System.Text.RegularExpressions.Regex]'skills(?:[/\\]|\\\\)+([A-Za-z0-9\-_]+)(?:[/\\]|\\\\)+SKILL\.md'
 $skillFileReadRx = [System.Text.RegularExpressions.Regex]'(?i)\b(Get-Content|cat|type)\b[^\r\n]*skills(?:[/\\]|\\\\)+([A-Za-z0-9\-_]+)(?:[/\\]|\\\\)+SKILL\.md'
 $claudeAttributionSkillRx = [System.Text.RegularExpressions.Regex]'"attributionSkill"\s*:\s*"([^"]+)"'
-$slashSkillRx = [System.Text.RegularExpressions.Regex]'/([A-Za-z0-9][A-Za-z0-9:_\-]*)(?=\s|\\r|\\n|<|$)'
+$slashSkillRx = [System.Text.RegularExpressions.Regex]'(?m)^\s*/([A-Za-z0-9][A-Za-z0-9:_\-]*)(?=\s|$)'
+$commandNameSkillRx = [System.Text.RegularExpressions.Regex]'(?is)<command-name>\s*/([A-Za-z0-9][A-Za-z0-9:_\-]*)\s*</command-name>'
+$userRequestRx = [System.Text.RegularExpressions.Regex]'(?is)<USER_REQUEST>\s*(.*?)\s*</USER_REQUEST>'
+$directSkillViewPathRx = [System.Text.RegularExpressions.Regex]'(?im)^\s*File Path:\s*`?(?:file:)?[^`\r\n]*[/\\]SKILL\.md`?\s*$'
 $timeRx   = [System.Text.RegularExpressions.Regex]'"(?:created_at|timestamp)"\s*:\s*"([^"]+)"'
 $unixRx   = [System.Text.RegularExpressions.Regex]'"ts"\s*:\s*(\d{9,13})'
 $epoch    = [datetime]'1970-01-01T00:00:00Z'
@@ -418,14 +716,67 @@ function Test-GeneratedSkillInventoryLine {
     )
 }
 
-function Test-ExplicitSkillCommandLine {
+function Get-ExplicitSkillCommands {
     param([string]$Line)
-    return (
-        $Line.Contains('<command-name>/') -or
-        $Line.Contains('<USER_REQUEST>') -or
-        $Line.Contains('"source":"USER_EXPLICIT"') -or
-        $Line.Contains('"type":"USER_INPUT"')
-    )
+
+    $texts = [System.Collections.Generic.List[string]]::new()
+    try {
+        $record = $Line | ConvertFrom-Json -ErrorAction Stop
+        if ($record.type -eq 'USER_INPUT') {
+            if ($record.content -is [string]) { [void]$texts.Add($record.content) }
+            if ($record.text -is [string]) { [void]$texts.Add($record.text) }
+        } elseif ($record.type -eq 'response_item' -and
+                  $record.payload.type -eq 'message' -and
+                  $record.payload.role -eq 'user') {
+            foreach ($part in @($record.payload.content)) {
+                if ($part.type -eq 'input_text' -and $part.text -is [string]) {
+                    [void]$texts.Add($part.text)
+                }
+            }
+        } elseif ($record.type -eq 'event_msg' -and
+                  $record.payload.type -eq 'user_message' -and
+                  $record.payload.message -is [string]) {
+            [void]$texts.Add($record.payload.message)
+        }
+    } catch {
+        # Some tools emit plain text. Only accept their explicit command/request tags.
+        if ($Line.Contains('<command-name>') -or $Line.Contains('<USER_REQUEST>')) {
+            [void]$texts.Add($Line)
+        }
+    }
+
+    $commands = [System.Collections.Generic.List[string]]::new()
+    foreach ($text in $texts) {
+        # Codex slash commands arrive inside this tag. Keep only installed skills so
+        # built-in commands such as /model do not become catalog entries.
+        foreach ($m in $commandNameSkillRx.Matches($text)) {
+            $command = $m.Groups[1].Value
+            if ($counts.ContainsKey($command)) {
+                [void]$commands.Add($command)
+            }
+        }
+
+        $requestMatches = $userRequestRx.Matches($text)
+        if ($requestMatches.Count -gt 0) {
+            foreach ($request in $requestMatches) {
+                foreach ($m in $slashSkillRx.Matches($request.Groups[1].Value)) {
+                    $command = $m.Groups[1].Value
+                    if ($counts.ContainsKey($command)) {
+                        [void]$commands.Add($command)
+                    }
+                }
+            }
+        } else {
+            foreach ($m in $slashSkillRx.Matches($text)) {
+                $command = $m.Groups[1].Value
+                if ($counts.ContainsKey($command)) {
+                    [void]$commands.Add($command)
+                }
+            }
+        }
+    }
+
+    return @($commands | Select-Object -Unique)
 }
 
 function Test-SkillReadLine {
@@ -437,9 +788,17 @@ function Test-SkillReadLine {
     if ($Line.Contains('"type":"RUN_COMMAND"')) { return $false }
     if ($Line.Contains('Skills 清单') -or $Line.Contains('已下载的 Skills')) { return $false }
 
+    if ($Line.Contains('"type":"VIEW_FILE"')) {
+        try {
+            $record = $Line | ConvertFrom-Json -ErrorAction Stop
+            return $directSkillViewPathRx.IsMatch([string]$record.content)
+        } catch {
+            return $directSkillViewPathRx.IsMatch($Line)
+        }
+    }
+
     return (
         $Line.Contains('[external_agent_tool_call: Read]') -or
-        $Line.Contains('"type":"VIEW_FILE"') -or
         $Line.Contains('"name":"Read"') -or
         $Line.Contains('"name":"view_file"') -or
         ($Line -match '(?i)\b(Get-Content|cat)\b[^\r\n]*SKILL\.md')
@@ -481,14 +840,32 @@ function Get-LogFilesState {
     return $state
 }
 
+function Get-SkillFilesState {
+    $state = @{}
+    foreach ($root in $skillRoots) {
+        $skillFiles = Get-ChildItem -Path $root -Recurse -Filter "SKILL.md" -File -ErrorAction SilentlyContinue |
+                      Where-Object { $_.FullName.Substring($root.Length) -notmatch '[\\/]\.[^\\/]' }
+        foreach ($skillFile in $skillFiles) {
+            $state[$skillFile.FullName] = @{
+                LastWriteTimeUtc = $skillFile.LastWriteTimeUtc
+                Length           = $skillFile.Length
+            }
+        }
+    }
+    return $state
+}
+
 $global:fileCache = @{}
 $firstRun = $true
+$skillFileStates = Get-SkillFilesState
 
 try {
     while ($true) {
     if ($Watch) {
         $currentState = Get-LogFilesState
+        $currentSkillState = Get-SkillFilesState
         $changed = $false
+        $skillsChanged = $false
 
         if ($firstRun) {
             $changed = $true
@@ -519,12 +896,39 @@ try {
             }
         }
 
+        foreach ($key in $currentSkillState.Keys) {
+            if (-not $skillFileStates.ContainsKey($key)) {
+                $skillsChanged = $true
+                break
+            }
+            $old = $skillFileStates[$key]
+            $new = $currentSkillState[$key]
+            if ($old.LastWriteTimeUtc -ne $new.LastWriteTimeUtc -or $old.Length -ne $new.Length) {
+                $skillsChanged = $true
+                break
+            }
+        }
+        if (-not $skillsChanged) {
+            foreach ($key in $skillFileStates.Keys) {
+                if (-not $currentSkillState.ContainsKey($key)) {
+                    $skillsChanged = $true
+                    break
+                }
+            }
+        }
+        if ($skillsChanged) { $changed = $true }
+
         if (-not $changed) {
             Start-Sleep -Seconds 5
             continue
         }
 
         $fileStates = $currentState
+        $skillFileStates = $currentSkillState
+        if ($skillsChanged) {
+            Update-SkillInventory
+            Write-Host "Local SKILL.md files updated. Re-scanning..."
+        }
         $nowStr = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
         Write-Host "[$nowStr] Log files updated. Re-scanning..."
     }
@@ -591,19 +995,6 @@ foreach ($src in $activeSources) {
                     if (Test-GeneratedSkillInventoryLine $line) { continue }
                     $lineSkills = [System.Collections.Generic.List[string]]::new()
 
-                    if ($line.Contains('SKILL.md') -and
-                        -not $line.Contains('"type":"function_call_output"') -and
-                        -not $line.Contains('[external_agent_tool_result]') -and
-                        -not $line.Contains('"type":"GREP_SEARCH"') -and
-                        -not $line.Contains('"type":"RUN_COMMAND"')) {
-                        foreach ($m in $skillFileReadRx.Matches($line)) {
-                            [void]$lineSkills.Add($m.Groups[2].Value)
-                        }
-                        foreach ($m in $skillRx.Matches($line)) {
-                            [void]$lineSkills.Add($m.Groups[1].Value)
-                        }
-                    }
-
                     # Claude Code exposes an explicit attribution field. Other tools are
                     # counted only from explicit slash invocations or real skill-file reads.
                     if ($line.Contains('"attributionSkill"')) {
@@ -612,10 +1003,8 @@ foreach ($src in $activeSources) {
                         }
                     }
 
-                    if (Test-ExplicitSkillCommandLine $line) {
-                        foreach ($m in $slashSkillRx.Matches($line)) {
-                            [void]$lineSkills.Add($m.Groups[1].Value)
-                        }
+                    foreach ($cmd in Get-ExplicitSkillCommands -Line $line) {
+                        [void]$lineSkills.Add($cmd)
                     }
 
                     if (Test-SkillReadLine $line) {
@@ -661,17 +1050,6 @@ foreach ($src in $activeSources) {
                 LastWriteTimeUtc = $f.LastWriteTimeUtc
                 Length           = $f.Length
                 RawHits          = $rawHits
-            }
-        }
-
-        # Ensure skills seen in local logs remain visible even when their source
-        # folder is not installed or has not been configured yet.
-        foreach ($hit in $rawHits) {
-            if (-not $counts.ContainsKey($hit.skill)) {
-                $skillNames += $hit.skill
-                $counts[$hit.skill] = 0
-                $dedupCounts[$hit.skill] = 0
-                $descs[$hit.skill] = ""
             }
         }
 
@@ -740,22 +1118,65 @@ foreach ($src in $activeSources) {
 }
 
 # ── Output JSON ────────────────────────────────────────────────────────────────
+$existingCatalog = Read-ExistingCatalog -Path $catalogPath
 $catalogArr = @()
 $arr = @()
 foreach ($kv in $counts.GetEnumerator() | Sort-Object Name) {
     $skill = $kv.Key
     $existing = $existingCatalog[$skill]
     $category = Get-SkillCategory $skill
-    $zhDesc = if ($existing -and $existing.zh_desc) { $existing.zh_desc } else { "" }
+    $metadata = if ($skillMetadata.ContainsKey($skill)) { $skillMetadata[$skill] } else {
+        [PSCustomObject]@{ description = $descs[$skill]; zh_description = ""; triggers = @(); body_excerpt = "" }
+    }
+    $translationInput = ConvertTo-NormalizedSkillText -Text ("$skill`n$($metadata.description)`n$($metadata.zh_description)`n$($metadata.body_excerpt)")
+    $translationInputHash = Get-StableId -Value $translationInput
+    $zhDesc = ""
+    $zhDescSource = ""
+    $translationVersionOut = ""
+
+    # Existing catalog entries without a source marker predate automatic parsing.
+    # Treat those as manual so imports and user-maintained text can never be overwritten.
+    $existingDesc = if ($existing) { ConvertTo-NormalizedSkillText -Text ([string]$existing.zh_desc) } else { "" }
+    $existingSource = if ($existing) { [string]$existing.zh_desc_source } else { "" }
+    $existingInputHash = if ($existing) { [string]$existing.zh_desc_input_hash } else { "" }
+    if ($existingDesc -and (-not $existingSource -or $existingSource -eq "manual")) {
+        $zhDesc = $existingDesc
+        $zhDescSource = "manual"
+    } elseif ($existingDesc -and $existingSource -match '^auto' -and $existingInputHash -eq $translationInputHash -and [string]$existing.translation_version -eq $translationVersion) {
+        $zhDesc = $existingDesc
+        $zhDescSource = $existingSource
+        $translationVersionOut = if ($existing.translation_version) { [string]$existing.translation_version } else { $translationVersion }
+    }
+    if (-not $zhDesc -and $metadata.zh_description) {
+        $zhDesc = ConvertTo-NormalizedSkillText -Text ([string]$metadata.zh_description)
+        $zhDescSource = "frontmatter"
+        $translationVersionOut = "frontmatter"
+    }
+    if (-not $zhDesc) {
+        $zhDesc = Get-AutoChineseSkillDescription -Skill $skill -Category $category -Metadata $metadata
+        $zhDescSource = "auto_rule"
+        $translationVersionOut = $translationVersion
+    }
+
     $sourcePath = if ($skillSourcePaths.ContainsKey($skill)) { $skillSourcePaths[$skill] } else { "" }
+    $triggers = if ($metadata.triggers -and @($metadata.triggers).Count -gt 0) {
+        @($metadata.triggers)
+    } elseif ($existing -and $existing.triggers) {
+        @($existing.triggers)
+    } else {
+        @()
+    }
 
     $catalogItem = [PSCustomObject]@{
-        skill        = $skill
-        category     = $category
-        zh_desc      = $zhDesc
-        english_desc = $descs[$skill]
-        triggers     = if ($existing -and $existing.triggers) { $existing.triggers } else { @() }
-        source_path  = $sourcePath
+        skill               = $skill
+        category            = $category
+        zh_desc             = $zhDesc
+        zh_desc_source      = $zhDescSource
+        zh_desc_input_hash  = if ($zhDescSource -match '^auto|frontmatter') { $translationInputHash } else { "" }
+        translation_version = $translationVersionOut
+        english_desc        = $descs[$skill]
+        triggers            = $triggers
+        source_path         = $sourcePath
     }
     $catalogArr += $catalogItem
 

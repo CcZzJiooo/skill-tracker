@@ -6,13 +6,15 @@ $repoRoot = Split-Path -Parent $PSScriptRoot
 $collector = Join-Path $repoRoot "collect.ps1"
 $tempRoot = Join-Path ([System.IO.Path]::GetTempPath()) ("skill-tracker-empty-test-" + [guid]::NewGuid().ToString("N"))
 $fakeHome = Join-Path $tempRoot "home"
+$emptySkillsRoot = Join-Path $tempRoot "empty-skills"
 $outputDir = Join-Path $tempRoot "dashboard"
 $configPath = Join-Path $tempRoot "config.json"
 
 try {
     New-Item -ItemType Directory -Path $fakeHome -Force | Out-Null
+    New-Item -ItemType Directory -Path $emptySkillsRoot -Force | Out-Null
     $config = [ordered]@{
-        skills_root = ""
+        skills_root = $emptySkillsRoot
         skills_roots = @()
         output_dir = $outputDir
         max_log_entries = 100
