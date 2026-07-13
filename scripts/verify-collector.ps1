@@ -51,12 +51,17 @@ if (-not $SkipCollect) {
 
 $skillDataPath = Join-Path $dashboardDir "skill_data.js"
 $skillLogPath = Join-Path $dashboardDir "skill_log.js"
+$skillCatalogPath = Join-Path $dashboardDir "skill_catalog.js"
 $toolReportPath = Join-Path $dashboardDir "tool_report.js"
 
 $tools = @()
 foreach ($tool in (Read-JsAssignment -Path $skillDataPath -Name "DETECTED_TOOLS")) { $tools += $tool }
 $logs = @()
 foreach ($row in (Read-JsAssignment -Path $skillLogPath -Name "SKILL_LOG")) { $logs += $row }
+$catalogBySkill = @{}
+foreach ($row in (Read-JsAssignment -Path $skillCatalogPath -Name "SKILL_CATALOG")) {
+    if ($row.skill) { $catalogBySkill[$row.skill] = $row }
+}
 $toolReport = Read-JsValue -Path $toolReportPath -Name "TOOL_REPORT"
 $sourceReports = @($toolReport.sources)
 if (-not $sourceReports.Count) { Fail "TOOL_REPORT has no source coverage rows." }
@@ -68,6 +73,13 @@ if ($duplicateTools.Count) {
 
 $blankRows = @($logs | Where-Object { -not $_.skill -or -not $_.tool })
 if ($blankRows.Count) { Fail "Found $($blankRows.Count) log rows with missing skill/tool." }
+
+$unverifiedSkills = @($logs | Where-Object {
+    -not $catalogBySkill.ContainsKey($_.skill) -or -not $catalogBySkill[$_.skill].source_path
+} | Select-Object -ExpandProperty skill -Unique)
+if ($unverifiedSkills.Count) {
+    Fail ("Log rows reference skills without a local SKILL.md source: " + ($unverifiedSkills -join ", "))
+}
 
 $unknownTools = @($logs | Where-Object { $tools -notcontains $_.tool } | Select-Object -ExpandProperty tool -Unique)
 if ($unknownTools.Count) { Fail ("Log rows reference tools not in DETECTED_TOOLS: " + ($unknownTools -join ", ")) }

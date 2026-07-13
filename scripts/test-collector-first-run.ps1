@@ -7,6 +7,8 @@ $collector = Join-Path $repoRoot "collect.ps1"
 $tempRoot = Join-Path ([System.IO.Path]::GetTempPath()) ("skill-tracker-collector-test-" + [guid]::NewGuid().ToString("N"))
 $fakeHome = Join-Path $tempRoot "home"
 $logDir = Join-Path $fakeHome "portable-test-logs"
+$skillsRoot = Join-Path $fakeHome "installed-skills"
+$skillDir = Join-Path $skillsRoot "portable-test-skill"
 $outputDir = Join-Path $tempRoot "dashboard"
 $configPath = Join-Path $tempRoot "config.json"
 
@@ -20,6 +22,12 @@ function Assert-FileExists {
 
 try {
     New-Item -ItemType Directory -Path $logDir -Force | Out-Null
+    New-Item -ItemType Directory -Path $skillDir -Force | Out-Null
+    [System.IO.File]::WriteAllText(
+        (Join-Path $skillDir "SKILL.md"),
+        "---`nname: portable-test-skill`ndescription: Portable collector test skill.`n---`n",
+        [System.Text.Encoding]::UTF8
+    )
     [System.IO.File]::WriteAllText(
         (Join-Path $logDir "session.jsonl"),
         '{"type":"USER_INPUT","timestamp":"2026-07-12T12:00:00Z","text":"/portable-test-skill "}' + "`n",
@@ -28,7 +36,7 @@ try {
 
     $config = [ordered]@{
         skills_root = ""
-        skills_roots = @()
+        skills_roots = @($skillsRoot)
         output_dir = $outputDir
         max_log_entries = 100
         dedup_window_minutes = 2
@@ -65,7 +73,7 @@ try {
 
     $skillData = Get-Content -LiteralPath (Join-Path $outputDir "skill_data.js") -Raw -Encoding UTF8
     if ($skillData -notmatch 'portable-test-skill') {
-        throw "Collector did not retain a skill discovered only in the user's local log."
+        throw "Collector did not retain a known explicit skill command."
     }
 
     $toolReport = Get-Content -LiteralPath (Join-Path $outputDir "tool_report.js") -Raw -Encoding UTF8

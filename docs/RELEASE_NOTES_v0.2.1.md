@@ -1,5 +1,7 @@
 # Skill Tracker v0.2.1
 
+> Superseded by v0.2.2. The latest release adds automatic local Chinese skill summaries and live discovery of newly installed `SKILL.md` files.
+
 ## Windows Portable Hotfix
 
 - Removed the VBS launcher and automatic desktop shortcut creation from the portable release.

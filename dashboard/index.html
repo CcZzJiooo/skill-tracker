@@ -1523,8 +1523,18 @@ button.catalog-stat.active {
 }
 
 .catalog-edit label {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
   color: var(--dim);
   font-size: 11px;
+}
+
+.catalog-translation-source {
+  flex: 0 0 auto;
+  color: var(--accent-2);
+  font-size: 10px;
 }
 
 .catalog-edit textarea {
@@ -2002,6 +2012,14 @@ button.catalog-stat.active {
   color: var(--muted);
   font-size: 12px;
   line-height: 1.6;
+}
+
+.repo-description {
+  display: -webkit-box;
+  overflow: hidden;
+  overflow-wrap: anywhere;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 4;
 }
 
 .repo-summary-cn {
@@ -3284,7 +3302,6 @@ button.catalog-stat.active {
   var actionPage = 0;
   var actionPageSize = 8;
   var matrixToolMode = "active";
-  var githubTranslationCache = {};
   var githubRepoItems = [];
   var githubRepoRate = "";
   var githubRepoQueryCount = 0;
@@ -3459,6 +3476,8 @@ button.catalog-stat.active {
       var item = event.target.closest(".catalog-item");
       item.classList.add("edited");
       item.classList.toggle("missing", !isTranslated(row));
+      var sourceLabel = item.querySelector(".catalog-translation-source");
+      if (sourceLabel) sourceLabel.textContent = "手工编辑";
       translatedSkills = skillRows.filter(function (item) { return isTranslated(item); }).length;
       renderCatalogSummary(filteredCatalogRows().length);
       renderMetrics();
@@ -4674,6 +4693,7 @@ button.catalog-stat.active {
     var byRepo = {};
     results.forEach(function (result, queryIndex) {
       (result.items || []).forEach(function (repo, itemIndex) {
+        if (!isGitHubRepositoryDescriptionUsable(repo.description)) return;
         var key = String(repo.full_name || repo.html_url || repo.name || "").toLowerCase();
         if (!key) return;
         if (!byRepo[key]) {
@@ -4699,7 +4719,7 @@ button.catalog-stat.active {
     var text = [
       fullName,
       name,
-      repo.description || "",
+      normalizeGitHubDescription(repo.description || "", 240),
       repo.language || "",
       (repo.topics || []).join(" ")
     ].join(" ").toLowerCase();
@@ -4829,6 +4849,7 @@ button.catalog-stat.active {
     }
     els.githubRepoResults.innerHTML = visibleItems.map(function (repo) {
       var topics = (repo.topics || []).slice(0, 4);
+      var description = normalizeGitHubDescription(repo.description || "", 240);
       var tags = topics.length ? topics.map(function (topic) {
         return '<span class="repo-tag">' + escapeHtml(topic) + '</span>';
       }).join("") : '<span class="repo-tag">no topics</span>';
@@ -4842,8 +4863,8 @@ button.catalog-stat.active {
         + '<div class="repo-title"><a href="' + escapeAttr(htmlUrl) + '" target="_blank" rel="noreferrer">' + escapeHtml(repo.full_name || repo.name || "unknown") + '</a></div>'
         + '<span class="repo-tag">★ ' + formatNum(repo.stargazers_count || 0) + '</span>'
         + '</div>'
-        + '<div class="repo-meta">' + escapeHtml(repo.description || "No description.") + '</div>'
-        + '<div class="repo-summary-cn"><strong>中文翻译：</strong>' + escapeHtml(guidance.translation) + '<br><strong>操作建议：</strong>' + escapeHtml(guidance.next) + '</div>'
+        + '<div class="repo-meta repo-description">' + escapeHtml(description || "No description.") + '</div>'
+        + '<div class="repo-summary-cn"><strong>中文摘要：</strong>' + escapeHtml(guidance.translation) + '<br><strong>操作建议：</strong>' + escapeHtml(guidance.next) + '</div>'
         + '<div class="repo-meta">语言：' + escapeHtml(repo.language || "--") + ' · 更新：' + escapeHtml(formatDate(repo.updated_at)) + '</div>'
         + '<div class="repo-tags">' + tags + '</div>'
         + '<div class="repo-actions">'
@@ -4896,14 +4917,30 @@ button.catalog-stat.active {
     return isNaN(parsed) ? 0 : parsed;
   }
 
+  function isGitHubRepositoryDescriptionUsable(description) {
+    return String(description || "").replace(/\s+/g, " ").trim().length <= 1200;
+  }
+
+  function normalizeGitHubDescription(description, maxLength) {
+    var text = String(description || "")
+      .replace(/[\u0000-\u001F\u007F-\u009F]/g, " ")
+      .replace(/\s+/g, " ")
+      .trim();
+    var limit = Number(maxLength);
+    if (!isFinite(limit) || limit < 24) limit = 240;
+    if (text.length <= limit) return text;
+    return text.slice(0, limit - 3).trim() + "...";
+  }
+
   function describeGitHubRepository(repo) {
+    var description = normalizeGitHubDescription(repo.description || "", 240);
     var text = [
       repo.full_name || "",
       repo.name || "",
-      repo.description || "",
+      description,
       (repo.topics || []).join(" ")
     ].join(" ").toLowerCase();
-    var translation = translateGitHubDescription(repo.description || "", repo);
+    var translation = normalizeGitHubDescription(repo._skillTrackerTranslation || translateGitHubDescription(description, repo), 240);
     var next = "打开仓库看 README；需要下载源码可点 ZIP，需要本地开发可复制 clone。";
     if (/mcp|model context protocol/.test(text)) {
       next = "重点看 README 的安装、客户端支持、transport、权限和配置示例。";
@@ -4921,80 +4958,40 @@ button.catalog-stat.active {
   }
 
   async function enrichGitHubProjectTranslations(items) {
-    await Promise.all(items.map(async function (repo) {
-      repo._skillTrackerTranslation = await translateGitHubDescriptionOnline(repo.description || "", repo);
-    }));
-  }
-
-  async function translateGitHubDescriptionOnline(description, repo) {
-    var text = String(description || "").replace(/\s+/g, " ").trim();
-    var fallback = translateGitHubDescription(text, repo);
-    if (!text || /[\u4e00-\u9fff]/.test(text)) return fallback;
-    if (githubTranslationCache[text]) return githubTranslationCache[text];
-
-    var translated = await translateWithGoogleEndpoint(text);
-    if (!translated) translated = await translateWithMyMemoryEndpoint(text);
-    if (isUsefulChineseTranslation(translated, text)) {
-      githubTranslationCache[text] = translated;
-      return translated;
-    }
-    githubTranslationCache[text] = fallback;
-    return fallback;
-  }
-
-  async function translateWithGoogleEndpoint(text) {
-    var url = "https://translate.googleapis.com/translate_a/single?client=gtx&sl=en&tl=zh-CN&dt=t&q=" + encodeURIComponent(text);
-    try {
-      var response = await fetchWithTimeout(url, 8000);
-      if (!response.ok) return "";
-      var payload = await response.json();
-      if (!Array.isArray(payload) || !Array.isArray(payload[0])) return "";
-      return payload[0].map(function (part) {
-        return Array.isArray(part) ? part[0] || "" : "";
-      }).join("").replace(/\s+/g, " ").trim();
-    } catch (error) {
-      return "";
-    }
-  }
-
-  async function translateWithMyMemoryEndpoint(text) {
-    var url = "https://api.mymemory.translated.net/get?q=" + encodeURIComponent(text) + "&langpair=en|zh-CN";
-    try {
-      var response = await fetchWithTimeout(url, 8000);
-      if (!response.ok) return "";
-      var payload = await response.json();
-      return String(payload && payload.responseData && payload.responseData.translatedText || "").replace(/\s+/g, " ").trim();
-    } catch (error) {
-      return "";
-    }
-  }
-
-  function isUsefulChineseTranslation(translated, source) {
-    var text = String(translated || "").trim();
-    if (!/[\u4e00-\u9fff]/.test(text)) return false;
-    if (text.toLowerCase() === String(source || "").trim().toLowerCase()) return false;
-    return true;
-  }
-
-  function fetchWithTimeout(url, timeoutMs) {
-    if (typeof AbortController === "undefined") return fetch(url);
-    var controller = new AbortController();
-    var timer = setTimeout(function () {
-      controller.abort();
-    }, timeoutMs || 8000);
-    return fetch(url, { signal: controller.signal }).finally(function () {
-      clearTimeout(timer);
+    (items || []).forEach(function (repo) {
+      repo._skillTrackerTranslation = translateGitHubDescription(repo.description || "", repo);
     });
   }
 
   function translateGitHubDescription(description, repo) {
-    var text = String(description || "").replace(/\s+/g, " ").trim();
+    var text = normalizeGitHubDescription(description, 240);
     if (!text) return "该仓库没有填写 GitHub description，无法直接翻译；建议打开 README 查看用途。";
     if (/[\u4e00-\u9fff]/.test(text)) return text;
-    if (repo && repo._skillTrackerTranslation) return repo._skillTrackerTranslation;
     var exact = translateKnownGitHubDescription(text);
     if (exact) return exact;
-    return translateEnglishDescription(text, repo);
+    return summarizeGitHubRepository(repo, text);
+  }
+
+  function summarizeGitHubRepository(repo, description) {
+    var text = [
+      repo && repo.full_name || "",
+      repo && repo.name || "",
+      description || "",
+      repo && (repo.topics || []).join(" ") || ""
+    ].join(" ").toLowerCase();
+    if (/frontend|ui|design|react|tailwind|dashboard/.test(text)) {
+      return "面向前端界面设计或实现的开源项目，适合参考组件、设计规范和交互实现。";
+    }
+    if (/video|subtitle|whisper|audio|tts/.test(text)) {
+      return "面向视频或音频处理的开源项目，适合评估转写、字幕、剪辑和自动化处理链路。";
+    }
+    if (/motion|gait|pose|gesture|drum/.test(text)) {
+      return "面向动作、姿态或运动数据分析的开源项目，适合查看数据格式、模型和示例代码。";
+    }
+    if (/mcp|agent|llm|claude|codex/.test(text)) {
+      return "面向 AI 智能体或开发工具的开源项目，建议先核对安装方式、依赖和许可证。";
+    }
+    return "这是一个开源项目；原始说明已保留在上方，建议先查看 README、依赖和许可证。";
   }
 
   function translateKnownGitHubDescription(text) {
@@ -5154,9 +5151,10 @@ button.catalog-stat.active {
     var releaseHtml = release
       ? '<div><strong>最新 Release：</strong><a href="' + escapeAttr(release.html_url || repo.html_url || "#") + '" target="_blank" rel="noreferrer">' + escapeHtml(release.tag_name || release.name || "latest") + '</a> · ' + escapeHtml(formatDate(release.published_at || release.created_at)) + '</div>'
       : '<div><strong>最新 Release：</strong>未发现公开 release，建议以仓库更新时间判断活跃度。</div>';
+    var description = normalizeGitHubDescription(repo.description || "", 240);
     els.githubUpdateResult.innerHTML =
       '<div><strong>' + escapeHtml(repo.full_name || repo.name) + '</strong></div>'
-      + '<div>描述：' + escapeHtml(repo.description || "No description.") + '</div>'
+      + '<div>描述：' + escapeHtml(description || "No description.") + '</div>'
       + '<div>Stars：' + formatNum(repo.stargazers_count || 0) + ' · Forks：' + formatNum(repo.forks_count || 0) + ' · Issues：' + formatNum(repo.open_issues_count || 0) + '</div>'
       + '<div>默认分支：' + escapeHtml(repo.default_branch || "--") + ' · 推送：' + escapeHtml(formatDate(repo.pushed_at)) + ' · 更新：' + escapeHtml(formatDate(repo.updated_at)) + '</div>'
       + releaseHtml;
@@ -5537,6 +5535,7 @@ button.catalog-stat.active {
       var originalDesc = catalogDisplayDesc(row, catalog);
       var sourcePath = catalog.source_path || "collector output";
       var placeholder = suggestCatalogPlaceholder(row, catalog);
+      var translationSource = catalogTranslationSourceLabel(row, catalog);
       return '<article class="' + className + '">'
         + '<div class="catalog-meta">'
         + '<div class="catalog-title"><strong>' + highlightText(row.skill, query) + '</strong><span class="catalog-pill">' + highlightText(row.category, query) + '</span><span class="catalog-pill">' + formatNum(calls) + ' calls</span></div>'
@@ -5544,7 +5543,7 @@ button.catalog-stat.active {
         + '<p class="catalog-source">' + highlightText(sourcePath, query) + '</p>'
         + '</div>'
         + '<div class="catalog-edit">'
-        + '<label for="catalog-' + encodeURIComponent(row.skill) + '">中文功能说明</label>'
+        + '<label for="catalog-' + encodeURIComponent(row.skill) + '">中文功能说明<span class="catalog-translation-source">' + escapeHtml(translationSource) + '</span></label>'
         + '<textarea id="catalog-' + encodeURIComponent(row.skill) + '" data-catalog-field="zh_desc" data-skill="' + encodeURIComponent(row.skill) + '" placeholder="' + escapeAttr(placeholder) + '">' + escapeHtml(row.zhDesc) + '</textarea>'
         + '</div>'
         + '</article>';
@@ -5554,6 +5553,14 @@ button.catalog-stat.active {
       catalogPage = nextPage;
       renderCatalog(false);
     });
+  }
+
+  function catalogTranslationSourceLabel(row, catalog) {
+    if (catalogDirty[row.skill]) return "手工编辑";
+    if (catalog.zh_desc_source === "auto_rule") return "自动解析";
+    if (catalog.zh_desc_source === "frontmatter") return "源文件中文";
+    if (catalog.zh_desc_source && /^auto/.test(catalog.zh_desc_source)) return "自动解析";
+    return isTranslated(row) ? "手工维护" : "待补充";
   }
 
   function catalogDisplayDesc(row, catalog) {
@@ -5572,10 +5579,14 @@ button.catalog-stat.active {
   function exportCatalogJson() {
     var payload = catalogRows.map(function (row) {
       var catalog = catalogBySkill[row.skill] || {};
+      var isManualEdit = !!catalogDirty[row.skill];
       return {
         skill: row.skill,
         category: row.category,
         zh_desc: row.zhDesc,
+        zh_desc_source: isManualEdit ? "manual" : (catalog.zh_desc_source || (row.zhDesc ? "manual" : "")),
+        zh_desc_input_hash: isManualEdit ? "" : (catalog.zh_desc_input_hash || ""),
+        translation_version: isManualEdit ? "" : (catalog.translation_version || ""),
         english_desc: catalog.english_desc || row.desc || "",
         triggers: normalizeTriggers(catalog.triggers),
         source_path: catalog.source_path || ""
