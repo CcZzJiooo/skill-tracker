@@ -94,6 +94,7 @@ An `.exe` wrapper is optional later, mainly for one-click onboarding. It is not 
 | Area | What it does |
 |---|---|
 | Skill call visualization | Shows total calls, deduplicated calls, active skills, top skills, recent sessions, and per-tool usage. |
+| Date-scoped analytics | Shows the earliest and latest valid calls, then filters overview metrics, rankings, skill details, and audit rows by an optional inclusive date range. |
 | Chinese skill dictionary | Maintains Chinese descriptions for every skill and supports filtering by category, missing description, and edited state. |
 | Intent search | Matches Chinese or English user intent against local skills, descriptions, triggers, and categories. |
 | Governance radar | Scores skill health, finds missing metadata, duplicate reads, similar skills, and conflict risks. |
@@ -109,6 +110,12 @@ An `.exe` wrapper is optional later, mainly for one-click onboarding. It is not 
 The collector reads each installed `SKILL.md` frontmatter (`description`, optional Chinese description, and `triggers`) plus a bounded excerpt of the document body. New skills are summarized locally into `zh_desc` during every scan; no skill content is uploaded to a translation service. Watch mode also detects newly created or modified `SKILL.md` files without requiring a restart.
 
 Each catalog entry records `zh_desc_source` (`manual`, `frontmatter`, or `auto_rule`), a source hash, and the local summary version. Existing entries without a source marker are treated as manual text, so historical edits remain safe. Editing a summary in the dashboard marks it as manual when the catalog JSON is exported.
+
+### Dashboard date range and tool summary
+
+The overview uses valid timestamps from the collected skill-call rows. With no date filter, the dashboard shows the actual earliest and latest matching calls in the current local report; it does not invent a reporting start date. Selecting a start or end date applies that inclusive range to overview metrics, the ranking, skill details, and the audit stream without changing local telemetry.
+
+The top bar shows the first four detected tools and a compact expandable count for the rest, so a machine with many installed agent tools remains readable at desktop and mobile widths.
 
 ## Supported Sources
 

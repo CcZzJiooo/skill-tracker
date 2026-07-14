@@ -23,6 +23,13 @@ This release fixes the catalog behavior for newly installed skills. A skill with
 - Catalog export preserves the source marker and marks edited rows as `manual`, so the next collection cannot replace them.
 - Existing GitHub radar description normalization and false-positive skill filtering remain covered by regression tests.
 
+### Post-release dashboard polish
+
+- The header keeps the first four detected tools visible and places the remainder behind an expandable count, preventing a long tool list from crowding primary actions.
+- Overview statistics now show their real local data span and support an inclusive start/end date filter. The filter updates overview cards, rankings, skill details, and audit rows together.
+- Mobile navigation is condensed into a two-column task grid so the dashboard content appears in the first scroll length instead of after a full-height sidebar.
+- Launcher regression fixtures now provide their own known `SKILL.md` and isolated user-data paths, preserving the collector's false-positive defense while keeping release checks machine-independent.
+
 ## Documentation And Release Files
 
 - Updated README release commands and portable ZIP names to `v0.2.2`.
@@ -36,6 +43,7 @@ This release fixes the catalog behavior for newly installed skills. A skill with
 - First-run, empty-run, false-positive, watcher singleton, and collector verification checks: passed.
 - GitHub result formatting regression: passed.
 - Dashboard validation in Edge + Playwright at desktop and mobile sizes: passed with no page or console errors.
+- Date-range interactions, header tool overflow, and the revised mobile layout: passed in local rendered checks with no console errors.
 
 ## Download And Run
 
