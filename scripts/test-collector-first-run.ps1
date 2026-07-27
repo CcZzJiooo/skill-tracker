@@ -55,9 +55,13 @@ try {
 
     $priorUserProfile = $env:USERPROFILE
     $priorHome = $env:HOME
+    $priorAppData = $env:APPDATA
+    $priorLocalAppData = $env:LOCALAPPDATA
     try {
         $env:USERPROFILE = $fakeHome
         $env:HOME = $fakeHome
+        $env:APPDATA = Join-Path $fakeHome "AppData\Roaming"
+        $env:LOCALAPPDATA = Join-Path $fakeHome "AppData\Local"
         & powershell -NoProfile -ExecutionPolicy Bypass -File $collector -ConfigFile $configPath -OutputDir $outputDir -RecentFiles 20 -RecentDays 45
         if ($LASTEXITCODE -ne 0) {
             throw "Collector exited with code $LASTEXITCODE for a first-run custom log source."
@@ -65,6 +69,8 @@ try {
     } finally {
         $env:USERPROFILE = $priorUserProfile
         $env:HOME = $priorHome
+        $env:APPDATA = $priorAppData
+        $env:LOCALAPPDATA = $priorLocalAppData
     }
 
     foreach ($name in @("skill_data.js", "skill_log.js", "skill_catalog.js", "tool_report.js")) {

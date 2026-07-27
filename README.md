@@ -54,7 +54,7 @@ cd skill-tracker
 .\run.bat
 ```
 
-For the smoothest Windows launch, double-click `run.bat`. It reads local AI-agent logs first, verifies the generated local dashboard data, then opens the browser. The launcher keeps a local watcher running only after the initial scan completes.
+For the smoothest Windows launch, double-click `run.bat`. The first launch reads local AI-agent logs, verifies the generated dashboard data, and opens the browser. Later launches reuse the current watcher and open the latest generated data without repeating the slow historical scan; the watcher continues refreshing new log entries in the background.
 
 Manual mode:
 

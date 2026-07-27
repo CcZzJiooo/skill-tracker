@@ -10,7 +10,7 @@ Use the release package, not GitHub's auto-generated "Source code" download.
 2. Unzip it anywhere, for example `Desktop\skill-tracker`.
 3. Double-click `run.bat`.
 
-The visible launcher first reads your local AI-agent logs and generates local dashboard data. It then opens the dashboard in your browser. Later, double-click `run.bat` again to refresh and open it.
+The visible launcher first reads your local AI-agent logs and generates local dashboard data. It then opens the dashboard in your browser. Later, double-click `run.bat` again to open the latest data; the background watcher refreshes new log entries and the launcher only performs another full scan if that watcher is unavailable.
 
 If no supported local logs are found, the dashboard opens with an empty local scan report. Demo data is only a static fallback for inspecting the interface without running the launcher.
 

@@ -2905,7 +2905,7 @@ button.catalog-stat.active {
 
     <div class="sidebar-foot">
       <div class="generation">
-        <span>Last generated</span>
+        <span>Data generated</span>
         <strong id="generatedAt">--</strong>
       </div>
       <button type="button" class="theme-toggle" id="themeToggle" aria-pressed="true">Dark</button>
@@ -3950,13 +3950,31 @@ button.catalog-stat.active {
       return;
     }
     if (!range.earliest || !range.latest) {
+      if (!hasStatsDateFilter()) {
+        els.statsDateStart.value = "";
+        els.statsDateEnd.value = "";
+      }
       els.statsDateSummary.textContent = "暂无带时间的调用记录";
       return;
     }
+
+    // Show the full available range while keeping the unfiltered state empty.
+    // This keeps the native date controls useful without changing all-record semantics.
+    if (hasStatsDateFilter()) {
+      els.statsDateStart.value = statsDateStart;
+      els.statsDateEnd.value = statsDateEnd;
+    } else {
+      els.statsDateStart.value = min;
+      els.statsDateEnd.value = max;
+    }
+
     var selected = hasStatsDateFilter();
     var startLabel = statsDateStart ? statsDateStart.replace(/-/g, "/") : formatDateOnly(range.earliest);
     var endLabel = statsDateEnd ? statsDateEnd.replace(/-/g, "/") : formatDateOnly(range.latest);
-    els.statsDateSummary.textContent = (selected ? "已筛选 " : "全部记录 ") + startLabel + " - " + endLabel;
+    els.statsDateSummary.textContent = (selected ? "已筛选技能记录 " : "全部技能记录 ") + startLabel + " - " + endLabel;
+    els.statsDateSummary.title = selected
+      ? "当前统计仅包含所选日期内的技能调用记录"
+      : "当前统计包含全部已识别的技能调用记录；侧栏时间是数据生成时间";
   }
 
   function applyStatsDateRange() {

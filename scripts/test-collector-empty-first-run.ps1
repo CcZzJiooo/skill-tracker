@@ -25,9 +25,13 @@ try {
 
     $priorUserProfile = $env:USERPROFILE
     $priorHome = $env:HOME
+    $priorAppData = $env:APPDATA
+    $priorLocalAppData = $env:LOCALAPPDATA
     try {
         $env:USERPROFILE = $fakeHome
         $env:HOME = $fakeHome
+        $env:APPDATA = Join-Path $fakeHome "AppData\Roaming"
+        $env:LOCALAPPDATA = Join-Path $fakeHome "AppData\Local"
         & powershell -NoProfile -ExecutionPolicy Bypass -File $collector -ConfigFile $configPath -OutputDir $outputDir -RecentFiles 20 -RecentDays 45
         if ($LASTEXITCODE -ne 0) {
             throw "Collector exited with code $LASTEXITCODE when no local logs were available."
@@ -35,6 +39,8 @@ try {
     } finally {
         $env:USERPROFILE = $priorUserProfile
         $env:HOME = $priorHome
+        $env:APPDATA = $priorAppData
+        $env:LOCALAPPDATA = $priorLocalAppData
     }
 
     $expectedAssignments = @{

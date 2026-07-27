@@ -10,6 +10,7 @@ $logDir = Join-Path $fakeHome "portable-test-logs"
 $skillsRoot = Join-Path $fakeHome "installed-skills"
 $knownSkillDir = Join-Path $skillsRoot "known-tag-skill"
 $portableSkillDir = Join-Path $skillsRoot "portable-test-skill"
+$outputOnlySkillDir = Join-Path $skillsRoot "output-only-skill"
 $outputDir = Join-Path $tempRoot "dashboard"
 $configPath = Join-Path $tempRoot "config.json"
 
@@ -35,6 +36,7 @@ try {
     New-Item -ItemType Directory -Path $logDir -Force | Out-Null
     New-Item -ItemType Directory -Path $knownSkillDir -Force | Out-Null
     New-Item -ItemType Directory -Path $portableSkillDir -Force | Out-Null
+    New-Item -ItemType Directory -Path $outputOnlySkillDir -Force | Out-Null
     [System.IO.File]::WriteAllText(
         (Join-Path $knownSkillDir "SKILL.md"),
         "---`nname: known-tag-skill`ndescription: Test fixture for a tagged skill command.`n---`n",
@@ -43,6 +45,11 @@ try {
     [System.IO.File]::WriteAllText(
         (Join-Path $portableSkillDir "SKILL.md"),
         "---`nname: portable-test-skill`ndescription: Test fixture for an explicit skill command.`n---`n",
+        [System.Text.Encoding]::UTF8
+    )
+    [System.IO.File]::WriteAllText(
+        (Join-Path $outputOnlySkillDir "SKILL.md"),
+        "---`nname: output-only-skill`ndescription: Test fixture for tool output that must not count.`n---`n",
         [System.Text.Encoding]::UTF8
     )
 
@@ -78,9 +85,19 @@ try {
         timestamp = "2026-07-12T12:03:00Z"
         content = "File Path: `file:///C:/workspace/skills-lock.json``nLock entry: skills/devlink-command/SKILL.md"
     } | ConvertTo-Json -Compress
+    $outputOnlySkill = [ordered]@{
+        timestamp = "2026-07-12T12:04:00Z"
+        type = "response_item"
+        payload = [ordered]@{
+            type = "custom_tool_call_output"
+            attributionSkill = "output-only-skill"
+            output = "[external_agent_tool_call: Read] C:/workspace/skills/output-only-skill/SKILL.md"
+        }
+    } | ConvertTo-Json -Depth 8 -Compress
+    $malformedOutputOnlySkill = '{"timestamp":"2026-07-12T12:05:00Z","type":"response_item","payload":{"type":"custom_tool_call_output","output":"<command-name>/output-only-skill</command-name>'
     [System.IO.File]::WriteAllText(
         (Join-Path $logDir "session.jsonl"),
-        "$validCommand`n$pdfPreview`n$commandTag`n$skillsLockPreview`n",
+        "$validCommand`n$pdfPreview`n$commandTag`n$skillsLockPreview`n$outputOnlySkill`n$malformedOutputOnlySkill`n",
         [System.Text.Encoding]::UTF8
     )
 
@@ -105,9 +122,13 @@ try {
 
     $priorUserProfile = $env:USERPROFILE
     $priorHome = $env:HOME
+    $priorAppData = $env:APPDATA
+    $priorLocalAppData = $env:LOCALAPPDATA
     try {
         $env:USERPROFILE = $fakeHome
         $env:HOME = $fakeHome
+        $env:APPDATA = Join-Path $fakeHome "AppData\Roaming"
+        $env:LOCALAPPDATA = Join-Path $fakeHome "AppData\Local"
         & powershell -NoProfile -ExecutionPolicy Bypass -File $collector -ConfigFile $configPath -OutputDir $outputDir -RecentFiles 20 -RecentDays 45
         if ($LASTEXITCODE -ne 0) {
             throw "Collector exited with code $LASTEXITCODE for the false-positive fixture."
@@ -115,6 +136,8 @@ try {
     } finally {
         $env:USERPROFILE = $priorUserProfile
         $env:HOME = $priorHome
+        $env:APPDATA = $priorAppData
+        $env:LOCALAPPDATA = $priorLocalAppData
     }
 
     $skills = @(Read-JsArray -Path (Join-Path $outputDir "skill_log.js") -Name "SKILL_LOG" |
@@ -123,7 +146,7 @@ try {
         throw "Collector did not retain the explicit skill command."
     }
 
-    $falsePositives = @("Contents", "FontFile2", "c", "looks-like-a-skill", "metadata-token", "model", "documents", "devlink-command", "github", "goal")
+    $falsePositives = @("Contents", "FontFile2", "c", "looks-like-a-skill", "metadata-token", "model", "documents", "devlink-command", "github", "goal", "output-only-skill")
     $emittedFalsePositives = @($skills | Where-Object { $falsePositives -contains $_ })
     if ($emittedFalsePositives.Count) {
         throw ("Collector treated file content as skill commands: " + ($emittedFalsePositives -join ", "))

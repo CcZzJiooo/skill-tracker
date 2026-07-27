@@ -7,8 +7,8 @@ param(
     [string]$ConfigFile = "$PSScriptRoot\config.json",
     [string]$OutputDir  = "",
     [switch]$Watch,
-    [int]$RecentFiles = 250,
-    [int]$RecentDays = 45
+    [int]$RecentFiles = 0,
+    [int]$RecentDays = 0
 )
 
 # ── Load config ────────────────────────────────────────────────────────────────
@@ -652,58 +652,64 @@ function Get-ToolLogFiles {
         return @()
     }
 
-    $cutoffUtc = (Get-Date).ToUniversalTime().AddDays(-1 * [Math]::Max(1, $RecentDays))
-    $limit = [Math]::Max(20, $RecentFiles)
+    $hasDateFilter = $RecentDays -gt 0
+    $cutoffUtc = if ($hasDateFilter) { (Get-Date).ToUniversalTime().AddDays(-1 * $RecentDays) } else { [DateTime]::MinValue }
+    $hasLimit = $RecentFiles -gt 0
 
     if ($ToolName -eq "Antigravity") {
-        return @(Get-ChildItem -Path $Root -Recurse -Filter "transcript.jsonl" -File -ErrorAction SilentlyContinue |
-            Where-Object { $_.FullName -match '\\\.system_generated\\logs\\transcript\.jsonl$' -and $_.LastWriteTimeUtc -ge $cutoffUtc } |
-            Sort-Object LastWriteTimeUtc -Descending |
-            Select-Object -First $limit)
+        $files = @(Get-ChildItem -Path $Root -Recurse -Filter "transcript.jsonl" -File -ErrorAction SilentlyContinue |
+            Where-Object { $_.FullName -match '\\\.system_generated\\logs\\transcript\.jsonl$' -and (-not $hasDateFilter -or $_.LastWriteTimeUtc -ge $cutoffUtc) } |
+            Sort-Object LastWriteTimeUtc -Descending)
+        if ($hasLimit) { $files = @($files | Select-Object -First $RecentFiles) }
+        return $files
     }
 
     if ($ToolName -eq "Aider") {
-        return @(Get-ChildItem -Path $Root -File -ErrorAction SilentlyContinue |
+        $files = @(Get-ChildItem -Path $Root -File -ErrorAction SilentlyContinue |
             Where-Object {
                 $_.Name -match '^\.aider\..*history(\.md)?$' -or
                 $_.Name -eq ".aider.chat.history.md" -or
                 $_.Name -eq ".aider.llm.history"
             } |
-            Sort-Object LastWriteTimeUtc -Descending |
-            Select-Object -First $limit)
+            Sort-Object LastWriteTimeUtc -Descending)
+        if ($hasLimit) { $files = @($files | Select-Object -First $RecentFiles) }
+        return $files
     }
 
     if ($ToolName -in @("JetBrains AI", "Junie")) {
-        return @(Get-ChildItem -Path $Root -Recurse -File -ErrorAction SilentlyContinue |
+        $files = @(Get-ChildItem -Path $Root -Recurse -File -ErrorAction SilentlyContinue |
             Where-Object {
                 ($extensions -contains $_.Extension.ToLowerInvariant()) -and
-                $_.LastWriteTimeUtc -ge $cutoffUtc -and
+                (-not $hasDateFilter -or $_.LastWriteTimeUtc -ge $cutoffUtc) -and
                 ($_.FullName -match '(?i)([\\/]log[\\/]|ai-assistant|junie|matterhorn|\.junie)')
             } |
-            Sort-Object LastWriteTimeUtc -Descending |
-            Select-Object -First $limit)
+            Sort-Object LastWriteTimeUtc -Descending)
+        if ($hasLimit) { $files = @($files | Select-Object -First $RecentFiles) }
+        return $files
     }
 
     if ($ToolName -eq "GitHub Copilot" -and $Root -match '(?i)[\\/]workspaceStorage$') {
-        return @(Get-ChildItem -Path $Root -Recurse -File -ErrorAction SilentlyContinue |
+        $files = @(Get-ChildItem -Path $Root -Recurse -File -ErrorAction SilentlyContinue |
             Where-Object {
                 ($extensions -contains $_.Extension.ToLowerInvariant()) -and
-                $_.LastWriteTimeUtc -ge $cutoffUtc -and
+                (-not $hasDateFilter -or $_.LastWriteTimeUtc -ge $cutoffUtc) -and
                 ($_.FullName -match '(?i)(github\.copilot|copilot-chat|chatSessions|chatEditingSessions)')
             } |
-            Sort-Object LastWriteTimeUtc -Descending |
-            Select-Object -First $limit)
+            Sort-Object LastWriteTimeUtc -Descending)
+        if ($hasLimit) { $files = @($files | Select-Object -First $RecentFiles) }
+        return $files
     }
 
-    return @(Get-ChildItem -Path $Root -Recurse -File -ErrorAction SilentlyContinue |
+    $files = @(Get-ChildItem -Path $Root -Recurse -File -ErrorAction SilentlyContinue |
         Where-Object {
-            $extensions -contains $_.Extension.ToLowerInvariant() -and
-            $_.LastWriteTimeUtc -ge $cutoffUtc -and
+            ($extensions -contains $_.Extension.ToLowerInvariant()) -and
+            (-not $hasDateFilter -or $_.LastWriteTimeUtc -ge $cutoffUtc) -and
             (-not ($_.Name -eq "history.jsonl" -and $ToolName -in @("ClaudeCode", "Codex", "Antigravity"))) -and
-            $_.Name -ne "transcript_full.jsonl"
+            ($_.Name -ne "transcript_full.jsonl")
         } |
-        Sort-Object LastWriteTimeUtc -Descending |
-        Select-Object -First $limit)
+        Sort-Object LastWriteTimeUtc -Descending)
+    if ($hasLimit) { $files = @($files | Select-Object -First $RecentFiles) }
+    return $files
 }
 
 function Test-GeneratedSkillInventoryLine {

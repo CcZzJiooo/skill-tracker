@@ -71,9 +71,13 @@ try {
 
     $priorUserProfile = $env:USERPROFILE
     $priorHome = $env:HOME
+    $priorAppData = $env:APPDATA
+    $priorLocalAppData = $env:LOCALAPPDATA
     try {
         $env:USERPROFILE = $fakeHome
         $env:HOME = $fakeHome
+        $env:APPDATA = Join-Path $fakeHome "AppData\Roaming"
+        $env:LOCALAPPDATA = Join-Path $fakeHome "AppData\Local"
         $watcher = Start-Process -FilePath "powershell" -ArgumentList @(
             "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", "`"$collector`"",
             "-ConfigFile", "`"$configPath`"", "-Watch", "-RecentFiles", "20", "-RecentDays", "45"
@@ -81,6 +85,8 @@ try {
     } finally {
         $env:USERPROFILE = $priorUserProfile
         $env:HOME = $priorHome
+        $env:APPDATA = $priorAppData
+        $env:LOCALAPPDATA = $priorLocalAppData
     }
 
     $catalogPath = Join-Path $outputDir "skill_catalog.json"

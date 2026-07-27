@@ -1,8 +1,9 @@
-param(
+﻿param(
     [switch]$Server,
     [int]$Port = 17830,
     [switch]$NoBrowser,
-    [switch]$NoWatch
+    [switch]$NoWatch,
+    [switch]$ForceScan
 )
 
 $ErrorActionPreference = "Stop"
@@ -158,7 +159,7 @@ if (-not (Test-Path -LiteralPath $CollectorPath -PathType Leaf)) {
 }
 
 Write-Host "Reading local AI-agent logs..."
-& $CollectorPath -RecentFiles 250 -RecentDays 45
+& $CollectorPath
 if (-not $?) {
     throw "Initial local collection failed."
 }
@@ -186,9 +187,7 @@ if (-not $NoWatch -and -not (Test-CollectorWatcher)) {
         "-NoProfile",
         "-ExecutionPolicy", "Bypass",
         "-File", "`"$CollectorPath`"",
-        "-Watch",
-        "-RecentFiles", "250",
-        "-RecentDays", "45"
+        "-Watch"
     )
 }
 

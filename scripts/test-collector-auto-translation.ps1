@@ -23,9 +23,13 @@ function Invoke-TestCollector {
 
     $priorUserProfile = $env:USERPROFILE
     $priorHome = $env:HOME
+    $priorAppData = $env:APPDATA
+    $priorLocalAppData = $env:LOCALAPPDATA
     try {
         $env:USERPROFILE = $FakeHome
         $env:HOME = $FakeHome
+        $env:APPDATA = Join-Path $FakeHome "AppData\Roaming"
+        $env:LOCALAPPDATA = Join-Path $FakeHome "AppData\Local"
         & powershell -NoProfile -ExecutionPolicy Bypass -File $Collector -ConfigFile $ConfigPath -OutputDir $OutputDir -RecentFiles 20 -RecentDays 45
         if ($LASTEXITCODE -ne 0) {
             throw "Collector exited with code $LASTEXITCODE for the auto-translation fixture."
@@ -33,6 +37,8 @@ function Invoke-TestCollector {
     } finally {
         $env:USERPROFILE = $priorUserProfile
         $env:HOME = $priorHome
+        $env:APPDATA = $priorAppData
+        $env:LOCALAPPDATA = $priorLocalAppData
     }
 }
 
