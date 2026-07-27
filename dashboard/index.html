@@ -3941,12 +3941,12 @@ button.catalog-stat.active {
   function renderStatsDateRange(validationMessage) {
     if (!els.statsDateStart || !els.statsDateEnd || !els.statsDateSummary) return;
     var range = logTimeRange();
-    var min = formatInputDate(range.earliest);
-    var max = formatInputDate(range.latest);
-    els.statsDateStart.min = min;
-    els.statsDateStart.max = max;
-    els.statsDateEnd.min = min;
-    els.statsDateEnd.max = max;
+
+    els.statsDateStart.removeAttribute("min");
+    els.statsDateStart.removeAttribute("max");
+    els.statsDateEnd.removeAttribute("min");
+    els.statsDateEnd.removeAttribute("max");
+
     if (validationMessage) {
       els.statsDateSummary.textContent = validationMessage;
       return;
@@ -3960,23 +3960,21 @@ button.catalog-stat.active {
       return;
     }
 
-    // Show the full available range while keeping the unfiltered state empty.
-    // This keeps the native date controls useful without changing all-record semantics.
     if (hasStatsDateFilter()) {
       els.statsDateStart.value = statsDateStart;
       els.statsDateEnd.value = statsDateEnd;
     } else {
-      els.statsDateStart.value = min;
-      els.statsDateEnd.value = max;
+      els.statsDateStart.value = "";
+      els.statsDateEnd.value = "";
     }
 
     var selected = hasStatsDateFilter();
     var startLabel = statsDateStart ? statsDateStart.replace(/-/g, "/") : formatDateOnly(range.earliest);
     var endLabel = statsDateEnd ? statsDateEnd.replace(/-/g, "/") : formatDateOnly(range.latest);
-    els.statsDateSummary.textContent = (selected ? "已筛选技能记录 " : "全部技能记录 ") + startLabel + " - " + endLabel;
+    els.statsDateSummary.textContent = (selected ? "已筛选技能记录 " : "无限制全量记录 ") + startLabel + " - " + endLabel;
     els.statsDateSummary.title = selected
       ? "当前统计仅包含所选日期内的技能调用记录"
-      : "当前统计包含全部已识别的技能调用记录；侧栏时间是数据生成时间";
+      : "当前包含全部已识别的技能调用记录（支持随时自由查看任意历史日期）";
   }
 
   function applyStatsDateRange() {
