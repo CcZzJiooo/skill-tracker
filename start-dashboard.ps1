@@ -1,4 +1,4 @@
-param(
+﻿param(
     [switch]$Server,
     [int]$Port = 17830,
     [switch]$NoBrowser,
@@ -12,7 +12,10 @@ $DashboardDir = Join-Path $Root "dashboard"
 $CollectorPath = Join-Path $Root "collect.ps1"
 $ServerInstanceId = ([System.BitConverter]::ToString(
     [System.Security.Cryptography.SHA256]::Create().ComputeHash(
-        [System.Text.Encoding]::UTF8.GetBytes([System.IO.Path]::GetFullPath($Root).ToLowerInvariant())
+        [System.Text.Encoding]::UTF8.GetBytes(
+            ([System.IO.Path]::GetFullPath($Root).ToLowerInvariant()) + "|" +
+            ((Get-Item -LiteralPath $PSCommandPath).LastWriteTimeUtc.Ticks.ToString())
+        )
     )
 ) -replace '-', '').ToLowerInvariant()
 $RequiredGeneratedFiles = @(
@@ -78,33 +81,37 @@ function Start-NoCacheServer {
             $rawPath = [Uri]::UnescapeDataString($context.Request.Url.AbsolutePath)
             if ($rawPath.StartsWith("/api/shortcut/")) {
                 $method = $context.Request.HttpMethod.ToUpperInvariant()
-                $shortcutScript = Join-Path $PSScriptRoot "scripts\manage-shortcut.ps1"
+                $shortcutScript = Join-Path $Root "scripts\manage-shortcut.ps1"
                 $bytes = @()
 
                 if ($rawPath -eq "/api/shortcut/status") {
                     $context.Response.StatusCode = 200
                     $context.Response.ContentType = "application/json; charset=utf-8"
-                    $jsonStr = & powershell -NoProfile -ExecutionPolicy Bypass -File "`"$shortcutScript`"" -Action GetStatus
+                    $status = & $shortcutScript -Action GetStatus
+                    $jsonStr = $status | ConvertTo-Json -Compress
                     $bytes = [System.Text.Encoding]::UTF8.GetBytes($jsonStr)
-                } elseif ($rawPath -eq "/api/shortcut/create-desktop" -and $method -eq "POST") {
+                } elseif ($rawPath -eq "/api/shortcut/create-desktop" -and ($method -eq "POST" -or $method -eq "GET")) {
                     $context.Response.StatusCode = 200
                     $context.Response.ContentType = "application/json; charset=utf-8"
-                    & powershell -NoProfile -ExecutionPolicy Bypass -File "`"$shortcutScript`"" -Action CreateDesktopShortcut -CreateStartMenu
-                    $bytes = [System.Text.Encoding]::UTF8.GetBytes('{"success":true,"message":"桌面快捷方式创建成功！"}')
-                } elseif ($rawPath -eq "/api/shortcut/toggle-autostart" -and $method -eq "POST") {
+                    & $shortcutScript -Action CreateDesktopShortcut -CreateStartMenu
+                    $resObj = [PSCustomObject]@{ success = $true; message = "桌面快捷方式创建成功！" }
+                    $bytes = [System.Text.Encoding]::UTF8.GetBytes(($resObj | ConvertTo-Json -Compress))
+                } elseif ($rawPath -eq "/api/shortcut/toggle-autostart" -and ($method -eq "POST" -or $method -eq "GET")) {
                     $context.Response.StatusCode = 200
                     $context.Response.ContentType = "application/json; charset=utf-8"
-                    $statusJson = & powershell -NoProfile -ExecutionPolicy Bypass -File "`"$shortcutScript`"" -Action GetStatus | ConvertFrom-Json
-                    if ($statusJson.autoStart) {
-                        & powershell -NoProfile -ExecutionPolicy Bypass -File "`"$shortcutScript`"" -Action DisableAutoStart
-                        $bytes = [System.Text.Encoding]::UTF8.GetBytes('{"success":true,"autoStart":false,"message":"已关闭开机自启"}')
+                    $status = & $shortcutScript -Action GetStatus
+                    if ($status.autoStart) {
+                        & $shortcutScript -Action DisableAutoStart
+                        $resObj = [PSCustomObject]@{ success = $true; autoStart = $false; message = "已关闭开机自启" }
                     } else {
-                        & powershell -NoProfile -ExecutionPolicy Bypass -File "`"$shortcutScript`"" -Action EnableAutoStart
-                        $bytes = [System.Text.Encoding]::UTF8.GetBytes('{"success":true,"autoStart":true,"message":"已开启开机自启"}')
+                        & $shortcutScript -Action EnableAutoStart
+                        $resObj = [PSCustomObject]@{ success = $true; autoStart = $true; message = "已开启开机自启" }
                     }
+                    $bytes = [System.Text.Encoding]::UTF8.GetBytes(($resObj | ConvertTo-Json -Compress))
                 } else {
                     $context.Response.StatusCode = 404
-                    $bytes = [System.Text.Encoding]::UTF8.GetBytes('{"error":"API endpoint not found"}')
+                    $resObj = [PSCustomObject]@{ error = "API endpoint not found" }
+                    $bytes = [System.Text.Encoding]::UTF8.GetBytes(($resObj | ConvertTo-Json -Compress))
                 }
             } else {
                 $requestPath = $rawPath.TrimStart('/')
@@ -191,16 +198,17 @@ if (-not (Test-Path -LiteralPath $CollectorPath -PathType Leaf)) {
     throw "Collector script not found: $CollectorPath"
 }
 
-Write-Host "Reading local AI-agent logs..."
-& $CollectorPath
-if (-not $?) {
-    throw "Initial local collection failed."
-}
-Assert-GeneratedDashboardData
-
 if (-not (Test-SkillTrackerServer -ListenPort $Port)) {
     if (Test-AnyHttpServer -ListenPort $Port) {
-        throw "Port $Port is already used by another local application. Close it or start Skill Tracker with a different -Port value."
+        try {
+            $conns = @(Get-NetTCPConnection -LocalPort $Port -ErrorAction SilentlyContinue)
+            foreach ($c in $conns) {
+                if ($c.OwningProcess -gt 0) {
+                    Stop-Process -Id $c.OwningProcess -Force -ErrorAction SilentlyContinue
+                }
+            }
+            Start-Sleep -Milliseconds 400
+        } catch { }
     }
 
     Start-Process -FilePath "powershell" -WindowStyle Hidden -ArgumentList @(
@@ -215,13 +223,8 @@ if (-not (Test-SkillTrackerServer -ListenPort $Port)) {
     }
 }
 
-if (-not $NoWatch -and -not (Test-CollectorWatcher)) {
-    Start-Process -FilePath "powershell" -WindowStyle Hidden -ArgumentList @(
-        "-NoProfile",
-        "-ExecutionPolicy", "Bypass",
-        "-File", "`"$CollectorPath`"",
-        "-Watch"
-    )
+if (-not $NoBrowser) {
+    Start-Process "http://127.0.0.1:$Port/index.html"
 }
 
 # Auto-ensure desktop shortcut on initial launch
@@ -234,6 +237,18 @@ if (Test-Path -LiteralPath $shortcutScript) {
     }
 }
 
-if (-not $NoBrowser) {
-    Start-Process "http://127.0.0.1:$Port/index.html"
+Write-Host "Reading local AI-agent logs..."
+& $CollectorPath
+if (-not $?) {
+    throw "Initial local collection failed."
+}
+Assert-GeneratedDashboardData
+
+if (-not $NoWatch -and -not (Test-CollectorWatcher)) {
+    Start-Process -FilePath "powershell" -WindowStyle Hidden -ArgumentList @(
+        "-NoProfile",
+        "-ExecutionPolicy", "Bypass",
+        "-File", "`"$CollectorPath`"",
+        "-Watch"
+    )
 }

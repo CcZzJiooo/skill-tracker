@@ -47,7 +47,8 @@ $RootFiles = @(
     "collect.ps1",
     "run.bat",
     "start-dashboard.ps1",
-    "创建桌面快捷方式.bat"
+    "创建桌面快捷方式.bat",
+    "skill-tracker.ico"
 )
 foreach ($file in $RootFiles) {
     $source = Join-Path $RepoRoot $file

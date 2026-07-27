@@ -65,28 +65,30 @@ function Get-ShortcutStatus {
     }
 }
 
+$RunBatPath = Join-Path $RepoRoot "run.bat"
+$IcoFile = Join-Path $RepoRoot "skill-tracker.ico"
+$icon = if (Test-Path -LiteralPath $IcoFile) { "$IcoFile,0" } else { "shell32.dll,13" }
+
 switch ($Action) {
     "CreateDesktopShortcut" {
-        $arguments = "-NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File `"$StartDashboardPath`""
-        $icon = "shell32.dll,220"
         New-NativeShortcut `
-            -TargetPath "powershell.exe" `
-            -Arguments $arguments `
+            -TargetPath $RunBatPath `
+            -Arguments "" `
             -WorkingDirectory $RepoRoot `
             -ShortcutFilePath $DesktopShortcutFile `
             -Description "技能追踪器 — 自动搜集与可视化 AI 代理技能调用日志" `
             -IconLocation $icon `
-            -WindowStyle 7
+            -WindowStyle 1
 
         if ($CreateStartMenu) {
             New-NativeShortcut `
-                -TargetPath "powershell.exe" `
-                -Arguments $arguments `
+                -TargetPath $RunBatPath `
+                -Arguments "" `
                 -WorkingDirectory $RepoRoot `
                 -ShortcutFilePath $StartMenuShortcutFile `
                 -Description "技能追踪器 — 自动搜集与可视化 AI 代理技能调用日志" `
                 -IconLocation $icon `
-                -WindowStyle 7
+                -WindowStyle 1
         }
 
         Write-Host "成功在桌面创建快捷方式: $DesktopShortcutFile"
@@ -96,22 +98,19 @@ switch ($Action) {
     }
 
     "CreateStartMenuShortcut" {
-        $arguments = "-NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File `"$StartDashboardPath`""
-        $icon = "shell32.dll,220"
         New-NativeShortcut `
-            -TargetPath "powershell.exe" `
-            -Arguments $arguments `
+            -TargetPath $RunBatPath `
+            -Arguments "" `
             -WorkingDirectory $RepoRoot `
             -ShortcutFilePath $StartMenuShortcutFile `
             -Description "技能追踪器 — 自动搜集与可视化 AI 代理技能调用日志" `
             -IconLocation $icon `
-            -WindowStyle 7
+            -WindowStyle 1
         Write-Host "成功在开始菜单创建快捷方式: $StartMenuShortcutFile"
     }
 
     "EnableAutoStart" {
         $arguments = "-NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File `"$StartDashboardPath`" -NoBrowser"
-        $icon = "shell32.dll,220"
         New-NativeShortcut `
             -TargetPath "powershell.exe" `
             -Arguments $arguments `
