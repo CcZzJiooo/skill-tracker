@@ -705,7 +705,9 @@ function Get-ToolLogFiles {
             ($extensions -contains $_.Extension.ToLowerInvariant()) -and
             (-not $hasDateFilter -or $_.LastWriteTimeUtc -ge $cutoffUtc) -and
             (-not ($_.Name -eq "history.jsonl" -and $ToolName -in @("ClaudeCode", "Codex", "Antigravity"))) -and
-            ($_.Name -ne "transcript_full.jsonl")
+            ($_.Name -ne "transcript_full.jsonl") -and
+            ($_.Name -ne "workspace.json") -and
+            ($_.Extension -notmatch '\.vscdb')
         } |
         Sort-Object LastWriteTimeUtc -Descending)
     if ($hasLimit) { $files = @($files | Select-Object -First $RecentFiles) }
@@ -971,6 +973,7 @@ foreach ($src in $activeSources) {
     Write-Host "Scanning $toolName  ($($files.Count) files)..."
 
     foreach ($f in $files) {
+        if ($f.Length -gt 10485760 -or $f.Length -eq 0) { continue }
         $sessionId = ''
         $fileHitCount = 0
         $fileLatestHitUtc = $null
@@ -998,6 +1001,7 @@ foreach ($src in $activeSources) {
                 while (-not $sr.EndOfStream) {
                     $line = $sr.ReadLine()
                     if (-not $line) { continue }
+                    if ($line.Length -gt 131072) { $line = $line.Substring(0, 131072) }
                     if (Test-GeneratedSkillInventoryLine $line) { continue }
                     $lineSkills = [System.Collections.Generic.List[string]]::new()
 
