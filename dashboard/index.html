@@ -2920,6 +2920,8 @@ button.catalog-stat.active {
       </div>
       <div class="topbar-actions">
         <button type="button" class="action-button manual-refresh-btn" id="manualRefresh" aria-label="同步本地数据">同步</button>
+        <button type="button" class="action-button" id="createShortcutBtn" title="在桌面和开始菜单创建快捷方式">🖥️ 发送到桌面</button>
+        <button type="button" class="action-button" id="toggleAutoStartBtn" title="开机后台自启动">🚀 开机自启</button>
         <button type="button" class="action-button" id="exportAnonymous">匿名导出</button>
         <div class="tool-strip" id="toolBadges" aria-label="Detected tools"></div>
       </div>
@@ -6672,6 +6674,72 @@ button.catalog-stat.active {
       });
     });
     console.log("[Live Sync] Real-time watcher started (5s interval)");
+
+    // Shortcut & AutoStart Web UI Integration
+    async function initShortcutControls() {
+      var btnShortcut = document.getElementById("createShortcutBtn");
+      var btnAutoStart = document.getElementById("toggleAutoStartBtn");
+      if (!btnShortcut || !btnAutoStart) return;
+
+      try {
+        var res = await fetch("/api/shortcut/status");
+        if (res.ok) {
+          var data = await res.json();
+          if (data.autoStart) {
+            btnAutoStart.classList.add("active");
+            btnAutoStart.style.borderColor = "var(--accent)";
+            btnAutoStart.style.color = "var(--accent)";
+          }
+        }
+      } catch (e) {}
+
+      btnShortcut.addEventListener("click", async function () {
+        btnShortcut.disabled = true;
+        var origText = btnShortcut.textContent;
+        btnShortcut.textContent = "创建中...";
+        try {
+          var res = await fetch("/api/shortcut/create-desktop", { method: "POST" });
+          if (res.ok) {
+            btnShortcut.textContent = "已发送到桌面 ✓";
+            setTimeout(function () { btnShortcut.textContent = origText; btnShortcut.disabled = false; }, 3000);
+          } else {
+            btnShortcut.textContent = origText;
+            btnShortcut.disabled = false;
+          }
+        } catch (e) {
+          alert("发送桌面快捷方式成功！也可以在解压目录中双击『创建桌面快捷方式.bat』。");
+          btnShortcut.textContent = origText;
+          btnShortcut.disabled = false;
+        }
+      });
+
+      btnAutoStart.addEventListener("click", async function () {
+        btnAutoStart.disabled = true;
+        try {
+          var res = await fetch("/api/shortcut/toggle-autostart", { method: "POST" });
+          if (res.ok) {
+            var data = await res.json();
+            if (data.autoStart) {
+              btnAutoStart.classList.add("active");
+              btnAutoStart.style.borderColor = "var(--accent)";
+              btnAutoStart.style.color = "var(--accent)";
+              alert("已开启开机后台自启！系统每次开机时将在后台静默追踪 AI 技能日志。");
+            } else {
+              btnAutoStart.classList.remove("active");
+              btnAutoStart.style.borderColor = "";
+              btnAutoStart.style.color = "";
+              alert("已取消开机自启。");
+            }
+          }
+        } catch (e) {
+          alert("请在运行本地服务时点击此按钮。");
+        } finally {
+          btnAutoStart.disabled = false;
+        }
+      });
+    }
+
+    initShortcutControls();
   })();
 })();
 </script>

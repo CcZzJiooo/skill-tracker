@@ -1,4 +1,4 @@
-﻿param(
+param(
     [switch]$Server,
     [int]$Port = 17830,
     [switch]$NoBrowser,
@@ -75,29 +75,62 @@ function Start-NoCacheServer {
     while ($listener.IsListening) {
         $context = $listener.GetContext()
         try {
-            $requestPath = [Uri]::UnescapeDataString($context.Request.Url.AbsolutePath.TrimStart('/'))
-            if ([string]::IsNullOrWhiteSpace($requestPath)) { $requestPath = "index.html" }
-            $requestPath = $requestPath -replace '/', '\\'
-            $fullPath = [System.IO.Path]::GetFullPath((Join-Path $DashboardDir $requestPath))
-            $dashboardFullPath = [System.IO.Path]::GetFullPath($DashboardDir)
+            $rawPath = [Uri]::UnescapeDataString($context.Request.Url.AbsolutePath)
+            if ($rawPath.StartsWith("/api/shortcut/")) {
+                $method = $context.Request.HttpMethod.ToUpperInvariant()
+                $shortcutScript = Join-Path $PSScriptRoot "scripts\manage-shortcut.ps1"
+                $bytes = @()
 
-            if (-not $fullPath.StartsWith($dashboardFullPath, [System.StringComparison]::OrdinalIgnoreCase) -or
-                -not (Test-Path -LiteralPath $fullPath -PathType Leaf)) {
-                $context.Response.StatusCode = 404
-                $bytes = [System.Text.Encoding]::UTF8.GetBytes("Not found")
-            } else {
-                $context.Response.StatusCode = 200
-                $ext = [System.IO.Path]::GetExtension($fullPath).ToLowerInvariant()
-                $context.Response.ContentType = switch ($ext) {
-                    ".html" { "text/html; charset=utf-8" }
-                    ".js"   { "application/javascript; charset=utf-8" }
-                    ".json" { "application/json; charset=utf-8" }
-                    ".css"  { "text/css; charset=utf-8" }
-                    ".svg"  { "image/svg+xml" }
-                    ".png"  { "image/png" }
-                    default { "application/octet-stream" }
+                if ($rawPath -eq "/api/shortcut/status") {
+                    $context.Response.StatusCode = 200
+                    $context.Response.ContentType = "application/json; charset=utf-8"
+                    $jsonStr = & powershell -NoProfile -ExecutionPolicy Bypass -File "`"$shortcutScript`"" -Action GetStatus
+                    $bytes = [System.Text.Encoding]::UTF8.GetBytes($jsonStr)
+                } elseif ($rawPath -eq "/api/shortcut/create-desktop" -and $method -eq "POST") {
+                    $context.Response.StatusCode = 200
+                    $context.Response.ContentType = "application/json; charset=utf-8"
+                    & powershell -NoProfile -ExecutionPolicy Bypass -File "`"$shortcutScript`"" -Action CreateDesktopShortcut -CreateStartMenu
+                    $bytes = [System.Text.Encoding]::UTF8.GetBytes('{"success":true,"message":"桌面快捷方式创建成功！"}')
+                } elseif ($rawPath -eq "/api/shortcut/toggle-autostart" -and $method -eq "POST") {
+                    $context.Response.StatusCode = 200
+                    $context.Response.ContentType = "application/json; charset=utf-8"
+                    $statusJson = & powershell -NoProfile -ExecutionPolicy Bypass -File "`"$shortcutScript`"" -Action GetStatus | ConvertFrom-Json
+                    if ($statusJson.autoStart) {
+                        & powershell -NoProfile -ExecutionPolicy Bypass -File "`"$shortcutScript`"" -Action DisableAutoStart
+                        $bytes = [System.Text.Encoding]::UTF8.GetBytes('{"success":true,"autoStart":false,"message":"已关闭开机自启"}')
+                    } else {
+                        & powershell -NoProfile -ExecutionPolicy Bypass -File "`"$shortcutScript`"" -Action EnableAutoStart
+                        $bytes = [System.Text.Encoding]::UTF8.GetBytes('{"success":true,"autoStart":true,"message":"已开启开机自启"}')
+                    }
+                } else {
+                    $context.Response.StatusCode = 404
+                    $bytes = [System.Text.Encoding]::UTF8.GetBytes('{"error":"API endpoint not found"}')
                 }
-                $bytes = [System.IO.File]::ReadAllBytes($fullPath)
+            } else {
+                $requestPath = $rawPath.TrimStart('/')
+                if ([string]::IsNullOrWhiteSpace($requestPath)) { $requestPath = "index.html" }
+                $requestPath = $requestPath -replace '/', '\\'
+                $fullPath = [System.IO.Path]::GetFullPath((Join-Path $DashboardDir $requestPath))
+                $dashboardFullPath = [System.IO.Path]::GetFullPath($DashboardDir)
+
+                if (-not $fullPath.StartsWith($dashboardFullPath, [System.StringComparison]::OrdinalIgnoreCase) -or
+                    -not (Test-Path -LiteralPath $fullPath -PathType Leaf)) {
+                    $context.Response.StatusCode = 404
+                    $bytes = [System.Text.Encoding]::UTF8.GetBytes("Not found")
+                } else {
+                    $context.Response.StatusCode = 200
+                    $ext = [System.IO.Path]::GetExtension($fullPath).ToLowerInvariant()
+                    $context.Response.ContentType = switch ($ext) {
+                        ".html" { "text/html; charset=utf-8" }
+                        ".js"   { "application/javascript; charset=utf-8" }
+                        ".json" { "application/json; charset=utf-8" }
+                        ".css"  { "text/css; charset=utf-8" }
+                        ".svg"  { "image/svg+xml" }
+                        ".png"  { "image/png" }
+                        default { "application/octet-stream" }
+                    }
+                    $bytes = [System.IO.File]::ReadAllBytes($fullPath)
+                }
             }
 
             $context.Response.Headers["X-Skill-Tracker-Server"] = "1"
@@ -189,6 +222,16 @@ if (-not $NoWatch -and -not (Test-CollectorWatcher)) {
         "-File", "`"$CollectorPath`"",
         "-Watch"
     )
+}
+
+# Auto-ensure desktop shortcut on initial launch
+$shortcutScript = Join-Path $PSScriptRoot "scripts\manage-shortcut.ps1"
+if (Test-Path -LiteralPath $shortcutScript) {
+    $desktopLnk = Join-Path ([Environment]::GetFolderPath("Desktop")) "技能追踪器.lnk"
+    if (-not (Test-Path -LiteralPath $desktopLnk)) {
+        & powershell -NoProfile -ExecutionPolicy Bypass -File "`"$shortcutScript`"" -Action CreateDesktopShortcut -CreateStartMenu | Out-Null
+        Write-Host "已自动在您的桌面创建【技能追踪器】快捷方式！"
+    }
 }
 
 if (-not $NoBrowser) {

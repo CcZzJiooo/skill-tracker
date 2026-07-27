@@ -8,9 +8,9 @@ Use the release package, not GitHub's auto-generated "Source code" download.
 
 1. Download `skill-tracker-*-windows-portable.zip` from the GitHub release.
 2. Unzip it anywhere, for example `Desktop\skill-tracker`.
-3. Double-click `run.bat`.
+3. Double-click `run.bat` (or `创建桌面快捷方式.bat`).
 
-The visible launcher first reads your local AI-agent logs and generates local dashboard data. It then opens the dashboard in your browser. Later, double-click `run.bat` again to open the latest data; the background watcher refreshes new log entries and the launcher only performs another full scan if that watcher is unavailable.
+The visible launcher first reads your local AI-agent logs and generates local dashboard data, automatically creating a zero-false-positive `技能追踪器.lnk` shortcut on your Desktop! Later, simply double-click the `技能追踪器` shortcut on your Desktop, or click "🖥️ 发送到桌面" / "🚀 开机自启" inside the Web UI.
 
 If no supported local logs are found, the dashboard opens with an empty local scan report. Demo data is only a static fallback for inspecting the interface without running the launcher.
 

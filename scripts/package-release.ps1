@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
   Build a user-facing Windows portable release package for Skill Tracker.
 
@@ -46,7 +46,8 @@ $RootFiles = @(
     "config.json",
     "collect.ps1",
     "run.bat",
-    "start-dashboard.ps1"
+    "start-dashboard.ps1",
+    "创建桌面快捷方式.bat"
 )
 foreach ($file in $RootFiles) {
     $source = Join-Path $RepoRoot $file
@@ -68,7 +69,7 @@ if (Test-Path -LiteralPath $InternalDocs) {
 }
 
 New-Item -ItemType Directory -Path (Join-Path $StageDir "scripts") -Force | Out-Null
-foreach ($file in @("scripts\verify-collector.ps1", "scripts\verify-portable-release.ps1")) {
+foreach ($file in @("scripts\verify-collector.ps1", "scripts\verify-portable-release.ps1", "scripts\manage-shortcut.ps1")) {
     Copy-Item -LiteralPath (Join-Path $RepoRoot $file) -Destination (Join-Path $StageDir "scripts") -Force
 }
 
@@ -78,12 +79,11 @@ Skill Tracker Windows Portable
 
 Fastest path:
 1. Download this ZIP from GitHub Releases and unzip it.
-2. Double-click run.bat.
-3. Wait for the visible launcher to finish reading local AI-agent logs. Your browser opens with the collected local dashboard data.
+2. Double-click run.bat (or 创建桌面快捷方式.bat).
+3. The launcher automatically creates a zero-false-positive desktop shortcut (技能追踪器.lnk) on first run so you can open it directly from your Desktop anytime!
+4. Your browser opens with the collected local dashboard data. You can also click "🖥️ 发送到桌面" or "🚀 开机自启" inside the Web UI.
 
 No installer, account, API key, or administrator permission is required.
-
-The package does not include a VBS launcher or auto-create desktop shortcuts. To launch it later, double-click run.bat again.
 
 If no supported local logs are found, the dashboard opens with an empty local scan report instead of fake activity. Demo data remains only a static fallback for viewing the interface without running the launcher.
 
