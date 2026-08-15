@@ -1,5 +1,9 @@
 param([string]$Root = ".agents\skills")
 $ErrorActionPreference = "Stop"
+if (-not (Test-Path -LiteralPath $Root -PathType Container)) {
+    Write-Warning "No local skills root at $Root; metadata check skipped."
+    exit 0
+}
 $resolved = (Resolve-Path -LiteralPath $Root -ErrorAction Stop).Path
 $files = @(Get-ChildItem -LiteralPath $resolved -Recurse -Filter SKILL.md -File)
 $errors = [System.Collections.Generic.List[string]]::new()
