@@ -15,7 +15,7 @@ jobs:
           ./collect.ps1 -ForceScan
           ./scripts/verify-collector.ps1 -SkipCollect
           ./scripts/test-run-bat-contract.ps1
-          ./scripts/test-portable-release.ps1
+          ./scripts/test-package-release.ps1
       - name: Validate CLI and MCP
         shell: pwsh
         run: |
