@@ -70,8 +70,12 @@ if (Test-Path -LiteralPath $InternalDocs) {
 }
 
 New-Item -ItemType Directory -Path (Join-Path $StageDir "scripts") -Force | Out-Null
-foreach ($file in @("scripts\verify-collector.ps1", "scripts\verify-portable-release.ps1", "scripts\manage-shortcut.ps1")) {
+foreach ($file in @("scripts\verify-collector.ps1", "scripts\verify-portable-release.ps1", "scripts\manage-shortcut.ps1", "scripts\check-skills.ps1")) {
     Copy-Item -LiteralPath (Join-Path $RepoRoot $file) -Destination (Join-Path $StageDir "scripts") -Force
+}
+
+foreach ($directory in @("tools", "adapters")) {
+    Copy-Item -LiteralPath (Join-Path $RepoRoot $directory) -Destination $StageDir -Recurse -Force
 }
 
 $StartHere = @"

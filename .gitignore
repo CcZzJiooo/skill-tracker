@@ -7,6 +7,8 @@ dashboard/skill_catalog.json
 dashboard/tool_report.js
 dashboard/tool_report.json
 dashboard/.collector.pid
+dashboard/.collector.trigger
+dashboard/.collector-cache.json
 dashboard/preview-*.png
 
 # Local agent/workspace artifacts

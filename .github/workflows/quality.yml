@@ -1,0 +1,32 @@
+name: Skill Tracker quality
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  validate:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate PowerShell syntax and repository contracts
+        shell: pwsh
+        run: |
+          ./collect.ps1 -ForceScan
+          ./scripts/verify-collector.ps1 -SkipCollect
+          ./scripts/test-run-bat-contract.ps1
+          ./scripts/test-package-release.ps1
+      - name: Validate CLI and MCP
+        shell: pwsh
+        run: |
+          node --check tools/skill-tracker-cli.mjs
+          node --check tools/mcp-server.mjs
+          node tools/skill-tracker-cli.mjs --help
+      - name: Validate skill adapter schema
+        shell: pwsh
+        run: |
+          $schema = Get-Content adapters/adapter.schema.json -Raw | ConvertFrom-Json
+          if ($schema.'$id' -notmatch 'adapter.schema.json') { throw 'adapter schema id missing' }
+      - name: Check changed skill metadata
+        shell: pwsh
+        run: ./scripts/check-skills.ps1 -Root .agents/skills

@@ -68,7 +68,7 @@ Collector verification before release:
 powershell -ExecutionPolicy Bypass -File .\scripts\verify-collector.ps1
 ```
 
-Opening `dashboard/index.html` directly uses the static `dashboard/demo_data.js` fallback so contributors can inspect the interface. Launching through `run.bat` performs a local scan first; when no supported logs exist, it produces an empty local report rather than synthetic activity.
+Opening `dashboard/index.html` directly uses the static `dashboard/demo_data.js` fallback so contributors can inspect the interface. Launching through `run.bat` starts the local server and watcher; first-run collection continues in the background, and an empty local report is produced when no supported logs exist.
 
 ## Project Type
 
@@ -82,12 +82,12 @@ It has two runtime parts:
 GitHub's default "Source code" assets work for developers, but they look raw to non-technical users. For releases, maintainers should attach a Windows portable ZIP:
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File .\scripts\package-release.ps1 -Version v0.2.2
+powershell -ExecutionPolicy Bypass -File .\scripts\package-release.ps1 -Version v0.4.0
 ```
 
-Upload both `dist/skill-tracker-v0.2.2-windows-portable.zip` and `dist/SHA256SUMS.txt` to the GitHub release. Users unzip the portable ZIP and double-click `run.bat`; it collects real local data before opening the dashboard. The release does not include a VBS launcher or create desktop shortcuts automatically.
+Upload both `dist/skill-tracker-v0.4.0-windows-portable.zip` and `dist/SHA256SUMS.txt` to the GitHub release. Users unzip the portable ZIP and double-click `run.bat`; it starts a local watcher and serves the dashboard while collecting real local data. The release does not include a VBS launcher or create desktop shortcuts automatically.
 
-An `.exe` wrapper is optional later, mainly for one-click onboarding. It is not required for the current architecture because there is no server, installer, or background service.
+An `.exe` wrapper is optional later, mainly for one-click onboarding. It is not required for the current architecture because there is no installer or Windows service; the local watcher is a normal user-owned PowerShell process.
 
 ## Core Features
 
@@ -236,6 +236,22 @@ After running collection, validate local tool detection and skill-call data:
 ```powershell
 powershell -ExecutionPolicy Bypass -File .\scripts\verify-collector.ps1 -SkipCollect
 ```
+
+## CLI, anonymous reports, and integrations
+
+Node.js 20+ users can use the dependency-free CLI in addition to the Windows launcher:
+
+```powershell
+node .\tools\skill-tracker-cli.mjs collect
+node .\tools\skill-tracker-cli.mjs health --json
+node .\tools\skill-tracker-cli.mjs export .\skill-tracker-report.json
+node .\tools\skill-tracker-cli.mjs import .\skill-tracker-report.json
+node .\tools\skill-tracker-cli.mjs benchmark .\reports
+```
+
+The anonymous report contains aggregate counts and stable opaque IDs only; it does not include raw logs, local paths, session IDs, skill names, or descriptions. The adapter contract is documented in [`adapters/README.md`](adapters/README.md). A read-only MCP stdio server is available with `node tools/mcp-server.mjs`; it exposes only the local explainable health report.
+
+GitHub Actions can run the collector contract, CLI syntax, adapter schema, and `SKILL.md` metadata checks from `.github/workflows/quality.yml`.
 
 The verifier checks:
 
