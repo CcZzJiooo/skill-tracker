@@ -12,6 +12,7 @@ jobs:
       - name: Validate PowerShell syntax and repository contracts
         shell: pwsh
         run: |
+          ./collect.ps1 -ForceScan
           ./scripts/verify-collector.ps1 -SkipCollect
           ./scripts/test-run-bat-contract.ps1
           ./scripts/test-portable-release.ps1
