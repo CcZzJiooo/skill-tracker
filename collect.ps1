@@ -7,6 +7,7 @@ param(
     [string]$ConfigFile = "$PSScriptRoot\config.json",
     [string]$OutputDir  = "",
     [switch]$Watch,
+    [switch]$ForceScan,
     [int]$RecentFiles = 0,
     [int]$RecentDays = 0
 )
@@ -74,7 +75,9 @@ $skillRootCandidates = @(
     "$PSScriptRoot\.agents\skills",
     "$PSScriptRoot\.cursor\skills",
     "$PSScriptRoot\.codex\skills",
+    "$PSScriptRoot\.codex\plugins\cache",
     "$userHome\.codex\skills",
+    "$userHome\.codex\plugins\cache",
     "$userHome\.agents\skills",
     "$userHome\.config\agents\skills",
     "$userHome\.claude\skills",
@@ -91,6 +94,12 @@ $skillRootCandidates = @(
     "$userHome\.config\gemini\skills",
     "$userHome\.cc-switch\skills"
 )
+if ($env:CODEX_HOME) {
+    $skillRootCandidates += @(
+        (Join-Path $env:CODEX_HOME "skills"),
+        (Join-Path $env:CODEX_HOME "plugins\cache")
+    )
+}
 $skillRoots = [System.Collections.Generic.List[string]]::new()
 $skillRootKeys = @{}
 function Add-SkillRoot {
@@ -116,8 +125,39 @@ if ($skillRoots.Count -eq 0) {
 
 # ── Auto-detect installed AI tools ────────────────────────────────────────────
 # Each tool specifies: Name, one or more scan roots, and a timestamp field preference
+$commonProgramRoots = @(
+    "$localAppData\Programs",
+    $localAppData,
+    $appData,
+    $env:ProgramFiles,
+    ${env:ProgramFiles(x86)}
+) | Where-Object { $_ }
+function Get-DesktopInstallPaths {
+    param(
+        [string]$DirectoryName,
+        [string]$ExecutableName
+    )
+
+    return @($commonProgramRoots | ForEach-Object {
+        Join-Path (Join-Path $_ $DirectoryName) $ExecutableName
+    })
+}
+
+$desktopToolPolicies = @{
+    # Antigravity IDE changed its Windows install layout to a directory and
+    # executable name containing spaces. Keep the legacy layout for upgrades.
+    "Antigravity" = @{ InstallPaths = @(
+        (Get-DesktopInstallPaths -DirectoryName "Antigravity IDE" -ExecutableName "Antigravity IDE.exe")
+        (Get-DesktopInstallPaths -DirectoryName "Antigravity" -ExecutableName "Antigravity.exe")
+    ); CommandNames = @("antigravity-ide", "antigravity"); ProcessNames = @("Antigravity IDE", "Antigravity") }
+    "Cursor"      = @{ InstallPaths = @(Get-DesktopInstallPaths -DirectoryName "Cursor" -ExecutableName "Cursor.exe"); CommandNames = @("cursor"); ProcessNames = @("Cursor") }
+    "Windsurf"    = @{ InstallPaths = @(Get-DesktopInstallPaths -DirectoryName "Windsurf" -ExecutableName "Windsurf.exe"); CommandNames = @("windsurf"); ProcessNames = @("Windsurf") }
+    "Trae"        = @{ InstallPaths = @(Get-DesktopInstallPaths -DirectoryName "Trae" -ExecutableName "Trae.exe"); CommandNames = @("trae"); ProcessNames = @("Trae") }
+    "Zed"         = @{ InstallPaths = @(Get-DesktopInstallPaths -DirectoryName "Zed" -ExecutableName "Zed.exe"); CommandNames = @("zed"); ProcessNames = @("Zed") }
+}
+
 $AUTO_DETECT_TOOLS = @(
-    @{ Name="Antigravity"; Paths=@("$userHome\.gemini\antigravity-ide\brain"); TsField="created_at" },
+    @{ Name="Antigravity"; Paths=@("$userHome\.gemini\antigravity-ide\brain"); TsField="created_at"; RequireInstall=$true; InstallPaths=$desktopToolPolicies["Antigravity"].InstallPaths; CommandNames=$desktopToolPolicies["Antigravity"].CommandNames; ProcessNames=$desktopToolPolicies["Antigravity"].ProcessNames },
     @{ Name="Aider";       Paths=@("$PSScriptRoot\.aider.chat.history.md","$PSScriptRoot\.aider.llm.history","$userHome\.aider.chat.history.md","$userHome\.aider.llm.history"); TsField="timestamp" },
     @{ Name="Amazon Q";    Paths=@(Get-EditorGlobalStoragePaths -ExtensionIds @("amazonwebservices.amazon-q-vscode","amazonwebservices.aws-toolkit-vscode")); TsField="timestamp" },
     @{ Name="Amp";         Paths=@("$userHome\.config\amp","$userHome\AppData\Roaming\amp","$localAppData\amp"); TsField="timestamp" },
@@ -125,8 +165,8 @@ $AUTO_DETECT_TOOLS = @(
     @{ Name="ClaudeCode";  Paths=@("$userHome\.claude\projects"); TsField="timestamp" },
     @{ Name="Cline";       Paths=@(Get-EditorGlobalStoragePaths -ExtensionIds @("saoudrizwan.claude-dev","cline.cline")); TsField="timestamp" },
     @{ Name="Codex";       Paths=@("$userHome\.codex\archived_sessions","$userHome\.codex\sessions"); TsField="timestamp" },
-    @{ Name="Cursor";      Paths=@("$userHome\.cursor\logs","$userHome\AppData\Roaming\Cursor\logs"); TsField="timestamp" },
-    @{ Name="Windsurf";    Paths=@("$userHome\.codeium\windsurf\logs","$userHome\AppData\Roaming\Windsurf\logs"); TsField="timestamp" },
+    @{ Name="Cursor";      Paths=@("$userHome\.cursor\logs","$userHome\AppData\Roaming\Cursor\logs"); TsField="timestamp"; RequireInstall=$true; InstallPaths=$desktopToolPolicies["Cursor"].InstallPaths; CommandNames=$desktopToolPolicies["Cursor"].CommandNames; ProcessNames=$desktopToolPolicies["Cursor"].ProcessNames },
+    @{ Name="Windsurf";    Paths=@("$userHome\.codeium\windsurf\logs","$userHome\AppData\Roaming\Windsurf\logs"); TsField="timestamp"; RequireInstall=$true; InstallPaths=$desktopToolPolicies["Windsurf"].InstallPaths; CommandNames=$desktopToolPolicies["Windsurf"].CommandNames; ProcessNames=$desktopToolPolicies["Windsurf"].ProcessNames },
     @{ Name="Continue";    Paths=@("$userHome\.continue\sessions"); TsField="timestamp" },
     @{ Name="Gemini CLI";  Paths=@("$userHome\.gemini\sessions"); TsField="created_at" },
     @{ Name="GitHub Copilot"; Paths=@(Get-EditorGlobalStoragePaths -ExtensionIds @("github.copilot-chat","github.copilot")); TsField="timestamp" },
@@ -141,9 +181,35 @@ $AUTO_DETECT_TOOLS = @(
     @{ Name="Sourcegraph Cody"; Paths=@(Get-EditorGlobalStoragePaths -ExtensionIds @("sourcegraph.cody-ai","sourcegraph.cody")); TsField="timestamp" },
     @{ Name="Tabby";       Paths=@(Get-EditorGlobalStoragePaths -ExtensionIds @("TabbyML.vscode-tabby","tabbyml.vscode-tabby")); TsField="timestamp" },
     @{ Name="Tabnine";     Paths=@((Get-EditorGlobalStoragePaths -ExtensionIds @("TabNine.tabnine-vscode","tabnine.tabnine-vscode")) + @("$userHome\.tabnine","$appData\TabNine","$appData\Tabnine")); TsField="timestamp" },
-    @{ Name="Trae";        Paths=@("$userHome\AppData\Roaming\Trae\logs","$userHome\AppData\Roaming\Trae\User\workspaceStorage","$userHome\AppData\Roaming\Trae CN\logs","$userHome\AppData\Local\Trae\logs"); TsField="timestamp" },
-    @{ Name="Zed";         Paths=@("$localAppData\Zed\logs","$localAppData\Zed\conversations","$userHome\.config\zed\conversations","$userHome\.local\share\zed\conversations","$userHome\.local\share\zed\logs"); TsField="timestamp" }
+    @{ Name="Trae";        Paths=@("$userHome\AppData\Roaming\Trae\logs","$userHome\AppData\Roaming\Trae\User\workspaceStorage","$userHome\AppData\Roaming\Trae CN\logs","$userHome\AppData\Local\Trae\logs"); TsField="timestamp"; RequireInstall=$true; InstallPaths=$desktopToolPolicies["Trae"].InstallPaths; CommandNames=$desktopToolPolicies["Trae"].CommandNames; ProcessNames=$desktopToolPolicies["Trae"].ProcessNames },
+    @{ Name="Zed";         Paths=@("$localAppData\Zed\logs","$localAppData\Zed\conversations","$userHome\.config\zed\conversations","$userHome\.local\share\zed\conversations","$userHome\.local\share\zed\logs"); TsField="timestamp"; RequireInstall=$true; InstallPaths=$desktopToolPolicies["Zed"].InstallPaths; CommandNames=$desktopToolPolicies["Zed"].CommandNames; ProcessNames=$desktopToolPolicies["Zed"].ProcessNames }
 )
+
+function Test-ToolInstalled {
+    param([hashtable]$Tool)
+
+    if (-not $Tool.RequireInstall) {
+        return [PSCustomObject]@{ Installed = $true; Reason = "log_source_allowed" }
+    }
+
+    foreach ($path in @($Tool.InstallPaths)) {
+        if ($path -and (Test-Path -LiteralPath $path -PathType Leaf)) {
+            return [PSCustomObject]@{ Installed = $true; Reason = "install_marker" }
+        }
+    }
+    foreach ($commandName in @($Tool.CommandNames)) {
+        if ($commandName -and (Get-Command $commandName -ErrorAction SilentlyContinue)) {
+            return [PSCustomObject]@{ Installed = $true; Reason = "command_available" }
+        }
+    }
+
+    foreach ($processName in @($Tool.ProcessNames)) {
+        if ($processName -and (Get-Process -Name $processName -ErrorAction SilentlyContinue)) {
+            return [PSCustomObject]@{ Installed = $true; Reason = "process_running" }
+        }
+    }
+    return [PSCustomObject]@{ Installed = $false; Reason = "install_marker_missing" }
+}
 
 $sourceReports = [System.Collections.Generic.List[PSCustomObject]]::new()
 $sourceReportByKey = @{}
@@ -152,7 +218,9 @@ function Add-SourceReport {
     param(
         [string]$ToolName,
         [string]$Path,
-        [string]$SourceType
+        [string]$SourceType,
+        [bool]$Installed = $true,
+        [string]$InstallReason = "log_source_allowed"
     )
     if (-not $Path) { return $null }
     $exists = Test-Path -LiteralPath $Path
@@ -166,7 +234,10 @@ function Add-SourceReport {
             tool            = $ToolName
             path            = $resolvedPath
             source          = $SourceType
-            detected        = [bool]$exists
+            path_exists     = [bool]$exists
+            installed       = [bool]$Installed
+            install_reason  = $InstallReason
+            detected        = [bool]($exists -and $Installed)
             path_kind       = if ($exists) { if (Test-Path -LiteralPath $Path -PathType Leaf) { "file" } else { "directory" } } else { "missing" }
             files_scanned   = 0
             files_with_hits = 0
@@ -174,8 +245,8 @@ function Add-SourceReport {
             dedup_hits      = 0
             latest_log_at   = ""
             latest_hit_at   = ""
-            status          = if ($exists) { "detected" } else { "missing" }
-            status_reason   = if ($exists) { "path_detected" } else { "path_missing" }
+            status          = if (-not $Installed) { "missing" } elseif ($exists) { "detected" } else { "missing" }
+            status_reason   = if (-not $Installed) { "tool_not_installed" } elseif ($exists) { "path_detected" } else { "path_missing" }
         }
         $sourceReports.Add($report)
         $sourceReportByKey[$sourceKey] = $report
@@ -185,36 +256,90 @@ function Add-SourceReport {
 
 $activeSources = [System.Collections.Generic.List[hashtable]]::new()
 $activeSourceKeys = @{}
-foreach ($tool in $AUTO_DETECT_TOOLS) {
-    foreach ($p in $tool.Paths) {
-        $report = Add-SourceReport -ToolName $tool.Name -Path $p -SourceType "auto"
-        if ($report -and $report.detected) {
-            $resolvedPath = $report.path
-            $sourceKey = "$($tool.Name)|$resolvedPath"
-            if (-not $activeSourceKeys.ContainsKey($sourceKey)) {
-                $activeSources.Add(@{ Name=$tool.Name; Root=$resolvedPath; TsField=$tool.TsField })
-                $activeSourceKeys[$sourceKey] = $true
-                Write-Host "  [FOUND] $($tool.Name)  ->  $resolvedPath"
+function Get-ActiveSourceFingerprint {
+    return (($activeSources | ForEach-Object { "$($_.Name)|$($_.Root)|$($_.TsField)" }) -join "`n")
+}
+
+function Refresh-ActiveSources {
+    param([switch]$Quiet)
+
+    $activeSources.Clear()
+    $activeSourceKeys.Clear()
+    $sourceReports.Clear()
+    $sourceReportByKey.Clear()
+
+    foreach ($tool in $AUTO_DETECT_TOOLS) {
+        $presence = Test-ToolInstalled -Tool $tool
+        foreach ($p in $tool.Paths) {
+            $report = Add-SourceReport -ToolName $tool.Name -Path $p -SourceType "auto" -Installed $presence.Installed -InstallReason $presence.Reason
+            if ($report -and $report.detected) {
+                $resolvedPath = $report.path
+                $sourceKey = "$($tool.Name)|$resolvedPath"
+                if (-not $activeSourceKeys.ContainsKey($sourceKey)) {
+                    $activeSources.Add(@{ Name=$tool.Name; Root=$resolvedPath; TsField=$tool.TsField })
+                    $activeSourceKeys[$sourceKey] = $true
+                    if (-not $Quiet) { Write-Host "  [FOUND] $($tool.Name)  ->  $resolvedPath" }
+                }
             }
         }
     }
-}
-foreach ($ct in $cfg.custom_tools) {
-    if (-not $ct.path) { continue }
-    $customName = if ($ct.name) { [string]$ct.name } else { "CustomTool" }
-    $report = Add-SourceReport -ToolName $customName -Path ([string]$ct.path) -SourceType "custom"
-    if ($report -and $report.detected) {
-        $resolvedPath = $report.path
-        $sourceKey = "$customName|$resolvedPath"
-        if (-not $activeSourceKeys.ContainsKey($sourceKey)) {
-            $activeSources.Add(@{ Name=$customName; Root=$resolvedPath; TsField="timestamp" })
-            $activeSourceKeys[$sourceKey] = $true
-            Write-Host "  [CUSTOM] $customName  ->  $resolvedPath"
+    foreach ($ct in $cfg.custom_tools) {
+        if (-not $ct.path) { continue }
+        $customName = if ($ct.name) { [string]$ct.name } else { "CustomTool" }
+        $report = Add-SourceReport -ToolName $customName -Path ([string]$ct.path) -SourceType "custom" -Installed $true -InstallReason "configured_custom_source"
+        if ($report -and $report.detected) {
+            $resolvedPath = $report.path
+            $sourceKey = "$customName|$resolvedPath"
+            if (-not $activeSourceKeys.ContainsKey($sourceKey)) {
+                $activeSources.Add(@{ Name=$customName; Root=$resolvedPath; TsField="timestamp" })
+                $activeSourceKeys[$sourceKey] = $true
+                if (-not $Quiet) { Write-Host "  [CUSTOM] $customName  ->  $resolvedPath" }
+            }
         }
     }
+    if (-not $Quiet -and $activeSources.Count -eq 0) {
+        Write-Warning "No AI tools detected. Writing an empty local scan report."
+    }
+    return Get-ActiveSourceFingerprint
 }
-if ($activeSources.Count -eq 0) {
-    Write-Warning "No AI tools detected. Writing an empty local scan report."
+
+$activeSourceFingerprint = Refresh-ActiveSources
+
+# Acquire the watcher singleton before loading the skill catalog. A second
+# desktop launch should exit immediately instead of repeating the expensive
+# metadata scan before it discovers that another watcher owns the output.
+function Get-StableId {
+    param([string]$Value)
+    if (-not $Value) { return "none" }
+    $sha = [System.Security.Cryptography.SHA256]::Create()
+    try {
+        $bytes = [System.Text.Encoding]::UTF8.GetBytes($Value)
+        $hash = $sha.ComputeHash($bytes)
+        return -join ($hash[0..7] | ForEach-Object { $_.ToString("x2") })
+    } finally {
+        $sha.Dispose()
+    }
+}
+
+$pidPath = Join-Path $cfg.output_dir ".collector.pid"
+$triggerPath = Join-Path $cfg.output_dir ".collector.trigger"
+$cachePath = Join-Path $cfg.output_dir ".collector-cache.json"
+$collectorCacheVersion = 3
+$watcherMutex = $null
+$ownsWatcherMutex = $false
+if ($Watch) {
+    $mutexHash = Get-StableId ([System.IO.Path]::GetFullPath($cfg.output_dir).ToLowerInvariant())
+    $watcherMutex = [System.Threading.Mutex]::new($false, "Local\SkillTrackerCollector_$mutexHash")
+    try {
+        if (-not $watcherMutex.WaitOne(0, $false)) {
+            Write-Host "A Skill Tracker watcher is already running for $($cfg.output_dir)."
+            exit 0
+        }
+    } catch [System.Threading.AbandonedMutexException] {
+        # An earlier watcher ended unexpectedly; this process now owns the lock.
+    }
+    $ownsWatcherMutex = $true
+    [System.IO.File]::WriteAllText($pidPath, $pid, [System.Text.Encoding]::UTF8)
 }
 
 # ── Load SKILL.md metadata and bounded semantic context ───────────────────────
@@ -436,19 +561,6 @@ function Get-TimeBucket {
     return [string]([math]::Floor($dt.Ticks / $bucketTicks))
 }
 
-function Get-StableId {
-    param([string]$Value)
-    if (-not $Value) { return "none" }
-    $sha = [System.Security.Cryptography.SHA256]::Create()
-    try {
-        $bytes = [System.Text.Encoding]::UTF8.GetBytes($Value)
-        $hash = $sha.ComputeHash($bytes)
-        return -join ($hash[0..7] | ForEach-Object { $_.ToString("x2") })
-    } finally {
-        $sha.Dispose()
-    }
-}
-
 function Get-SkillCategory {
     param([string]$Skill)
     if ($Skill -match 'academic|research|paper|citation|reviewer|pipeline|deep-research') { return 'Research' }
@@ -611,6 +723,7 @@ function Read-ExistingCatalog {
 # Regex: match skill path, match any known timestamp field (supports ISO and Unix epoch)
 $skillRx  = [System.Text.RegularExpressions.Regex]'skills(?:[/\\]|\\\\)+([A-Za-z0-9\-_]+)(?:[/\\]|\\\\)+SKILL\.md'
 $skillFileReadRx = [System.Text.RegularExpressions.Regex]'(?i)\b(Get-Content|cat|type)\b[^\r\n]*skills(?:[/\\]|\\\\)+([A-Za-z0-9\-_]+)(?:[/\\]|\\\\)+SKILL\.md'
+$skillPathRx = [System.Text.RegularExpressions.Regex]'(?i)(?<path>(?<![A-Za-z0-9])(?:[A-Za-z]:|(?<!\\)[/\\](?!u[0-9a-f]{4}))[^"\r\n]*?skills(?:[/\\]|\\\\)+(?<skill>[A-Za-z0-9\-_]+)(?:[/\\]|\\\\)+SKILL\.md)'
 $claudeAttributionSkillRx = [System.Text.RegularExpressions.Regex]'"attributionSkill"\s*:\s*"([^"]+)"'
 $slashSkillRx = [System.Text.RegularExpressions.Regex]'(?m)^\s*/([A-Za-z0-9][A-Za-z0-9:_\-]*)(?=\s|$)'
 $commandNameSkillRx = [System.Text.RegularExpressions.Regex]'(?is)<command-name>\s*/([A-Za-z0-9][A-Za-z0-9:_\-]*)\s*</command-name>'
@@ -623,6 +736,39 @@ $epoch    = [datetime]'1970-01-01T00:00:00Z'
 $logEntries = [System.Collections.Generic.List[PSCustomObject]]::new()
 $rawSeen = @{}
 $dedupSeen = @{}
+
+function Register-DiscoveredSkillSource {
+    param(
+        [string]$Skill,
+        [string]$SkillPath
+    )
+
+    if (-not $Skill -or $script:counts.ContainsKey($Skill)) { return }
+    if (-not $SkillPath -or -not (Test-Path -LiteralPath $SkillPath -PathType Leaf)) { return }
+
+    $metadata = Get-SkillDocumentMetadata -Path $SkillPath
+    $script:skillNames += $Skill
+    $script:counts[$Skill] = 0
+    $script:dedupCounts[$Skill] = 0
+    $script:descs[$Skill] = [string]$metadata.description
+    $script:skillSourcePaths[$Skill] = $SkillPath
+    $script:skillMetadata[$Skill] = $metadata
+}
+
+function Ensure-DiscoveredSkill {
+    param(
+        [string]$Skill,
+        [string]$Line
+    )
+
+    if (-not $Skill -or $script:counts.ContainsKey($Skill)) { return }
+    foreach ($pathMatch in $skillPathRx.Matches($Line)) {
+        $skillPath = $pathMatch.Groups['path'].Value.Replace('\\', '\').Trim()
+        if (-not (Test-Path -LiteralPath $skillPath -PathType Leaf)) { continue }
+        Register-DiscoveredSkillSource -Skill $Skill -SkillPath $skillPath
+        return
+    }
+}
 
 function Get-ToolLogFiles {
     param(
@@ -717,6 +863,8 @@ function Get-ToolLogFiles {
 function Test-GeneratedSkillInventoryLine {
     param([string]$Line)
     return (
+        $Line.Contains('"type":"function_call_output"') -or
+        $Line.Contains('"type":"custom_tool_call_output"') -or
         $Line.Contains('<skills_instructions>') -or
         $Line.Contains('### Available skills') -or
         $Line.Contains('### Skill roots') -or
@@ -733,6 +881,9 @@ function Get-ExplicitSkillCommands {
         if ($record.type -eq 'USER_INPUT') {
             if ($record.content -is [string]) { [void]$texts.Add($record.content) }
             if ($record.text -is [string]) { [void]$texts.Add($record.text) }
+        } elseif ($record.type -eq 'user') {
+            if ($record.message.content -is [string]) { [void]$texts.Add($record.message.content) }
+            if ($record.content -is [string]) { [void]$texts.Add($record.content) }
         } elseif ($record.type -eq 'response_item' -and
                   $record.payload.type -eq 'message' -and
                   $record.payload.role -eq 'user') {
@@ -791,6 +942,7 @@ function Test-SkillReadLine {
     param([string]$Line)
     if (-not $Line.Contains('SKILL.md')) { return $false }
     if ($Line.Contains('"type":"function_call_output"')) { return $false }
+    if ($Line.Contains('"type":"custom_tool_call_output"')) { return $false }
     if ($Line.Contains('[external_agent_tool_result]')) { return $false }
     if ($Line.Contains('"type":"GREP_SEARCH"')) { return $false }
     if ($Line.Contains('"type":"RUN_COMMAND"')) { return $false }
@@ -816,22 +968,57 @@ function Test-SkillReadLine {
 # ── Watch Loop Setup ───────────────────────────────────────────────────────────
 $fileStates = @{}
 
-$pidPath = Join-Path $cfg.output_dir ".collector.pid"
-$watcherMutex = $null
-$ownsWatcherMutex = $false
-if ($Watch) {
-    $mutexHash = Get-StableId ([System.IO.Path]::GetFullPath($cfg.output_dir).ToLowerInvariant())
-    $watcherMutex = [System.Threading.Mutex]::new($false, "Local\SkillTrackerCollector_$mutexHash")
+function Load-FileCache {
+    $cache = @{}
+    if (-not (Test-Path -LiteralPath $cachePath -PathType Leaf)) { return $cache }
     try {
-        if (-not $watcherMutex.WaitOne(0, $false)) {
-            Write-Host "A Skill Tracker watcher is already running for $($cfg.output_dir)."
-            exit 0
+        $payload = Get-Content -LiteralPath $cachePath -Raw -Encoding UTF8 | ConvertFrom-Json
+        if ([int]$payload.version -ne $collectorCacheVersion -or -not $payload.entries) { return $cache }
+        foreach ($property in $payload.entries.PSObject.Properties) {
+            $entry = $property.Value
+            $rawHits = @()
+            foreach ($hit in @($entry.raw_hits)) {
+                if ($hit -and $hit.skill) {
+                    $rawHits += [PSCustomObject]@{
+                        skill = [string]$hit.skill
+                        ts = [string]$hit.ts
+                        lineHash = [string]$hit.lineHash
+                        sourcePath = [string]$hit.sourcePath
+                    }
+                }
+            }
+            $cache[$property.Name] = @{
+                CacheVersion = $collectorCacheVersion
+                LastWriteTimeUtc = ([datetime]$entry.last_write_time_utc).ToUniversalTime()
+                Length = [long]$entry.length
+                RawHits = $rawHits
+            }
         }
-    } catch [System.Threading.AbandonedMutexException] {
-        # An earlier watcher ended unexpectedly; this process now owns the lock.
+    } catch {
+        Write-Warning "Could not load the collector file cache; changed files will be parsed normally."
     }
-    $ownsWatcherMutex = $true
-    [System.IO.File]::WriteAllText($pidPath, $pid, [System.Text.Encoding]::UTF8)
+    return $cache
+}
+
+function Save-FileCache {
+    $entries = [ordered]@{}
+    foreach ($key in @($global:fileCache.Keys)) {
+        $entry = $global:fileCache[$key]
+        if (-not $entry -or $entry.CacheVersion -ne $collectorCacheVersion) { continue }
+        $entries[$key] = [ordered]@{
+            last_write_time_utc = ([datetime]$entry.LastWriteTimeUtc).ToUniversalTime().ToString("o")
+            length = [long]$entry.Length
+            raw_hits = @($entry.RawHits)
+        }
+    }
+    try {
+        $tempPath = "$cachePath.tmp"
+        $payload = [ordered]@{ version = $collectorCacheVersion; entries = $entries }
+        [System.IO.File]::WriteAllText($tempPath, ($payload | ConvertTo-Json -Depth 8 -Compress), [System.Text.Encoding]::UTF8)
+        Move-Item -LiteralPath $tempPath -Destination $cachePath -Force
+    } catch {
+        Write-Warning "Could not save the collector file cache."
+    }
 }
 
 function Get-LogFilesState {
@@ -863,17 +1050,38 @@ function Get-SkillFilesState {
     return $state
 }
 
-$global:fileCache = @{}
+$global:fileCache = Load-FileCache
+# A cached hit can be the only record that knows about a skill stored in a
+# project-local .agents/skills directory. Restore that source before cached
+# hits are filtered through the current skill inventory.
+foreach ($entry in @($global:fileCache.Values)) {
+    foreach ($hit in @($entry.RawHits)) {
+        if ($hit -and $hit.sourcePath -and (Test-Path -LiteralPath $hit.sourcePath -PathType Leaf)) {
+            Register-DiscoveredSkillSource -Skill ([string]$hit.skill) -SkillPath ([string]$hit.sourcePath)
+        }
+    }
+}
 $firstRun = $true
 $skillFileStates = Get-SkillFilesState
 
 try {
     while ($true) {
     if ($Watch) {
+        $previousSourceFingerprint = $activeSourceFingerprint
+        $activeSourceFingerprint = Refresh-ActiveSources -Quiet
         $currentState = Get-LogFilesState
         $currentSkillState = Get-SkillFilesState
-        $changed = $false
+        $changed = $previousSourceFingerprint -ne $activeSourceFingerprint
         $skillsChanged = $false
+
+        if (Test-Path -LiteralPath $triggerPath -PathType Leaf) {
+            Remove-Item -LiteralPath $triggerPath -Force -ErrorAction SilentlyContinue
+            $changed = $true
+        }
+        if ($ForceScan) {
+            $changed = $true
+            $ForceScan = $false
+        }
 
         if ($firstRun) {
             $changed = $true
@@ -942,6 +1150,9 @@ try {
     }
 
     # Reset accumulator variables for clean scan
+    $cacheHits = 0
+    $parsedFiles = 0
+    $seenCacheKeys = @{}
     foreach ($key in $counts.Keys | Get-Unique) {
         $counts[$key] = 0
         $dedupCounts[$key] = 0
@@ -983,11 +1194,14 @@ foreach ($src in $activeSources) {
 
         # Query Cache
         $cacheKey = $f.FullName
+        $seenCacheKeys[$cacheKey] = $true
         $cacheEntry = $global:fileCache[$cacheKey]
         $rawHits = @()
-        if ($cacheEntry -and $cacheEntry.LastWriteTimeUtc -eq $f.LastWriteTimeUtc -and $cacheEntry.Length -eq $f.Length) {
+        if ($cacheEntry -and $cacheEntry.CacheVersion -eq $collectorCacheVersion -and $cacheEntry.LastWriteTimeUtc -eq $f.LastWriteTimeUtc -and $cacheEntry.Length -eq $f.Length) {
             $rawHits = $cacheEntry.RawHits
+            $cacheHits++
         } else {
+            $parsedFiles++
             $fs = $null
             $sr = $null
             try {
@@ -1028,6 +1242,10 @@ foreach ($src in $activeSources) {
 
                     if ($lineSkills.Count -eq 0) { continue }
 
+                    foreach ($skill in @($lineSkills | Select-Object -Unique)) {
+                        Ensure-DiscoveredSkill -Skill $skill -Line $line
+                    }
+
                     # Extract timestamp (ISO string first, then Unix epoch)
                     $ts = ''
                     $tm = $timeRx.Match($line)
@@ -1049,6 +1267,7 @@ foreach ($src in $activeSources) {
                             skill    = $skill
                             ts       = $ts
                             lineHash = $lineHash
+                            sourcePath = if ($skillSourcePaths.ContainsKey($skill)) { [string]$skillSourcePaths[$skill] } else { "" }
                         }
                     }
                 }
@@ -1057,6 +1276,7 @@ foreach ($src in $activeSources) {
                 elseif ($fs) { $fs.Close() }
             }
             $global:fileCache[$cacheKey] = @{
+                CacheVersion = $collectorCacheVersion
                 LastWriteTimeUtc = $f.LastWriteTimeUtc
                 Length           = $f.Length
                 RawHits          = $rawHits
@@ -1126,6 +1346,14 @@ foreach ($src in $activeSources) {
     }
     Write-Host "  -> $hits hits"
 }
+
+foreach ($key in @($global:fileCache.Keys)) {
+    if (-not $seenCacheKeys.ContainsKey($key)) {
+        $global:fileCache.Remove($key)
+    }
+}
+Save-FileCache
+Write-Host "Cache: $cacheHits reused, $parsedFiles parsed"
 
 # ── Output JSON ────────────────────────────────────────────────────────────────
 $existingCatalog = Read-ExistingCatalog -Path $catalogPath

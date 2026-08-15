@@ -24,6 +24,7 @@ $RequiredGeneratedFiles = @(
     "skill_catalog.js",
     "tool_report.js"
 )
+$CollectorTriggerPath = Join-Path $DashboardDir ".collector.trigger"
 
 function Test-SkillTrackerServer {
     param([int]$ListenPort)
@@ -79,12 +80,31 @@ function Start-NoCacheServer {
         $context = $listener.GetContext()
         try {
             $rawPath = [Uri]::UnescapeDataString($context.Request.Url.AbsolutePath)
-            if ($rawPath.StartsWith("/api/shortcut/")) {
+            if ($rawPath -eq "/api/sync" -or $rawPath.StartsWith("/api/shortcut/")) {
                 $method = $context.Request.HttpMethod.ToUpperInvariant()
                 $shortcutScript = Join-Path $Root "scripts\manage-shortcut.ps1"
                 $bytes = @()
 
-                if ($rawPath -eq "/api/shortcut/status") {
+                if ($rawPath -eq "/api/sync" -and ($method -eq "POST" -or $method -eq "GET")) {
+                    $context.Response.StatusCode = 202
+                    $context.Response.ContentType = "application/json; charset=utf-8"
+                    $watcherRunning = Test-CollectorWatcher
+                    if ($watcherRunning) {
+                        [System.IO.File]::WriteAllText($CollectorTriggerPath, [DateTimeOffset]::UtcNow.ToString("o"), [System.Text.Encoding]::UTF8)
+                        $mode = "watch_triggered"
+                    } else {
+                        $watcher = Start-CollectorWatcher
+                        $mode = if ($watcher) { "watch_started" } else { "watch_unavailable" }
+                    }
+                    $resObj = [PSCustomObject]@{
+                        success = [bool]($mode -ne "watch_unavailable")
+                        accepted = [bool]($mode -ne "watch_unavailable")
+                        mode = $mode
+                        message = if ($mode -eq "watch_triggered") { "同步任务已加入后台收集队列" } elseif ($mode -eq "watch_started") { "已启动后台收集器" } else { "无法启动本地收集器" }
+                    }
+                    if (-not $resObj.success) { $context.Response.StatusCode = 503 }
+                    $bytes = [System.Text.Encoding]::UTF8.GetBytes(($resObj | ConvertTo-Json -Compress))
+                } elseif ($rawPath -eq "/api/shortcut/status") {
                     $context.Response.StatusCode = 200
                     $context.Response.ContentType = "application/json; charset=utf-8"
                     $status = & $shortcutScript -Action GetStatus
@@ -183,7 +203,34 @@ function Test-CollectorWatcher {
         return $false
     }
 
+    try {
+        $collectorWriteUtc = (Get-Item -LiteralPath $CollectorPath -ErrorAction Stop).LastWriteTimeUtc
+        $watcherStartUtc = ([datetime]$process.CreationDate).ToUniversalTime()
+        if ($watcherStartUtc -lt $collectorWriteUtc) {
+            Stop-Process -Id $watcherPid -Force -ErrorAction SilentlyContinue
+            Remove-Item -LiteralPath $pidPath -Force -ErrorAction SilentlyContinue
+            return $false
+        }
+    } catch {
+        # If process metadata is unavailable, ownership and the mutex remain the safety checks.
+    }
+
     return $true
+}
+
+function Start-CollectorWatcher {
+    if (Test-CollectorWatcher) { return $true }
+    try {
+        Start-Process -FilePath "powershell" -WindowStyle Hidden -ArgumentList @(
+            "-NoProfile",
+            "-ExecutionPolicy", "Bypass",
+            "-File", "`"$CollectorPath`"",
+            "-Watch"
+        ) | Out-Null
+        return $true
+    } catch {
+        return $false
+    }
 }
 
 if ($Server) {
@@ -200,15 +247,7 @@ if (-not (Test-Path -LiteralPath $CollectorPath -PathType Leaf)) {
 
 if (-not (Test-SkillTrackerServer -ListenPort $Port)) {
     if (Test-AnyHttpServer -ListenPort $Port) {
-        try {
-            $conns = @(Get-NetTCPConnection -LocalPort $Port -ErrorAction SilentlyContinue)
-            foreach ($c in $conns) {
-                if ($c.OwningProcess -gt 0) {
-                    Stop-Process -Id $c.OwningProcess -Force -ErrorAction SilentlyContinue
-                }
-            }
-            Start-Sleep -Milliseconds 400
-        } catch { }
+        throw "Port $Port is already used by another local server. Stop that server or choose another port."
     }
 
     Start-Process -FilePath "powershell" -WindowStyle Hidden -ArgumentList @(
@@ -237,18 +276,33 @@ if (Test-Path -LiteralPath $shortcutScript) {
     }
 }
 
-Write-Host "Reading local AI-agent logs..."
-& $CollectorPath
-if (-not $?) {
-    throw "Initial local collection failed."
+$hasGeneratedData = $true
+foreach ($file in $RequiredGeneratedFiles) {
+    if (-not (Test-Path -LiteralPath (Join-Path $DashboardDir $file) -PathType Leaf)) {
+        $hasGeneratedData = $false
+        break
+    }
 }
-Assert-GeneratedDashboardData
 
-if (-not $NoWatch -and -not (Test-CollectorWatcher)) {
-    Start-Process -FilePath "powershell" -WindowStyle Hidden -ArgumentList @(
-        "-NoProfile",
-        "-ExecutionPolicy", "Bypass",
-        "-File", "`"$CollectorPath`"",
-        "-Watch"
-    )
+if ($NoWatch -and (-not $hasGeneratedData -or $ForceScan)) {
+    Write-Host "Reading local AI-agent logs..."
+    & $CollectorPath -ForceScan
+    if (-not $?) {
+        throw "Initial local collection failed."
+    }
+    Assert-GeneratedDashboardData
+} elseif (-not $NoWatch) {
+    if ($ForceScan -and (Test-CollectorWatcher)) {
+        [System.IO.File]::WriteAllText($CollectorTriggerPath, [DateTimeOffset]::UtcNow.ToString("o"), [System.Text.Encoding]::UTF8)
+    } elseif (-not (Test-CollectorWatcher)) {
+        if (Start-CollectorWatcher) {
+            if ($hasGeneratedData) {
+                Write-Host "后台收集器已启动；本次启动不再阻塞等待历史日志扫描。"
+            } else {
+                Write-Host "首次本地收集已在后台启动，仪表盘生成后会自动刷新。"
+            }
+        } else {
+            Write-Warning "Could not start the background collector watcher."
+        }
+    }
 }

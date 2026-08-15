@@ -1,0 +1,15 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/CcZzJiooo/skill-tracker/adapter.schema.json",
+  "title": "Skill Tracker log adapter",
+  "type": "object",
+  "required": ["name", "sources", "timestamp_field", "match"],
+  "properties": {
+    "name": { "type": "string", "pattern": "^[A-Za-z0-9 _.-]+$" },
+    "sources": { "type": "array", "items": { "type": "string" }, "minItems": 1 },
+    "timestamp_field": { "type": "string" },
+    "match": { "type": "object", "required": ["skill_field"], "properties": { "skill_field": { "type": "string" }, "event_types": { "type": "array", "items": { "type": "string" } }, "skill_pattern": { "type": "string" } } },
+    "privacy": { "type": "object", "properties": { "redact_session": { "type": "boolean" }, "redact_paths": { "type": "boolean" } }, "additionalProperties": false }
+  },
+  "additionalProperties": false
+}

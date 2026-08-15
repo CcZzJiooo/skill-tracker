@@ -2907,6 +2907,7 @@ button.catalog-stat.active {
       <div class="generation">
         <span>Data generated</span>
         <strong id="generatedAt">--</strong>
+        <small id="latestDataStatus">--</small>
       </div>
       <button type="button" class="theme-toggle" id="themeToggle" aria-pressed="true">Dark</button>
     </div>
@@ -3513,6 +3514,7 @@ button.catalog-stat.active {
 
   var els = {
     generatedAt: document.getElementById("generatedAt"),
+    latestDataStatus: document.getElementById("latestDataStatus"),
     themeToggle: document.getElementById("themeToggle"),
     exportAnonymous: document.getElementById("exportAnonymous"),
     toolBadges: document.getElementById("toolBadges"),
@@ -3813,6 +3815,24 @@ button.catalog-stat.active {
 
   function renderStaticChrome() {
     els.generatedAt.textContent = window.GENERATED_AT || "--";
+    var latestCall = logRows.reduce(function (latest, row) {
+      var timestamp = Date.parse(row.time || "");
+      return !isNaN(timestamp) && timestamp > latest.timestamp
+        ? { timestamp: timestamp, value: row.time }
+        : latest;
+    }, { timestamp: 0, value: "" });
+    var latestSource = (toolReport && Array.isArray(toolReport.sources) ? toolReport.sources : []).reduce(function (latest, source) {
+      var timestamp = Date.parse(source.latest_log_at || "");
+      return !isNaN(timestamp) && timestamp > latest.timestamp
+        ? { timestamp: timestamp, value: source.latest_log_at, tool: source.tool }
+        : latest;
+    }, { timestamp: 0, value: "", tool: "" });
+    if (els.latestDataStatus) {
+      els.latestDataStatus.textContent = latestCall.value
+        ? "最新技能命中：" + latestCall.value + (latestSource.value ? " · 日志扫描至：" + latestSource.value : "")
+        : (latestSource.value ? "日志扫描至：" + latestSource.value + " · 暂无技能命中" : "暂无技能命中");
+      els.latestDataStatus.title = "扫描时间和最新技能命中时间是两个不同指标；没有新的技能调用时，统计日期不会变化。";
+    }
     if (!tools.length) {
       els.toolBadges.innerHTML = '<span class="tool-chip">No tools</span>';
       return;
@@ -6502,6 +6522,21 @@ button.catalog-stat.active {
       document.body.appendChild(script);
     }
 
+    function requestCollectorSync() {
+      return fetch("/api/sync", {
+        method: "POST",
+        cache: "no-store",
+        headers: { "Cache-Control": "no-cache" }
+      }).then(function (response) {
+        return response.json().catch(function () { return {}; }).then(function (data) {
+          if (!response.ok || !data.accepted) {
+            throw new Error(data.message || "本地收集器不可用");
+          }
+          return data;
+        });
+      });
+    }
+
     function checkUpdates(options) {
       var manual = !!(options && options.manual);
       if (isReloading) {
@@ -6657,8 +6692,40 @@ button.catalog-stat.active {
         }, failSync);
       }
 
+      function waitForCollectorData(attempt) {
+        var maxAttempts = 120;
+        loadScript("skill_data.js", function () {
+          var currentGen = window.GENERATED_AT || "";
+          var currentBuildId = window.BUILD_ID != null ? String(window.BUILD_ID) : "";
+          if ((currentBuildId && currentBuildId !== lastBuildId) || (currentGen && currentGen !== lastGeneratedAt)) {
+            proceedCheck();
+            return;
+          }
+          if (attempt >= maxAttempts) {
+            isManualChecking = false;
+            setManualRefreshBusy(false);
+            showSyncToast("同步超时", "后台扫描仍未生成新数据，请稍后再试。", "warning", 5200);
+            return;
+          }
+          window.setTimeout(function () { waitForCollectorData(attempt + 1); }, 1000);
+        }, function () {
+          if (attempt >= maxAttempts) {
+            failSync("本地数据文件");
+            return;
+          }
+          window.setTimeout(function () { waitForCollectorData(attempt + 1); }, 1000);
+        });
+      }
+
       if (manual) {
-        window.setTimeout(proceedCheck, 800);
+        window.setTimeout(function () {
+          requestCollectorSync().then(function (result) {
+            showSyncToast("后台同步中", result.mode === "watch_triggered" ? "已通知后台收集器重新检查本机工具和日志。" : "已启动后台收集器，正在读取本机工具日志。", "info", 4200);
+            waitForCollectorData(0);
+          }).catch(function () {
+            failSync("本地收集器接口");
+          });
+        }, 250);
       } else {
         proceedCheck();
       }

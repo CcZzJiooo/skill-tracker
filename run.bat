@@ -7,12 +7,12 @@ echo.
 echo Skill Tracker
 echo =============
 echo.
-echo 正在自动扫描全量 AI 工具日志并启动 Skill Tracker...
+echo Starting Skill Tracker. Local data will continue syncing in the background.
 echo.
 
 where powershell >nul 2>&1
 if errorlevel 1 (
-  echo 未找到 PowerShell，Skill Tracker 无法读取本地日志。
+  echo PowerShell was not found. Skill Tracker cannot read local logs without it.
   pause
   exit /b 1
 )
@@ -20,8 +20,8 @@ if errorlevel 1 (
 powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0start-dashboard.ps1" %*
 if errorlevel 1 (
   echo.
-  echo Skill Tracker 启动失败。
-  echo 请尝试在 PowerShell 中手动运行:
+  echo Skill Tracker startup failed.
+  echo Run this command in PowerShell to diagnose the problem:
   echo powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0start-dashboard.ps1"
   pause
   exit /b 1
