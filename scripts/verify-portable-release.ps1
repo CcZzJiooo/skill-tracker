@@ -17,16 +17,20 @@ $requiredFiles = @(
     "CONTRIBUTING.md",
     "CODE_OF_CONDUCT.md",
     "CITATION.cff",
+    "VERSION",
     "START_HERE.md",
+    "START_HERE.txt",
     "config.json",
     "collect.ps1",
     "run.bat",
+    "run.sh",
     "start-dashboard.ps1",
     "dashboard/index.html",
     "dashboard/demo_data.js",
     "docs/ROADMAP.md",
     "scripts/verify-collector.ps1",
     "scripts/verify-portable-release.ps1"
+    "tools/platform-paths.psm1"
 )
 $forbiddenFiles = @(
     "dashboard/skill_data.js",
@@ -130,6 +134,25 @@ try {
         if ($relativeEntriesLower -contains $forbiddenFile.ToLowerInvariant()) {
             Fail "Release archive contains private generated telemetry: $forbiddenFile"
         }
+    }
+    $startHereEntry = $archive.Entries | Where-Object {
+        (($_.FullName -replace '\\', '/').ToLowerInvariant()).EndsWith('/start_here.txt')
+    } | Select-Object -First 1
+    $runShEntry = $archive.Entries | Where-Object {
+        (($_.FullName -replace '\\', '/').ToLowerInvariant()).EndsWith('/run.sh')
+    } | Select-Object -First 1
+    $startReader = [System.IO.StreamReader]::new($startHereEntry.Open())
+    try { $startHereText = $startReader.ReadToEnd() } finally { $startReader.Dispose() }
+    $runReader = [System.IO.StreamReader]::new($runShEntry.Open())
+    try { $runShText = $runReader.ReadToEnd() } finally { $runReader.Dispose() }
+    if ($startHereText -notmatch 'bash run\.sh') {
+        Fail "Release quick-start text is missing the Linux/macOS launcher command."
+    }
+    if ($runShText -notmatch 'exec pwsh') {
+        Fail "Release run.sh does not invoke PowerShell 7."
+    }
+    if ($runShText.Contains("`r`n")) {
+        Fail "Release run.sh must use LF line endings."
     }
     $vbsEntries = @($relativeEntries | Where-Object { $_ -match '(?i)\.vbs$' })
     if ($vbsEntries.Count -gt 0) {

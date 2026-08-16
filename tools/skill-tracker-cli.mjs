@@ -7,9 +7,10 @@ import { fileURLToPath } from "node:url";
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const dashboard = path.join(root, "dashboard");
 const args = process.argv.slice(2);
+const version = fs.readFileSync(path.join(root, "VERSION"), "utf8").trim();
 
 function usage() {
-  console.log(`Skill Tracker CLI\n\n  collect       run the local collector\n  open          start the local dashboard server\n  health        print an explainable skill health report\n  export FILE   export an anonymous aggregate report\n  import FILE   validate and summarize an anonymous report\n  benchmark DIR compare anonymous reports in a directory\n\nOptions: --json writes machine-readable output for health/export/import/benchmark.`);
+  console.log(`Skill Tracker CLI ${version}\n\n  collect       run the local collector\n  open          start the local dashboard server\n  health        print an explainable skill health report\n  export FILE   export an anonymous aggregate report\n  import FILE   validate and summarize an anonymous report\n  benchmark DIR compare anonymous reports in a directory\n\nOptions: --json writes machine-readable output for health/export/import/benchmark.`);
 }
 
 function readJson(file) { return JSON.parse(fs.readFileSync(file, "utf8").replaceAll("\uFEFF", "")); }
@@ -71,13 +72,37 @@ function anonymousReport() {
 function stableId(value) { let hash = 2166136261; for (const char of String(value)) { hash ^= char.codePointAt(0); hash = Math.imul(hash, 16777619); } return `id-${(hash >>> 0).toString(16).padStart(8, "0")}`; }
 function validateReport(value) { if (!value || value.schema !== "skill-tracker-anonymous-report@1") throw new Error("unsupported report schema"); if (!value.privacy || value.privacy.raw_logs || value.privacy.local_paths || value.privacy.sessions || value.privacy.skill_names) throw new Error("report contains disallowed private fields"); if (!Array.isArray(value.tools) || !Array.isArray(value.health)) throw new Error("invalid report shape"); return value; }
 function output(value) { console.log(JSON.stringify(value, null, 2)); }
-function shell() { return process.platform === "win32" ? "powershell" : "pwsh"; }
+function shell() { return process.env.SKILL_TRACKER_PWSH || (process.platform === "win32" ? "powershell" : "pwsh"); }
+function powerShellArgs(script, scriptArgs = []) {
+  return ["-NoLogo", "-NoProfile", ...(process.platform === "win32" ? ["-ExecutionPolicy", "Bypass"] : []), "-File", script, ...scriptArgs];
+}
+function runPowerShell(script, scriptArgs) {
+  const result = spawnSync(shell(), powerShellArgs(script, scriptArgs), { stdio: "inherit" });
+  if (result.error) throw new Error(`could not start PowerShell 7: ${result.error.message}`);
+  return result.status ?? 1;
+}
+function dashboardArgs(values) {
+  const translated = [];
+  for (let index = 0; index < values.length; index += 1) {
+    const value = values[index];
+    if (value === "--no-browser") translated.push("-NoBrowser");
+    else if (value === "--no-watch") translated.push("-NoWatch");
+    else if (value === "--force-scan") translated.push("-ForceScan");
+    else if (value === "--port") {
+      const port = values[++index];
+      if (!port || !/^\d+$/.test(port)) throw new Error("--port requires a numeric value");
+      translated.push("-Port", port);
+    } else throw new Error(`unknown open option: ${value}`);
+  }
+  return translated;
+}
 
 const command = args[0];
 try {
+  if (command === "--version" || command === "-v") { console.log(version); process.exit(0); }
   if (!command || command === "--help" || command === "-h") { usage(); process.exit(0); }
-  if (command === "collect") process.exit(spawnSync(shell(), ["-NoProfile", "-ExecutionPolicy", "Bypass", "-File", path.join(root, "collect.ps1"), "-ForceScan"], { stdio: "inherit" }).status ?? 1);
-  if (command === "open") process.exit(spawnSync(shell(), ["-NoProfile", "-ExecutionPolicy", "Bypass", "-File", path.join(root, "start-dashboard.ps1"), "-Server"], { stdio: "inherit" }).status ?? 1);
+  if (command === "collect") process.exit(runPowerShell(path.join(root, "collect.ps1"), ["-ForceScan"]));
+  if (command === "open") process.exit(runPowerShell(path.join(root, "start-dashboard.ps1"), dashboardArgs(args.slice(1))));
   if (command === "health") { output(healthReport()); process.exit(0); }
   if (command === "export") { const file = args[1]; if (!file) throw new Error("export requires FILE"); writeJson(path.resolve(file), anonymousReport()); console.log(`wrote ${path.resolve(file)}`); process.exit(0); }
   if (command === "import") { const value = validateReport(readJson(path.resolve(args[1]))); output({ schema: value.schema, source_generated_at: value.source_generated_at, totals: value.totals, tools: value.tools.length, health_rows: value.health.length }); process.exit(0); }

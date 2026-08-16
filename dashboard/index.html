@@ -6750,6 +6750,11 @@ button.catalog-stat.active {
         var res = await fetch("/api/shortcut/status");
         if (res.ok) {
           var data = await res.json();
+          if (data.supported === false) {
+            btnShortcut.hidden = true;
+            btnAutoStart.hidden = true;
+            return;
+          }
           if (data.autoStart) {
             btnAutoStart.classList.add("active");
             btnAutoStart.style.borderColor = "var(--accent)";

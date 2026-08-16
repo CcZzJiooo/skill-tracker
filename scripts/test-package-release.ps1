@@ -8,8 +8,8 @@ $verifier = Join-Path $PSScriptRoot "verify-portable-release.ps1"
 $tempOutput = Join-Path ([System.IO.Path]::GetTempPath()) ("skill-tracker-package-test-" + [guid]::NewGuid().ToString("N"))
 $version = "v-test"
 $secondVersion = "v-test-second"
-$zipPath = Join-Path $tempOutput "skill-tracker-$version-windows-portable.zip"
-$secondZipPath = Join-Path $tempOutput "skill-tracker-$secondVersion-windows-portable.zip"
+$zipPath = Join-Path $tempOutput "skill-tracker-$version-portable.zip"
+$secondZipPath = Join-Path $tempOutput "skill-tracker-$secondVersion-portable.zip"
 $checksumPath = Join-Path $tempOutput "SHA256SUMS.txt"
 
 try {

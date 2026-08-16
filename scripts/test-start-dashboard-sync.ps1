@@ -46,7 +46,7 @@ try {
         '{"type":"USER_INPUT","timestamp":"2026-08-05T04:00:00Z","text":"/sync-skill "}' + "`n",
         [System.Text.Encoding]::UTF8
     )
-    foreach ($relativePath in @("collect.ps1", "start-dashboard.ps1", "dashboard/index.html", "dashboard/demo_data.js")) {
+    foreach ($relativePath in @("collect.ps1", "start-dashboard.ps1", "dashboard/index.html", "dashboard/demo_data.js", "tools/platform-paths.psm1")) {
         Copy-RequiredFile -RelativePath $relativePath
     }
     $config = [ordered]@{

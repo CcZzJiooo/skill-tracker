@@ -4,6 +4,7 @@ $ErrorActionPreference = "Stop"
 
 $repoRoot = Split-Path -Parent $PSScriptRoot
 $collector = Join-Path $repoRoot "collect.ps1"
+$powerShellExecutable = (Get-Process -Id $PID -ErrorAction Stop).Path
 $tempRoot = Join-Path ([System.IO.Path]::GetTempPath()) ("skill-tracker-collector-test-" + [guid]::NewGuid().ToString("N"))
 $fakeHome = Join-Path $tempRoot "home"
 $logDir = Join-Path $fakeHome "portable-test-logs"
@@ -62,7 +63,7 @@ try {
         $env:HOME = $fakeHome
         $env:APPDATA = Join-Path $fakeHome "AppData\Roaming"
         $env:LOCALAPPDATA = Join-Path $fakeHome "AppData\Local"
-        & powershell -NoProfile -ExecutionPolicy Bypass -File $collector -ConfigFile $configPath -OutputDir $outputDir -RecentFiles 20 -RecentDays 45
+        & $powerShellExecutable -NoLogo -NoProfile -File $collector -ConfigFile $configPath -OutputDir $outputDir -RecentFiles 20 -RecentDays 45
         if ($LASTEXITCODE -ne 0) {
             throw "Collector exited with code $LASTEXITCODE for a first-run custom log source."
         }

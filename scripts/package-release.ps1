@@ -1,6 +1,6 @@
 ﻿<#
 .SYNOPSIS
-  Build a user-facing Windows portable release package for Skill Tracker.
+  Build a user-facing cross-platform portable release package for Skill Tracker.
 
 .DESCRIPTION
   The generated ZIP contains only the runtime files needed for a local first-run
@@ -15,14 +15,14 @@ $ErrorActionPreference = "Stop"
 
 $RepoRoot = Split-Path -Parent $PSScriptRoot
 if ([string]::IsNullOrWhiteSpace($Version)) {
-    throw "Release version is required. Pass -Version, for example: -Version v0.2.2"
+    throw "Release version is required. Pass -Version, for example: -Version v0.5.0"
 }
 $SafeVersion = $Version -replace "[^A-Za-z0-9._-]", "-"
 
 if (-not $OutputDir) { $OutputDir = Join-Path $RepoRoot "dist" }
 New-Item -ItemType Directory -Path $OutputDir -Force | Out-Null
 
-$PackageName = "skill-tracker-$SafeVersion-windows-portable"
+$PackageName = "skill-tracker-$SafeVersion-portable"
 $StageRoot = Join-Path $OutputDir "_stage"
 $StageDir = Join-Path $StageRoot $PackageName
 $ZipPath = Join-Path $OutputDir "$PackageName.zip"
@@ -42,10 +42,12 @@ $RootFiles = @(
     "CONTRIBUTING.md",
     "CODE_OF_CONDUCT.md",
     "CITATION.cff",
+    "VERSION",
     "START_HERE.md",
     "config.json",
     "collect.ps1",
     "run.bat",
+    "run.sh",
     "start-dashboard.ps1",
     "创建桌面快捷方式.bat",
     "skill-tracker.ico"
@@ -79,14 +81,16 @@ foreach ($directory in @("tools", "adapters")) {
 }
 
 $StartHere = @"
-Skill Tracker Windows Portable
-==============================
+Skill Tracker Portable
+======================
 
 Fastest path:
 1. Download this ZIP from GitHub Releases and unzip it.
-2. Double-click run.bat (or 创建桌面快捷方式.bat).
-3. The launcher automatically creates a zero-false-positive desktop shortcut (技能追踪器.lnk) on first run so you can open it directly from your Desktop anytime!
-4. Your browser opens with the collected local dashboard data. You can also click "🖥️ 发送到桌面" or "🚀 开机自启" inside the Web UI.
+2. Windows: double-click run.bat (or 创建桌面快捷方式.bat).
+3. Linux/macOS: install PowerShell 7, then run bash run.sh.
+4. Your browser opens with the collected local dashboard data.
+
+Windows also supports Desktop and Start menu shortcuts. Those controls are hidden on Linux and macOS.
 
 No installer, account, API key, or administrator permission is required.
 
@@ -136,8 +140,8 @@ if (Test-Path -LiteralPath $ChecksumPath -PathType Leaf) {
 $updatedChecksums = @($existingChecksums + "$hash *$archiveName")
 [System.IO.File]::WriteAllLines($ChecksumPath, $updatedChecksums, [System.Text.Encoding]::ASCII)
 
-& powershell -NoProfile -ExecutionPolicy Bypass -File $VerifierPath -ZipPath $ZipPath -ChecksumPath $ChecksumPath
-if ($LASTEXITCODE -ne 0) {
+& $VerifierPath -ZipPath $ZipPath -ChecksumPath $ChecksumPath
+if (-not $?) {
     throw "Portable release verification failed."
 }
 

@@ -10,6 +10,12 @@ $ErrorActionPreference = "Stop"
 $Root = $PSScriptRoot
 $DashboardDir = Join-Path $Root "dashboard"
 $CollectorPath = Join-Path $Root "collect.ps1"
+$RunningOnWindows = [System.Runtime.InteropServices.RuntimeInformation]::IsOSPlatform([System.Runtime.InteropServices.OSPlatform]::Windows)
+$RunningOnMacOS = [System.Runtime.InteropServices.RuntimeInformation]::IsOSPlatform([System.Runtime.InteropServices.OSPlatform]::OSX)
+$PowerShellExecutable = try { (Get-Process -Id $PID -ErrorAction Stop).Path } catch { $null }
+if (-not $PowerShellExecutable) {
+    $PowerShellExecutable = if ($RunningOnWindows) { "powershell" } else { "pwsh" }
+}
 $ServerInstanceId = ([System.BitConverter]::ToString(
     [System.Security.Cryptography.SHA256]::Create().ComputeHash(
         [System.Text.Encoding]::UTF8.GetBytes(
@@ -25,6 +31,63 @@ $RequiredGeneratedFiles = @(
     "tool_report.js"
 )
 $CollectorTriggerPath = Join-Path $DashboardDir ".collector.trigger"
+
+function Start-SkillTrackerPowerShell {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$ScriptPath,
+        [string[]]$ScriptArguments = @()
+    )
+
+    $quotedScriptPath = '"' + $ScriptPath.Replace('"', '\"') + '"'
+    $argumentList = @("-NoLogo", "-NoProfile")
+    if ($RunningOnWindows) { $argumentList += @("-ExecutionPolicy", "Bypass") }
+    $argumentList += @("-File", $quotedScriptPath)
+    $argumentList += $ScriptArguments
+
+    $startParams = @{
+        FilePath = $PowerShellExecutable
+        ArgumentList = $argumentList
+        PassThru = $true
+    }
+    if ($RunningOnWindows) { $startParams.WindowStyle = "Hidden" }
+    return Start-Process @startParams
+}
+
+function Get-ProcessCommandLine {
+    param([int]$ProcessId)
+
+    if ($RunningOnWindows) {
+        $processInfo = Get-CimInstance Win32_Process -Filter "ProcessId = $ProcessId" -ErrorAction SilentlyContinue
+        if ($processInfo) { return [string]$processInfo.CommandLine }
+        return ""
+    }
+
+    if (-not $RunningOnMacOS) {
+        $procPath = "/proc/$ProcessId/cmdline"
+        if (Test-Path -LiteralPath $procPath -PathType Leaf) {
+            try {
+                return ([System.IO.File]::ReadAllText($procPath) -replace "`0", " ").Trim()
+            } catch { }
+        }
+    }
+
+    try { return ((& ps -p $ProcessId -o command= 2>$null) | Out-String).Trim() } catch { return "" }
+}
+
+function Open-SkillTrackerBrowser {
+    param([string]$Url)
+
+    if ($RunningOnWindows) {
+        Start-Process $Url | Out-Null
+    } elseif ($RunningOnMacOS) {
+        Start-Process -FilePath "open" -ArgumentList @($Url) | Out-Null
+    } elseif (Get-Command xdg-open -ErrorAction SilentlyContinue) {
+        Start-Process -FilePath "xdg-open" -ArgumentList @($Url) | Out-Null
+    } else {
+        Write-Host "Open this URL in your browser: $Url"
+    }
+}
 
 function Test-SkillTrackerServer {
     param([int]$ListenPort)
@@ -85,7 +148,17 @@ function Start-NoCacheServer {
                 $shortcutScript = Join-Path $Root "scripts\manage-shortcut.ps1"
                 $bytes = @()
 
-                if ($rawPath -eq "/api/sync" -and ($method -eq "POST" -or $method -eq "GET")) {
+                if ($rawPath.StartsWith("/api/shortcut/") -and -not $RunningOnWindows) {
+                    $context.Response.StatusCode = if ($rawPath -eq "/api/shortcut/status") { 200 } else { 501 }
+                    $context.Response.ContentType = "application/json; charset=utf-8"
+                    $resObj = [PSCustomObject]@{
+                        supported = $false
+                        success = $false
+                        autoStart = $false
+                        message = "Desktop shortcuts and login startup are available on Windows only."
+                    }
+                    $bytes = [System.Text.Encoding]::UTF8.GetBytes(($resObj | ConvertTo-Json -Compress))
+                } elseif ($rawPath -eq "/api/sync" -and ($method -eq "POST" -or $method -eq "GET")) {
                     $context.Response.StatusCode = 202
                     $context.Response.ContentType = "application/json; charset=utf-8"
                     $watcherRunning = Test-CollectorWatcher
@@ -136,11 +209,20 @@ function Start-NoCacheServer {
             } else {
                 $requestPath = $rawPath.TrimStart('/')
                 if ([string]::IsNullOrWhiteSpace($requestPath)) { $requestPath = "index.html" }
-                $requestPath = $requestPath -replace '/', '\\'
-                $fullPath = [System.IO.Path]::GetFullPath((Join-Path $DashboardDir $requestPath))
                 $dashboardFullPath = [System.IO.Path]::GetFullPath($DashboardDir)
+                $platformRequestPath = $requestPath.Replace([char]'/', [System.IO.Path]::DirectorySeparatorChar)
+                $fullPath = [System.IO.Path]::GetFullPath((Join-Path $dashboardFullPath $platformRequestPath))
+                $dashboardPrefix = $dashboardFullPath.TrimEnd(
+                    [System.IO.Path]::DirectorySeparatorChar,
+                    [System.IO.Path]::AltDirectorySeparatorChar
+                ) + [System.IO.Path]::DirectorySeparatorChar
+                $pathComparison = if ($RunningOnWindows) {
+                    [System.StringComparison]::OrdinalIgnoreCase
+                } else {
+                    [System.StringComparison]::Ordinal
+                }
 
-                if (-not $fullPath.StartsWith($dashboardFullPath, [System.StringComparison]::OrdinalIgnoreCase) -or
+                if (-not $fullPath.StartsWith($dashboardPrefix, $pathComparison) -or
                     -not (Test-Path -LiteralPath $fullPath -PathType Leaf)) {
                     $context.Response.StatusCode = 404
                     $bytes = [System.Text.Encoding]::UTF8.GetBytes("Not found")
@@ -195,19 +277,25 @@ function Test-CollectorWatcher {
         return $false
     }
 
-    $process = Get-CimInstance Win32_Process -Filter "ProcessId = $watcherPid" -ErrorAction SilentlyContinue
-    if (-not $process -or -not $process.CommandLine -or
-        -not $process.CommandLine.Contains($CollectorPath) -or
-        -not $process.CommandLine.Contains("-Watch")) {
+    $process = Get-Process -Id $watcherPid -ErrorAction SilentlyContinue
+    $commandLine = if ($process) { Get-ProcessCommandLine -ProcessId $watcherPid } else { "" }
+    $commandComparison = if ($RunningOnWindows) { [System.StringComparison]::OrdinalIgnoreCase } else { [System.StringComparison]::Ordinal }
+    if ($env:SKILL_TRACKER_DEBUG) {
+        Write-Host "Watcher check PID=$watcherPid process=$([bool]$process) collector='$CollectorPath' command='$commandLine'"
+    }
+    if (-not $process -or -not $commandLine -or
+        $commandLine.IndexOf($CollectorPath, $commandComparison) -lt 0 -or
+        $commandLine.IndexOf("-Watch", [System.StringComparison]::OrdinalIgnoreCase) -lt 0) {
         Remove-Item -LiteralPath $pidPath -Force -ErrorAction SilentlyContinue
         return $false
     }
 
     try {
         $collectorWriteUtc = (Get-Item -LiteralPath $CollectorPath -ErrorAction Stop).LastWriteTimeUtc
-        $watcherStartUtc = ([datetime]$process.CreationDate).ToUniversalTime()
+        $watcherStartUtc = ([datetime]$process.StartTime).ToUniversalTime()
         if ($watcherStartUtc -lt $collectorWriteUtc) {
             Stop-Process -Id $watcherPid -Force -ErrorAction SilentlyContinue
+            Wait-Process -Id $watcherPid -Timeout 5 -ErrorAction SilentlyContinue
             Remove-Item -LiteralPath $pidPath -Force -ErrorAction SilentlyContinue
             return $false
         }
@@ -221,12 +309,7 @@ function Test-CollectorWatcher {
 function Start-CollectorWatcher {
     if (Test-CollectorWatcher) { return $true }
     try {
-        Start-Process -FilePath "powershell" -WindowStyle Hidden -ArgumentList @(
-            "-NoProfile",
-            "-ExecutionPolicy", "Bypass",
-            "-File", "`"$CollectorPath`"",
-            "-Watch"
-        ) | Out-Null
+        Start-SkillTrackerPowerShell -ScriptPath $CollectorPath -ScriptArguments @("-Watch") | Out-Null
         return $true
     } catch {
         return $false
@@ -250,28 +333,22 @@ if (-not (Test-SkillTrackerServer -ListenPort $Port)) {
         throw "Port $Port is already used by another local server. Stop that server or choose another port."
     }
 
-    Start-Process -FilePath "powershell" -WindowStyle Hidden -ArgumentList @(
-        "-NoProfile",
-        "-ExecutionPolicy", "Bypass",
-        "-File", "`"$PSCommandPath`"",
-        "-Server",
-        "-Port", "$Port"
-    )
+    Start-SkillTrackerPowerShell -ScriptPath $PSCommandPath -ScriptArguments @("-Server", "-Port", "$Port") | Out-Null
     if (-not (Wait-SkillTrackerServer -ListenPort $Port -TimeoutSeconds 20)) {
         throw "Dashboard server did not become ready on http://127.0.0.1:$Port/."
     }
 }
 
 if (-not $NoBrowser) {
-    Start-Process "http://127.0.0.1:$Port/index.html"
+    Open-SkillTrackerBrowser -Url "http://127.0.0.1:$Port/index.html"
 }
 
 # Auto-ensure desktop shortcut on initial launch
 $shortcutScript = Join-Path $PSScriptRoot "scripts\manage-shortcut.ps1"
-if (Test-Path -LiteralPath $shortcutScript) {
+if ($RunningOnWindows -and (Test-Path -LiteralPath $shortcutScript)) {
     $desktopLnk = Join-Path ([Environment]::GetFolderPath("Desktop")) "技能追踪器.lnk"
     if (-not (Test-Path -LiteralPath $desktopLnk)) {
-        & powershell -NoProfile -ExecutionPolicy Bypass -File "`"$shortcutScript`"" -Action CreateDesktopShortcut -CreateStartMenu | Out-Null
+        & $PowerShellExecutable -NoLogo -NoProfile -ExecutionPolicy Bypass -File $shortcutScript -Action CreateDesktopShortcut -CreateStartMenu | Out-Null
         Write-Host "已自动在您的桌面创建【技能追踪器】快捷方式！"
     }
 }
