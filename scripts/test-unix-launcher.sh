@@ -20,7 +20,10 @@ chmod +x "$temp_root/bin/pwsh"
     bash "$repo_root/run.sh" -NoBrowser -NoWatch -Port 19001
 )
 
-mapfile -t actual < "$capture_file"
+actual=()
+while IFS= read -r line; do
+  actual+=("$line")
+done < "$capture_file"
 expected=(
   "-NoLogo"
   "-NoProfile"
