@@ -11,7 +11,13 @@ Local-first observability for AI agent skills.
 
 Skill Tracker scans local AI coding-agent session logs, detects `SKILL.md` usage, and turns skill calls into a private dashboard: heatmaps, timelines, Chinese skill descriptions, duplicate-skill governance, GitHub discovery, and exportable action plans.
 
-![Skill Tracker dashboard desktop preview](docs/preview-desktop.png)
+![Skill Tracker v0.5.0 light theme dashboard overview](docs/v0.5.0-light-overview.png)
+
+### v0.5.0 Light Theme Preview
+
+| Governance insights | Skill matrix |
+| --- | --- |
+| ![Skill Tracker v0.5.0 governance insights in light theme](docs/v0.5.0-light-governance.png) | ![Skill Tracker v0.5.0 skill matrix in light theme](docs/v0.5.0-light-matrix.png) |
 
 ## Why Skill Tracker
 
@@ -308,7 +314,10 @@ skill-tracker/
 |   |-- LAUNCH_KIT.md
 |   |-- ROADMAP.md
 |   |-- preview-desktop.png
-|   `-- preview-mobile.png
+|   |-- preview-mobile.png
+|   |-- v0.5.0-light-overview.png
+|   |-- v0.5.0-light-governance.png
+|   `-- v0.5.0-light-matrix.png
 |-- tools/
 |   `-- platform-paths.psm1
 |-- .github/
