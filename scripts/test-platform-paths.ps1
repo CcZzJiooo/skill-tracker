@@ -13,10 +13,26 @@ function Assert-Equal {
 }
 
 $linuxHome = [System.IO.Path]::Combine([System.IO.Path]::GetPathRoot((Get-Location).Path), "home", "tester")
-$linux = Get-SkillTrackerPlatformPaths -Platform Linux -UserHome $linuxHome
-Assert-Equal $linux.AppData ([System.IO.Path]::Combine($linuxHome, ".config")) "Linux config root mismatch."
-Assert-Equal $linux.LocalAppData ([System.IO.Path]::Combine($linuxHome, ".local", "share")) "Linux data root mismatch."
-Assert-Equal $linux.EditorGlobalStorageRoots[0] ([System.IO.Path]::Combine($linuxHome, ".config", "Code", "User", "globalStorage")) "Linux VS Code storage mismatch."
+$previousXdgConfigHome = $env:XDG_CONFIG_HOME
+$previousXdgDataHome = $env:XDG_DATA_HOME
+try {
+    Remove-Item Env:XDG_CONFIG_HOME -ErrorAction SilentlyContinue
+    Remove-Item Env:XDG_DATA_HOME -ErrorAction SilentlyContinue
+
+    $linux = Get-SkillTrackerPlatformPaths -Platform Linux -UserHome $linuxHome
+    Assert-Equal $linux.AppData ([System.IO.Path]::Combine($linuxHome, ".config")) "Linux config root mismatch."
+    Assert-Equal $linux.LocalAppData ([System.IO.Path]::Combine($linuxHome, ".local", "share")) "Linux data root mismatch."
+    Assert-Equal $linux.EditorGlobalStorageRoots[0] ([System.IO.Path]::Combine($linuxHome, ".config", "Code", "User", "globalStorage")) "Linux VS Code storage mismatch."
+
+    $env:XDG_CONFIG_HOME = [System.IO.Path]::Combine($linuxHome, "xdg-config")
+    $env:XDG_DATA_HOME = [System.IO.Path]::Combine($linuxHome, "xdg-data")
+    $linuxXdg = Get-SkillTrackerPlatformPaths -Platform Linux -UserHome $linuxHome
+    Assert-Equal $linuxXdg.AppData $env:XDG_CONFIG_HOME "Linux XDG config root mismatch."
+    Assert-Equal $linuxXdg.LocalAppData $env:XDG_DATA_HOME "Linux XDG data root mismatch."
+} finally {
+    $env:XDG_CONFIG_HOME = $previousXdgConfigHome
+    $env:XDG_DATA_HOME = $previousXdgDataHome
+}
 
 $macHome = [System.IO.Path]::Combine([System.IO.Path]::GetPathRoot((Get-Location).Path), "Users", "tester")
 $mac = Get-SkillTrackerPlatformPaths -Platform MacOS -UserHome $macHome
