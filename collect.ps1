@@ -4,7 +4,7 @@
 #>
 param(
     [string]$SkillsRoot = "",
-    [string]$ConfigFile = "$PSScriptRoot\config.json",
+    [string]$ConfigFile = "$PSScriptRoot/config.json",
     [string]$OutputDir  = "",
     [switch]$Watch,
     [switch]$ForceScan,
@@ -35,29 +35,29 @@ New-Item -ItemType Directory -Path $cfg.output_dir -Force | Out-Null
 # ── Auto-detect skills roots ───────────────────────────────────────────────────
 $userHome = $env:USERPROFILE
 if (-not $userHome) { $userHome = $env:HOME }
-$appData = $env:APPDATA
-if (-not $appData -and $userHome) { $appData = Join-Path $userHome "AppData\Roaming" }
-$localAppData = $env:LOCALAPPDATA
-if (-not $localAppData -and $userHome) { $localAppData = Join-Path $userHome "AppData\Local" }
-
-$editorGlobalStorageRoots = @(
-    "$appData\Code\User\globalStorage",
-    "$appData\Code - Insiders\User\globalStorage",
-    "$appData\VSCodium\User\globalStorage",
-    "$appData\Cursor\User\globalStorage",
-    "$appData\Windsurf\User\globalStorage",
-    "$appData\Trae\User\globalStorage",
-    "$appData\Trae CN\User\globalStorage"
-)
-$editorWorkspaceStorageRoots = @(
-    "$appData\Code\User\workspaceStorage",
-    "$appData\Code - Insiders\User\workspaceStorage",
-    "$appData\VSCodium\User\workspaceStorage",
-    "$appData\Cursor\User\workspaceStorage",
-    "$appData\Windsurf\User\workspaceStorage",
-    "$appData\Trae\User\workspaceStorage",
-    "$appData\Trae CN\User\workspaceStorage"
-)
+$runningOnWindows = [System.Runtime.InteropServices.RuntimeInformation]::IsOSPlatform([System.Runtime.InteropServices.OSPlatform]::Windows)
+$runningOnMacOS = [System.Runtime.InteropServices.RuntimeInformation]::IsOSPlatform([System.Runtime.InteropServices.OSPlatform]::OSX)
+$runtimePlatform = if ($runningOnWindows) { "Windows" } elseif ($runningOnMacOS) { "MacOS" } else { "Linux" }
+$platformModule = Join-Path $PSScriptRoot "tools/platform-paths.psm1"
+if (-not (Test-Path -LiteralPath $platformModule -PathType Leaf)) {
+    throw "Platform path module not found: $platformModule"
+}
+Import-Module $platformModule -Force
+$platformArgs = @{
+    Platform = $runtimePlatform
+    UserHome = $userHome
+}
+if ($runningOnWindows) {
+    $platformArgs.AppData = $env:APPDATA
+    $platformArgs.LocalAppData = $env:LOCALAPPDATA
+    $platformArgs.ProgramFiles = $env:ProgramFiles
+    $platformArgs.ProgramFilesX86 = ${env:ProgramFiles(x86)}
+}
+$platformPaths = Get-SkillTrackerPlatformPaths @platformArgs
+$appData = $platformPaths.AppData
+$localAppData = $platformPaths.LocalAppData
+$editorGlobalStorageRoots = @($platformPaths.EditorGlobalStorageRoots)
+$editorWorkspaceStorageRoots = @($platformPaths.EditorWorkspaceStorageRoots)
 
 function Get-EditorGlobalStoragePaths {
     param([string[]]$ExtensionIds)
@@ -72,32 +72,32 @@ function Get-EditorGlobalStoragePaths {
 }
 
 $skillRootCandidates = @(
-    "$PSScriptRoot\.agents\skills",
-    "$PSScriptRoot\.cursor\skills",
-    "$PSScriptRoot\.codex\skills",
-    "$PSScriptRoot\.codex\plugins\cache",
-    "$userHome\.codex\skills",
-    "$userHome\.codex\plugins\cache",
-    "$userHome\.agents\skills",
-    "$userHome\.config\agents\skills",
-    "$userHome\.claude\skills",
-    "$userHome\.hermes\skills",
-    "$userHome\.cursor\skills",
-    "$userHome\.cline\skills",
-    "$userHome\.roo\skills",
-    "$userHome\.kilo\skills",
-    "$userHome\.qwen\skills",
-    "$userHome\.config\amp\skills",
-    "$userHome\.config\opencode\skills",
-    "$userHome\.opencode\skills",
-    "$userHome\.gemini\config\skills",
-    "$userHome\.config\gemini\skills",
-    "$userHome\.cc-switch\skills"
+    (Join-SkillTrackerPath $PSScriptRoot ".agents" "skills"),
+    (Join-SkillTrackerPath $PSScriptRoot ".cursor" "skills"),
+    (Join-SkillTrackerPath $PSScriptRoot ".codex" "skills"),
+    (Join-SkillTrackerPath $PSScriptRoot ".codex" "plugins" "cache"),
+    (Join-SkillTrackerPath $userHome ".codex" "skills"),
+    (Join-SkillTrackerPath $userHome ".codex" "plugins" "cache"),
+    (Join-SkillTrackerPath $userHome ".agents" "skills"),
+    (Join-SkillTrackerPath $userHome ".config" "agents" "skills"),
+    (Join-SkillTrackerPath $userHome ".claude" "skills"),
+    (Join-SkillTrackerPath $userHome ".hermes" "skills"),
+    (Join-SkillTrackerPath $userHome ".cursor" "skills"),
+    (Join-SkillTrackerPath $userHome ".cline" "skills"),
+    (Join-SkillTrackerPath $userHome ".roo" "skills"),
+    (Join-SkillTrackerPath $userHome ".kilo" "skills"),
+    (Join-SkillTrackerPath $userHome ".qwen" "skills"),
+    (Join-SkillTrackerPath $userHome ".config" "amp" "skills"),
+    (Join-SkillTrackerPath $userHome ".config" "opencode" "skills"),
+    (Join-SkillTrackerPath $userHome ".opencode" "skills"),
+    (Join-SkillTrackerPath $userHome ".gemini" "config" "skills"),
+    (Join-SkillTrackerPath $userHome ".config" "gemini" "skills"),
+    (Join-SkillTrackerPath $userHome ".cc-switch" "skills")
 )
 if ($env:CODEX_HOME) {
     $skillRootCandidates += @(
-        (Join-Path $env:CODEX_HOME "skills"),
-        (Join-Path $env:CODEX_HOME "plugins\cache")
+        (Join-SkillTrackerPath $env:CODEX_HOME "skills"),
+        (Join-SkillTrackerPath $env:CODEX_HOME "plugins" "cache")
     )
 }
 $skillRoots = [System.Collections.Generic.List[string]]::new()
@@ -125,22 +125,20 @@ if ($skillRoots.Count -eq 0) {
 
 # ── Auto-detect installed AI tools ────────────────────────────────────────────
 # Each tool specifies: Name, one or more scan roots, and a timestamp field preference
-$commonProgramRoots = @(
-    "$localAppData\Programs",
-    $localAppData,
-    $appData,
-    $env:ProgramFiles,
-    ${env:ProgramFiles(x86)}
-) | Where-Object { $_ }
+$commonProgramRoots = @($platformPaths.CommonProgramRoots)
 function Get-DesktopInstallPaths {
     param(
         [string]$DirectoryName,
         [string]$ExecutableName
     )
 
-    return @($commonProgramRoots | ForEach-Object {
-        Join-Path (Join-Path $_ $DirectoryName) $ExecutableName
-    })
+    if ($runtimePlatform -eq "MacOS") {
+        return @($commonProgramRoots | Where-Object { $_ -match '(?i)Applications$' } | ForEach-Object {
+            Join-SkillTrackerPath $_ "$DirectoryName.app"
+        })
+    }
+    if ($runtimePlatform -eq "Linux") { return @() }
+    return @($commonProgramRoots | ForEach-Object { Join-SkillTrackerPath $_ $DirectoryName $ExecutableName })
 }
 
 $desktopToolPolicies = @{
@@ -157,32 +155,32 @@ $desktopToolPolicies = @{
 }
 
 $AUTO_DETECT_TOOLS = @(
-    @{ Name="Antigravity"; Paths=@("$userHome\.gemini\antigravity-ide\brain"); TsField="created_at"; RequireInstall=$true; InstallPaths=$desktopToolPolicies["Antigravity"].InstallPaths; CommandNames=$desktopToolPolicies["Antigravity"].CommandNames; ProcessNames=$desktopToolPolicies["Antigravity"].ProcessNames },
-    @{ Name="Aider";       Paths=@("$PSScriptRoot\.aider.chat.history.md","$PSScriptRoot\.aider.llm.history","$userHome\.aider.chat.history.md","$userHome\.aider.llm.history"); TsField="timestamp" },
+    @{ Name="Antigravity"; Paths=@((Join-SkillTrackerPath $userHome ".gemini" "antigravity-ide" "brain")); TsField="created_at"; RequireInstall=$true; InstallPaths=$desktopToolPolicies["Antigravity"].InstallPaths; CommandNames=$desktopToolPolicies["Antigravity"].CommandNames; ProcessNames=$desktopToolPolicies["Antigravity"].ProcessNames },
+    @{ Name="Aider";       Paths=@((Join-SkillTrackerPath $PSScriptRoot ".aider.chat.history.md"),(Join-SkillTrackerPath $PSScriptRoot ".aider.llm.history"),(Join-SkillTrackerPath $userHome ".aider.chat.history.md"),(Join-SkillTrackerPath $userHome ".aider.llm.history")); TsField="timestamp" },
     @{ Name="Amazon Q";    Paths=@(Get-EditorGlobalStoragePaths -ExtensionIds @("amazonwebservices.amazon-q-vscode","amazonwebservices.aws-toolkit-vscode")); TsField="timestamp" },
-    @{ Name="Amp";         Paths=@("$userHome\.config\amp","$userHome\AppData\Roaming\amp","$localAppData\amp"); TsField="timestamp" },
+    @{ Name="Amp";         Paths=@((Join-SkillTrackerPath $userHome ".config" "amp"),(Join-SkillTrackerPath $appData "amp"),(Join-SkillTrackerPath $localAppData "amp")); TsField="timestamp" },
     @{ Name="Augment";     Paths=@(Get-EditorGlobalStoragePaths -ExtensionIds @("augment.vscode-augment","augment.vscode-augment-nightly")); TsField="timestamp" },
-    @{ Name="ClaudeCode";  Paths=@("$userHome\.claude\projects"); TsField="timestamp" },
+    @{ Name="ClaudeCode";  Paths=@((Join-SkillTrackerPath $userHome ".claude" "projects")); TsField="timestamp" },
     @{ Name="Cline";       Paths=@(Get-EditorGlobalStoragePaths -ExtensionIds @("saoudrizwan.claude-dev","cline.cline")); TsField="timestamp" },
-    @{ Name="Codex";       Paths=@("$userHome\.codex\archived_sessions","$userHome\.codex\sessions"); TsField="timestamp" },
-    @{ Name="Cursor";      Paths=@("$userHome\.cursor\logs","$userHome\AppData\Roaming\Cursor\logs"); TsField="timestamp"; RequireInstall=$true; InstallPaths=$desktopToolPolicies["Cursor"].InstallPaths; CommandNames=$desktopToolPolicies["Cursor"].CommandNames; ProcessNames=$desktopToolPolicies["Cursor"].ProcessNames },
-    @{ Name="Windsurf";    Paths=@("$userHome\.codeium\windsurf\logs","$userHome\AppData\Roaming\Windsurf\logs"); TsField="timestamp"; RequireInstall=$true; InstallPaths=$desktopToolPolicies["Windsurf"].InstallPaths; CommandNames=$desktopToolPolicies["Windsurf"].CommandNames; ProcessNames=$desktopToolPolicies["Windsurf"].ProcessNames },
-    @{ Name="Continue";    Paths=@("$userHome\.continue\sessions"); TsField="timestamp" },
-    @{ Name="Gemini CLI";  Paths=@("$userHome\.gemini\sessions"); TsField="created_at" },
+    @{ Name="Codex";       Paths=@((Join-SkillTrackerPath $userHome ".codex" "archived_sessions"),(Join-SkillTrackerPath $userHome ".codex" "sessions")); TsField="timestamp" },
+    @{ Name="Cursor";      Paths=@((Join-SkillTrackerPath $userHome ".cursor" "logs"),(Join-SkillTrackerPath $appData "Cursor" "logs")); TsField="timestamp"; RequireInstall=$true; InstallPaths=$desktopToolPolicies["Cursor"].InstallPaths; CommandNames=$desktopToolPolicies["Cursor"].CommandNames; ProcessNames=$desktopToolPolicies["Cursor"].ProcessNames },
+    @{ Name="Windsurf";    Paths=@((Join-SkillTrackerPath $userHome ".codeium" "windsurf" "logs"),(Join-SkillTrackerPath $appData "Windsurf" "logs")); TsField="timestamp"; RequireInstall=$true; InstallPaths=$desktopToolPolicies["Windsurf"].InstallPaths; CommandNames=$desktopToolPolicies["Windsurf"].CommandNames; ProcessNames=$desktopToolPolicies["Windsurf"].ProcessNames },
+    @{ Name="Continue";    Paths=@((Join-SkillTrackerPath $userHome ".continue" "sessions")); TsField="timestamp" },
+    @{ Name="Gemini CLI";  Paths=@((Join-SkillTrackerPath $userHome ".gemini" "sessions")); TsField="created_at" },
     @{ Name="GitHub Copilot"; Paths=@(Get-EditorGlobalStoragePaths -ExtensionIds @("github.copilot-chat","github.copilot")); TsField="timestamp" },
-    @{ Name="Goose";       Paths=@("$userHome\.config\goose\sessions","$userHome\.local\share\goose\sessions","$userHome\.local\state\goose\logs","$appData\goose\sessions","$appData\goose\logs"); TsField="timestamp" },
-    @{ Name="Hermes";      Paths=@("$userHome\.hermes\sessions","$userHome\.hermes\logs","$userHome\AppData\Roaming\Hermes\logs","$userHome\AppData\Local\Hermes\logs"); TsField="timestamp" },
+    @{ Name="Goose";       Paths=@((Join-SkillTrackerPath $userHome ".config" "goose" "sessions"),(Join-SkillTrackerPath $userHome ".local" "share" "goose" "sessions"),(Join-SkillTrackerPath $userHome ".local" "state" "goose" "logs"),(Join-SkillTrackerPath $appData "goose" "sessions"),(Join-SkillTrackerPath $appData "goose" "logs")); TsField="timestamp" },
+    @{ Name="Hermes";      Paths=@((Join-SkillTrackerPath $userHome ".hermes" "sessions"),(Join-SkillTrackerPath $userHome ".hermes" "logs"),(Join-SkillTrackerPath $appData "Hermes" "logs"),(Join-SkillTrackerPath $localAppData "Hermes" "logs")); TsField="timestamp" },
     @{ Name="JetBrains AI"; Paths=@(Get-EditorGlobalStoragePaths -ExtensionIds @("JetBrains.jetbrains-ai-assistant","jetbrains.jetbrains-ai-assistant")); TsField="timestamp" },
-    @{ Name="Junie";       Paths=@("$userHome\.junie\logs","$userHome\.junie\sessions"); TsField="timestamp" },
-    @{ Name="Kilo Code";   Paths=@((Get-EditorGlobalStoragePaths -ExtensionIds @("kilocode.kilo-code","kilo-code.kilo-code")) + @("$userHome\.kilo","$appData\kilo")); TsField="timestamp" },
-    @{ Name="opencode";    Paths=@("$userHome\.local\share\opencode\log","$userHome\.local\share\opencode","$appData\opencode\log","$appData\opencode","$userHome\.config\opencode"); TsField="timestamp" },
-    @{ Name="Qwen Code";   Paths=@("$userHome\.qwen\logs\openai","$userHome\.qwen\debug","$userHome\.qwen","$userHome\.config\qwen"); TsField="timestamp" },
+    @{ Name="Junie";       Paths=@((Join-SkillTrackerPath $userHome ".junie" "logs"),(Join-SkillTrackerPath $userHome ".junie" "sessions")); TsField="timestamp" },
+    @{ Name="Kilo Code";   Paths=@((Get-EditorGlobalStoragePaths -ExtensionIds @("kilocode.kilo-code","kilo-code.kilo-code")) + @((Join-SkillTrackerPath $userHome ".kilo"),(Join-SkillTrackerPath $appData "kilo"))); TsField="timestamp" },
+    @{ Name="opencode";    Paths=@((Join-SkillTrackerPath $userHome ".local" "share" "opencode" "log"),(Join-SkillTrackerPath $userHome ".local" "share" "opencode"),(Join-SkillTrackerPath $appData "opencode" "log"),(Join-SkillTrackerPath $appData "opencode"),(Join-SkillTrackerPath $userHome ".config" "opencode")); TsField="timestamp" },
+    @{ Name="Qwen Code";   Paths=@((Join-SkillTrackerPath $userHome ".qwen" "logs" "openai"),(Join-SkillTrackerPath $userHome ".qwen" "debug"),(Join-SkillTrackerPath $userHome ".qwen"),(Join-SkillTrackerPath $userHome ".config" "qwen")); TsField="timestamp" },
     @{ Name="Roo Code";    Paths=@(Get-EditorGlobalStoragePaths -ExtensionIds @("rooveterinaryinc.roo-cline","roocode.roo-cline","roo-cline.roo-cline")); TsField="timestamp" },
     @{ Name="Sourcegraph Cody"; Paths=@(Get-EditorGlobalStoragePaths -ExtensionIds @("sourcegraph.cody-ai","sourcegraph.cody")); TsField="timestamp" },
     @{ Name="Tabby";       Paths=@(Get-EditorGlobalStoragePaths -ExtensionIds @("TabbyML.vscode-tabby","tabbyml.vscode-tabby")); TsField="timestamp" },
-    @{ Name="Tabnine";     Paths=@((Get-EditorGlobalStoragePaths -ExtensionIds @("TabNine.tabnine-vscode","tabnine.tabnine-vscode")) + @("$userHome\.tabnine","$appData\TabNine","$appData\Tabnine")); TsField="timestamp" },
-    @{ Name="Trae";        Paths=@("$userHome\AppData\Roaming\Trae\logs","$userHome\AppData\Roaming\Trae\User\workspaceStorage","$userHome\AppData\Roaming\Trae CN\logs","$userHome\AppData\Local\Trae\logs"); TsField="timestamp"; RequireInstall=$true; InstallPaths=$desktopToolPolicies["Trae"].InstallPaths; CommandNames=$desktopToolPolicies["Trae"].CommandNames; ProcessNames=$desktopToolPolicies["Trae"].ProcessNames },
-    @{ Name="Zed";         Paths=@("$localAppData\Zed\logs","$localAppData\Zed\conversations","$userHome\.config\zed\conversations","$userHome\.local\share\zed\conversations","$userHome\.local\share\zed\logs"); TsField="timestamp"; RequireInstall=$true; InstallPaths=$desktopToolPolicies["Zed"].InstallPaths; CommandNames=$desktopToolPolicies["Zed"].CommandNames; ProcessNames=$desktopToolPolicies["Zed"].ProcessNames }
+    @{ Name="Tabnine";     Paths=@((Get-EditorGlobalStoragePaths -ExtensionIds @("TabNine.tabnine-vscode","tabnine.tabnine-vscode")) + @((Join-SkillTrackerPath $userHome ".tabnine"),(Join-SkillTrackerPath $appData "TabNine"),(Join-SkillTrackerPath $appData "Tabnine"))); TsField="timestamp" },
+    @{ Name="Trae";        Paths=@((Join-SkillTrackerPath $appData "Trae" "logs"),(Join-SkillTrackerPath $appData "Trae" "User" "workspaceStorage"),(Join-SkillTrackerPath $appData "Trae CN" "logs"),(Join-SkillTrackerPath $localAppData "Trae" "logs")); TsField="timestamp"; RequireInstall=$true; InstallPaths=$desktopToolPolicies["Trae"].InstallPaths; CommandNames=$desktopToolPolicies["Trae"].CommandNames; ProcessNames=$desktopToolPolicies["Trae"].ProcessNames },
+    @{ Name="Zed";         Paths=@((Join-SkillTrackerPath $localAppData "Zed" "logs"),(Join-SkillTrackerPath $localAppData "Zed" "conversations"),(Join-SkillTrackerPath $appData "Zed" "logs"),(Join-SkillTrackerPath $userHome ".config" "zed" "conversations"),(Join-SkillTrackerPath $userHome ".local" "share" "zed" "conversations"),(Join-SkillTrackerPath $userHome ".local" "share" "zed" "logs")); TsField="timestamp"; RequireInstall=$true; InstallPaths=$desktopToolPolicies["Zed"].InstallPaths; CommandNames=$desktopToolPolicies["Zed"].CommandNames; ProcessNames=$desktopToolPolicies["Zed"].ProcessNames }
 )
 
 function Test-ToolInstalled {
@@ -193,7 +191,7 @@ function Test-ToolInstalled {
     }
 
     foreach ($path in @($Tool.InstallPaths)) {
-        if ($path -and (Test-Path -LiteralPath $path -PathType Leaf)) {
+        if ($path -and (Test-Path -LiteralPath $path)) {
             return [PSCustomObject]@{ Installed = $true; Reason = "install_marker" }
         }
     }
@@ -329,7 +327,8 @@ $watcherMutex = $null
 $ownsWatcherMutex = $false
 if ($Watch) {
     $mutexHash = Get-StableId ([System.IO.Path]::GetFullPath($cfg.output_dir).ToLowerInvariant())
-    $watcherMutex = [System.Threading.Mutex]::new($false, "Local\SkillTrackerCollector_$mutexHash")
+    $mutexName = if ($runningOnWindows) { "Local\SkillTrackerCollector_$mutexHash" } else { "SkillTrackerCollector_$mutexHash" }
+    $watcherMutex = [System.Threading.Mutex]::new($false, $mutexName)
     try {
         if (-not $watcherMutex.WaitOne(0, $false)) {
             Write-Host "A Skill Tracker watcher is already running for $($cfg.output_dir)."

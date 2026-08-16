@@ -1,16 +1,17 @@
 # Start Here
 
-Skill Tracker is designed to be opened quickly on Windows.
+Skill Tracker is designed to be opened quickly on Windows, Linux, and macOS.
 
 ## Normal Users
 
 Use the release package, not GitHub's auto-generated "Source code" download.
 
-1. Download `skill-tracker-*-windows-portable.zip` from the GitHub release.
-2. Unzip it anywhere, for example `Desktop\skill-tracker`.
-3. Double-click `run.bat` (or `创建桌面快捷方式.bat`).
+1. Download `skill-tracker-*-portable.zip` from the GitHub release.
+2. Unzip it anywhere.
+3. Windows: double-click `run.bat` (or `创建桌面快捷方式.bat`).
+4. Linux/macOS: install PowerShell 7, open a terminal in the extracted folder, and run `bash run.sh`.
 
-The visible launcher first reads your local AI-agent logs and generates local dashboard data, automatically creating a zero-false-positive `技能追踪器.lnk` shortcut on your Desktop! Later, simply double-click the `技能追踪器` shortcut on your Desktop, or click "🖥️ 发送到桌面" / "🚀 开机自启" inside the Web UI.
+The launcher reads your local AI-agent logs and generates local dashboard data. On Windows it can also create a `技能追踪器.lnk` shortcut and configure login startup. Those Windows integration controls are hidden on Linux and macOS.
 
 If no supported local logs are found, the dashboard opens with an empty local scan report. Demo data is only a static fallback for inspecting the interface without running the launcher.
 
@@ -21,21 +22,27 @@ If no supported local logs are found, the dashboard opens with an empty local sc
 - Gitee mirror: https://gitee.com/jiojio688/skill-tracker
 - GitCode / AtomGit mirror: https://gitcode.com/2301_80046217/skill-tracker
 
-For the easiest first run, use the GitHub release ZIP. The Gitee and GitCode mirrors are provided for domestic source browsing and backup access.
+For the easiest first run, use the GitHub release ZIP. Linux and macOS need PowerShell 7 (`pwsh`) on `PATH`; no Node.js or Python runtime is required for normal dashboard use. The Gitee and GitCode mirrors are provided for domestic source browsing and backup access.
 
 ## Developers
 
-```powershell
+```text
 git clone https://github.com/CcZzJiooo/skill-tracker.git
 cd skill-tracker
-.\run.bat
+# Windows: run.bat
+# Linux/macOS: bash run.sh
 ```
 
 Manual command:
 
-```powershell
+```text
+# Windows
 powershell -NoProfile -ExecutionPolicy Bypass -File .\collect.ps1
 powershell -NoProfile -ExecutionPolicy Bypass -File .\start-dashboard.ps1
+
+# Linux/macOS
+pwsh -NoLogo -NoProfile -File ./collect.ps1
+pwsh -NoLogo -NoProfile -File ./start-dashboard.ps1
 ```
 
 ## What This Project Is
@@ -44,7 +51,7 @@ Skill Tracker is a local-first observability tool:
 
 - `collect.ps1` scans local AI-agent session logs.
 - `dashboard/index.html` visualizes skill usage, Chinese descriptions, governance findings, and GitHub discovery.
-- `run.bat` is the one-click Windows entry point.
+- `run.bat` is the Windows entry point; `run.sh` is the Linux/macOS entry point.
 
 It is not a single agent `skill`, because it observes and manages many skills across tools. It is not currently an `.exe`, because the project does not need an installer or background service.
 

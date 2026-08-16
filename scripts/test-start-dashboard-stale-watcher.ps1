@@ -44,7 +44,7 @@ try {
         [System.Text.Encoding]::UTF8
     )
 
-    foreach ($relativePath in @("collect.ps1", "start-dashboard.ps1", "dashboard/index.html", "dashboard/demo_data.js")) {
+    foreach ($relativePath in @("collect.ps1", "start-dashboard.ps1", "dashboard/index.html", "dashboard/demo_data.js", "tools/platform-paths.psm1")) {
         Copy-RequiredFile -RelativePath $relativePath
     }
     $config = [ordered]@{
@@ -92,6 +92,10 @@ try {
             Start-Sleep -Milliseconds 250
         } while ((Get-Date) -lt $deadline)
         if (-not $newPid -or $newPid -eq $oldPid) {
+            Get-CimInstance Win32_Process |
+                Where-Object { $_.CommandLine -and $_.CommandLine.Contains($packageRoot) } |
+                ForEach-Object { Write-Host "Observed process $($_.ProcessId): $($_.CommandLine)" }
+            Write-Host "Observed PID file: '$newPid'; initial PID: '$oldPid'"
             throw "Launcher did not replace the watcher after the collector changed."
         }
 

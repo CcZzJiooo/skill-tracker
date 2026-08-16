@@ -13,7 +13,7 @@ $port = Get-Random -Minimum 38001 -Maximum 42000
 function Copy-PackageFiles {
     param([string]$DestinationRoot)
 
-    foreach ($relativePath in @("collect.ps1", "start-dashboard.ps1", "dashboard/index.html", "dashboard/demo_data.js")) {
+    foreach ($relativePath in @("collect.ps1", "start-dashboard.ps1", "dashboard/index.html", "dashboard/demo_data.js", "tools/platform-paths.psm1")) {
         $source = Join-Path $repoRoot $relativePath
         $destination = Join-Path $DestinationRoot $relativePath
         New-Item -ItemType Directory -Path (Split-Path -Parent $destination) -Force | Out-Null

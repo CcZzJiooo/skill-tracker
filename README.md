@@ -3,6 +3,8 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![Local-first](https://img.shields.io/badge/local--first-yes-577d17)](#privacy-first)
 [![Windows](https://img.shields.io/badge/Windows-supported-55a7ff)](#quick-start)
+[![Linux](https://img.shields.io/badge/Linux-supported-f5a623)](#quick-start)
+[![macOS](https://img.shields.io/badge/macOS-supported-c0c0c0)](#quick-start)
 [![AI agents](https://img.shields.io/badge/AI%20agents-skills%20observability-b9f35a)](#why-skill-tracker)
 
 Local-first observability for AI agent skills.
@@ -32,14 +34,17 @@ Skill Tracker 是一个本地优先的 AI Agent 技能调用可视化工具。�
 
 ## Quick Start
 
-For normal users, download the latest `skill-tracker-*-windows-portable.zip` from Releases, unzip it, and double-click `run.bat`.
+Download the latest `skill-tracker-*-portable.zip` from Releases and unzip it.
+
+- Windows: double-click `run.bat`.
+- Linux or macOS: install [PowerShell 7](https://learn.microsoft.com/powershell/scripting/install/installing-powershell), then run `bash run.sh`.
 
 See [START_HERE.md](START_HERE.md) for the shortest onboarding path.
 
 ## Download, Mirrors, and Community Links
 
 - GitHub repository: https://github.com/CcZzJiooo/skill-tracker
-- Windows release package: https://github.com/CcZzJiooo/skill-tracker/releases
+- Cross-platform release package: https://github.com/CcZzJiooo/skill-tracker/releases
 - Gitee mirror: https://gitee.com/jiojio688/skill-tracker
 - GitCode / AtomGit mirror: https://gitcode.com/2301_80046217/skill-tracker
 - Published articles and launch posts: [docs/PUBLISHED_LINKS.md](docs/PUBLISHED_LINKS.md)
@@ -48,18 +53,23 @@ Use GitHub Releases for the portable ZIP package. The Gitee and GitCode mirrors 
 
 Developers can clone the repository:
 
-```powershell
+```text
 git clone https://github.com/CcZzJiooo/skill-tracker.git
 cd skill-tracker
-.\run.bat
+# Windows: run.bat
+# Linux/macOS: bash run.sh
 ```
 
-For the smoothest Windows launch, double-click `run.bat`. The first launch reads local AI-agent logs, verifies the generated dashboard data, and opens the browser. Later launches reuse the current watcher and open the latest generated data without repeating the slow historical scan; the watcher continues refreshing new log entries in the background.
+The first launch reads local AI-agent logs and opens the browser. Later launches reuse the current watcher and open the latest generated data without repeating the slow historical scan; the watcher continues refreshing new log entries in the background. Windows uses Windows PowerShell or PowerShell 7. Linux and macOS require `pwsh` (PowerShell 7) on `PATH`.
 
 Manual mode:
 
-```powershell
+```text
+# Windows
 powershell -NoProfile -ExecutionPolicy Bypass -File .\start-dashboard.ps1
+
+# Linux/macOS
+pwsh -NoLogo -NoProfile -File ./start-dashboard.ps1
 ```
 
 Collector verification before release:
@@ -68,7 +78,7 @@ Collector verification before release:
 powershell -ExecutionPolicy Bypass -File .\scripts\verify-collector.ps1
 ```
 
-Opening `dashboard/index.html` directly uses the static `dashboard/demo_data.js` fallback so contributors can inspect the interface. Launching through `run.bat` starts the local server and watcher; first-run collection continues in the background, and an empty local report is produced when no supported logs exist.
+Opening `dashboard/index.html` directly uses the static `dashboard/demo_data.js` fallback so contributors can inspect the interface. Launching through `run.bat` or `run.sh` starts the local server and watcher; first-run collection continues in the background, and an empty local report is produced when no supported logs exist.
 
 ## Project Type
 
@@ -76,16 +86,16 @@ Skill Tracker is a local-first observability tool, not a single agent `skill` an
 
 It has two runtime parts:
 
-- `collect.ps1`: scans local AI-agent session logs and generates local dashboard data.
+- `collect.ps1`: scans local AI-agent session logs and generates local dashboard data on Windows, Linux, and macOS.
 - `dashboard/index.html`: a static browser dashboard for visualization, governance, Chinese descriptions, GitHub radar, and exports.
 
-GitHub's default "Source code" assets work for developers, but they look raw to non-technical users. For releases, maintainers should attach a Windows portable ZIP:
+GitHub's default "Source code" assets work for developers, but they look raw to non-technical users. For releases, maintainers should attach the cross-platform portable ZIP:
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File .\scripts\package-release.ps1 -Version v0.4.0
+powershell -ExecutionPolicy Bypass -File .\scripts\package-release.ps1 -Version v0.5.0
 ```
 
-Upload both `dist/skill-tracker-v0.4.0-windows-portable.zip` and `dist/SHA256SUMS.txt` to the GitHub release. Users unzip the portable ZIP and double-click `run.bat`; it starts a local watcher and serves the dashboard while collecting real local data. The release does not include a VBS launcher or create desktop shortcuts automatically.
+Upload both `dist/skill-tracker-v0.5.0-portable.zip` and `dist/SHA256SUMS.txt` to the GitHub release. Windows users run `run.bat`; Linux and macOS users run `bash run.sh`. The same package starts a local watcher and serves the dashboard while collecting real local data. Windows-only shortcut and login-startup controls are hidden on Linux and macOS.
 
 An `.exe` wrapper is optional later, mainly for one-click onboarding. It is not required for the current architecture because there is no installer or Windows service; the local watcher is a normal user-owned PowerShell process.
 
@@ -150,6 +160,8 @@ Skill Tracker currently detects common local paths for:
 | Zed Assistant | `%LOCALAPPDATA%/Zed/logs/`, `~/.config/zed/conversations/` |
 
 Skill roots are auto-detected from common local skill folders. You can also set your own path in `config.json`.
+
+Editor storage roots follow each operating system: `%APPDATA%` on Windows, `$XDG_CONFIG_HOME` (or `~/.config`) on Linux, and `~/Library/Application Support` on macOS. Home-based sources such as `~/.codex`, `~/.claude`, `~/.gemini`, and `~/.local/share` are resolved with native path separators.
 
 After collection, Skill Tracker writes a local tool coverage report:
 
@@ -282,6 +294,8 @@ skill-tracker/
 |-- collect.ps1
 |-- config.json
 |-- run.bat
+|-- run.sh
+|-- VERSION
 |-- dashboard/
 |   |-- index.html
 |   |-- demo_data.js
@@ -295,6 +309,8 @@ skill-tracker/
 |   |-- ROADMAP.md
 |   |-- preview-desktop.png
 |   `-- preview-mobile.png
+|-- tools/
+|   `-- platform-paths.psm1
 |-- .github/
 |   |-- ISSUE_TEMPLATE/
 |   `-- PULL_REQUEST_TEMPLATE.md
@@ -314,7 +330,7 @@ See [docs/ROADMAP.md](docs/ROADMAP.md).
 
 Near-term priorities:
 
-- Better cross-platform path detection.
+- More native Linux/macOS launcher and packaging polish.
 - More skill-source adapters.
 - Import validation for `skill_catalog.json`.
 - A small CLI wrapper, such as `skill-tracker collect` and `skill-tracker open`.

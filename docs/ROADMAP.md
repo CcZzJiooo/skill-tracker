@@ -37,7 +37,7 @@ This roadmap prioritizes practical adoption first, then deeper agent-skill gover
   - `skill-tracker open`
   - `skill-tracker export`
 - Optional installer.
-- Cross-platform shell support.
+- Cross-platform runtime hardening and native packaging.
 - Hosted static demo page using synthetic data.
 
 ## Phase 5: Research and Ecosystem

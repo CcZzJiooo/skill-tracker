@@ -5,6 +5,28 @@ on:
   pull_request:
 
 jobs:
+  cross-platform-runtime:
+    name: Runtime (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, ubuntu-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate platform paths, collection, and dashboard startup
+        shell: pwsh
+        run: |
+          ./scripts/test-platform-paths.ps1
+          ./scripts/test-collector-first-run.ps1
+          ./scripts/test-start-dashboard.ps1
+      - name: Validate shared version metadata
+        run: node scripts/test-version-contract.mjs
+      - name: Validate Unix launcher
+        if: runner.os != 'Windows'
+        shell: bash
+        run: bash ./scripts/test-unix-launcher.sh
+
   validate:
     runs-on: windows-latest
     steps:

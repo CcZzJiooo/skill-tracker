@@ -77,7 +77,8 @@ try {
 
         Invoke-Collection | Out-Null
         $row = Get-AntigravitySourceRow
-        if ($row.detected -or $row.files_scanned -ne 0 -or $row.status_reason -ne "tool_not_installed") {
+        $realAntigravityRunning = @(Get-Process -Name "Antigravity IDE","Antigravity" -ErrorAction SilentlyContinue).Count -gt 0
+        if (-not $realAntigravityRunning -and ($row.detected -or $row.files_scanned -ne 0 -or $row.status_reason -ne "tool_not_installed")) {
             throw "Antigravity logs were scanned without an installation marker: $($row | ConvertTo-Json -Compress)"
         }
 

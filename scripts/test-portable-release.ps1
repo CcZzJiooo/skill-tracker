@@ -5,7 +5,7 @@ $ErrorActionPreference = "Stop"
 $repoRoot = Split-Path -Parent $PSScriptRoot
 $verifier = Join-Path $PSScriptRoot "verify-portable-release.ps1"
 $tempRoot = Join-Path ([System.IO.Path]::GetTempPath()) ("skill-tracker-portable-test-" + [guid]::NewGuid().ToString("N"))
-$packageName = "skill-tracker-test-windows-portable"
+$packageName = "skill-tracker-test-portable"
 $stageDir = Join-Path $tempRoot $packageName
 $zipPath = Join-Path $tempRoot "$packageName.zip"
 $checksumPath = Join-Path $tempRoot "SHA256SUMS.txt"
@@ -105,18 +105,29 @@ function New-TestPackage {
         "config.json",
         "collect.ps1",
         "run.bat",
+        "run.sh",
+        "VERSION",
         "start-dashboard.ps1",
         "dashboard/index.html",
         "dashboard/demo_data.js",
         "docs/ROADMAP.md",
         "scripts/verify-collector.ps1",
-        "scripts/verify-portable-release.ps1"
+        "scripts/verify-portable-release.ps1",
+        "tools/platform-paths.psm1"
     )
 
     foreach ($relativePath in $requiredFiles) {
         if ($OmitVerifier -and $relativePath -eq "scripts/verify-portable-release.ps1") { continue }
-        Write-TextFile -Path (Join-Path $stageDir $relativePath)
+        $content = if ($relativePath -eq "run.sh") {
+            "#!/usr/bin/env bash`nexec pwsh -NoLogo -NoProfile -File start-dashboard.ps1`n"
+        } elseif ($relativePath -eq "START_HERE.md") {
+            "Run bash run.sh on Linux or macOS."
+        } else {
+            "test"
+        }
+        Write-TextFile -Path (Join-Path $stageDir $relativePath) -Content $content
     }
+    Write-TextFile -Path (Join-Path $stageDir "START_HERE.txt") -Content "Run bash run.sh on Linux or macOS."
     if ($IncludeVbs) {
         Write-TextFile -Path (Join-Path $stageDir "launcher.vbs")
     }
