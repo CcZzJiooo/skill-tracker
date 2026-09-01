@@ -9,11 +9,15 @@ $fakeHome = Join-Path $tempRoot "home"
 $seedRoot = Join-Path $fakeHome "seed-skills"
 $externalSkillDir = Join-Path $fakeHome "external\skills\codex-latest-skill"
 $codexLogDir = Join-Path $fakeHome ".codex\sessions\2026\08\05"
+$codexInstallDir = Join-Path $fakeHome "AppData\Local\OpenAI\Codex"
 $outputDir = Join-Path $tempRoot "dashboard"
 $configPath = Join-Path $tempRoot "config.json"
 
 try {
-    New-Item -ItemType Directory -Path (Join-Path $seedRoot "seed-skill"),$externalSkillDir,$codexLogDir -Force | Out-Null
+    # Built-in profiles require installation evidence. Seed the same Codex
+    # marker the collector checks so this fixture tests log reading rather
+    # than whether the CI runner happens to have Codex installed.
+    New-Item -ItemType Directory -Path (Join-Path $seedRoot "seed-skill"),$externalSkillDir,$codexLogDir,$codexInstallDir -Force | Out-Null
     [System.IO.File]::WriteAllText(
         (Join-Path $seedRoot "seed-skill\SKILL.md"),
         "---`nname: seed-skill`ndescription: Seed fixture.`n---`n",
