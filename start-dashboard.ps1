@@ -123,6 +123,56 @@ function Get-ProcessCommandLine {
     try { return ((& ps -p $ProcessId -o command= 2>$null) | Out-String).Trim() } catch { return "" }
 }
 
+function Get-ManagedSkillTrackerServerProcesses {
+    param([int]$ListenPort)
+
+    if ($RunningOnWindows) {
+        $processes = @(Get-CimInstance Win32_Process -ErrorAction SilentlyContinue)
+    } else {
+        $processes = @()
+        foreach ($process in @(Get-Process -ErrorAction SilentlyContinue)) {
+            $processes += [pscustomobject]@{
+                ProcessId = [int]$process.Id
+                CommandLine = Get-ProcessCommandLine -ProcessId $process.Id
+            }
+        }
+    }
+
+    $scriptPath = [System.IO.Path]::GetFullPath($PSCommandPath)
+    $portPattern = '(?i)(^|\s)-Port\s+["'']?' + [regex]::Escape($ListenPort.ToString()) + '["'']?(?:\s|$)'
+    return @($processes | Where-Object {
+        $commandLine = [string]$_.CommandLine
+        $_.ProcessId -ne $PID -and
+        $commandLine -and
+        $commandLine.IndexOf($scriptPath, [System.StringComparison]::OrdinalIgnoreCase) -ge 0 -and
+        $commandLine -match '(?i)(^|\s)-Server(?:\s|$)' -and
+        $commandLine -match $portPattern
+    })
+}
+
+function Stop-ManagedSkillTrackerServers {
+    param([int]$ListenPort)
+
+    $managedProcesses = @(Get-ManagedSkillTrackerServerProcesses -ListenPort $ListenPort)
+    if ($managedProcesses.Count -eq 0) { return $false }
+
+    foreach ($process in $managedProcesses) {
+        if ([int]$process.ProcessId -ne $PID) {
+            Stop-Process -Id ([int]$process.ProcessId) -Force -ErrorAction SilentlyContinue
+        }
+    }
+
+    $deadline = (Get-Date).AddSeconds(10)
+    do {
+        if (@(Get-ManagedSkillTrackerServerProcesses -ListenPort $ListenPort).Count -eq 0) {
+            return $true
+        }
+        Start-Sleep -Milliseconds 250
+    } while ((Get-Date) -lt $deadline)
+
+    return $false
+}
+
 function Open-SkillTrackerBrowser {
     param([string]$Url)
 
@@ -462,7 +512,21 @@ if (-not (Test-Path -LiteralPath $CollectorPath -PathType Leaf)) {
 }
 
 if (-not (Test-SkillTrackerServer -ListenPort $Port)) {
-    if (Test-AnyHttpServer -ListenPort $Port) {
+    $managedServerProcesses = @(Get-ManagedSkillTrackerServerProcesses -ListenPort $Port)
+    if ($managedServerProcesses.Count -gt 0) {
+        Write-Host "Replacing the previous Skill Tracker server on port $Port..."
+        if (-not (Stop-ManagedSkillTrackerServers -ListenPort $Port)) {
+            throw "The previous Skill Tracker server on port $Port could not be stopped."
+        }
+        $stopDeadline = (Get-Date).AddSeconds(10)
+        do {
+            if (-not (Test-AnyHttpServer -ListenPort $Port)) { break }
+            Start-Sleep -Milliseconds 250
+        } while ((Get-Date) -lt $stopDeadline)
+        if (Test-AnyHttpServer -ListenPort $Port) {
+            throw "The previous Skill Tracker server on port $Port is still responding."
+        }
+    } elseif (Test-AnyHttpServer -ListenPort $Port) {
         throw "Port $Port is already used by another local server. Stop that server or choose another port."
     }
 
