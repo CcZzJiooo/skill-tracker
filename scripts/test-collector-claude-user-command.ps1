@@ -89,7 +89,14 @@ try {
     $rows = @(Read-JsArray -Path (Join-Path $outputDir "skill_log.js") -Name "SKILL_LOG")
     $match = $rows | Where-Object { $_.skill -eq "claude-user-skill" } | Select-Object -First 1
     if (-not $match) { throw "Collector did not detect Claude's legacy type=user command record." }
-    if ([string]$match.time -ne "2026-07-27T08:30:00.000Z") {
+    # PowerShell 7.6 may materialize ISO strings as DateTime during
+    # ConvertFrom-Json; compare the semantic UTC value, not its display format.
+    $matchTime = if ($match.time -is [datetime]) {
+        ([datetime]$match.time).ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ss.fffZ")
+    } else {
+        [string]$match.time
+    }
+    if ($matchTime -ne "2026-07-27T08:30:00.000Z") {
         throw "Collector did not preserve the Claude command timestamp: $($match.time)"
     }
 

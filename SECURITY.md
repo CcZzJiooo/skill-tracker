@@ -41,4 +41,4 @@ In scope:
 
 Out of scope:
 
-- Vulnerabilities in GitHub, Codex, Claude Code, Cursor, Windsurf, Antigravity, Continue, Gemini CLI, or other upstream products.
+- Vulnerabilities in GitHub, Codex, Claude Code, Cursor, Windsurf, Antigravity, AntigravityIDE, Continue, Gemini CLI, or other upstream products.

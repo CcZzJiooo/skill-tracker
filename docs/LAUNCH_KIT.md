@@ -26,7 +26,7 @@ Most AI coding agents can call skills, plugins, and local workflows, but users c
 
 ## Chinese Pitch
 
-Skill Tracker 是一个本地优先的 AI Agent 技能调用可视化工具。它能扫描 Codex、Claude Code、Cursor、Windsurf、Antigravity、Gemini CLI 等工具的本地会话日志，把 `SKILL.md` 调用变成可视化 dashboard，并支持中文功能说明、重复 skill 检测、GitHub 搜索和治理行动方案导出。
+Skill Tracker 是一个本地优先的 AI Agent 技能调用可视化工具。它能扫描 Codex、Claude Code、Cursor、Windsurf、Antigravity、AntigravityIDE、Gemini CLI 等工具的本地会话日志，把 `SKILL.md` 调用变成可视化 dashboard，并支持中文功能说明、重复 skill 检测、GitHub 搜索和治理行动方案导出。
 
 ## GitHub Description
 
@@ -103,7 +103,7 @@ Repo: https://github.com/CcZzJiooo/skill-tracker
 ```text
 I built an open-source local dashboard for AI-agent skill observability.
 
-It scans local logs from tools like Codex, Claude Code, Cursor, Windsurf, Antigravity, Continue, and Gemini CLI, detects SKILL.md calls, and shows which skills are actually being used.
+It scans local logs from tools like Codex, Claude Code, Cursor, Windsurf, Antigravity, AntigravityIDE, Continue, and Gemini CLI, detects SKILL.md calls, and shows which skills are actually being used.
 
 Main features:
 - skill call heatmaps and timelines

@@ -69,7 +69,7 @@ This portable package is unsigned. It does not require you to disable security s
 
 ## Privacy
 
-Generated local telemetry stays on your machine and is ignored by Git:
+Generated local telemetry stays on your machine and is ignored by Git. It is written to the configured `output_dir` (default: `dashboard/`):
 
 - `dashboard/skill_data.js`
 - `dashboard/skill_log.js`
