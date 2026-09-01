@@ -11,11 +11,11 @@ Local-first observability for AI agent skills.
 
 Skill Tracker scans local AI coding-agent session logs, detects `SKILL.md` usage, and turns skill calls into a private dashboard: heatmaps, timelines, Chinese skill descriptions, duplicate-skill governance, GitHub discovery, and exportable action plans.
 
-Current release: `v0.6.0` — adaptive local tool discovery, launch-time rescans, deletion-aware tool history, and native `OpenCode` / `DeepSeek Harness (dsh)` support.
+Current release: `v0.6.0` — adaptive local tool discovery, launch-time rescans, deletion-aware tool history, native `OpenCode` / `DeepSeek Harness (dsh)` support, and mainstream `WorkBuddy`, `CodeBuddy`, `Qoder`, `CodeGeeX`, and `Baidu Comate` adapters.
 
 ![Skill Tracker v0.5.0 light theme dashboard overview](docs/v0.5.0-light-overview.png)
 
-### v0.5.0 Light Theme Preview
+### Historical v0.5.0 Light Theme Preview
 
 | Governance insights | Skill matrix |
 | --- | --- |
@@ -27,7 +27,7 @@ Modern AI coding agents can call skills, plugins, prompts, and local workflows, 
 
 Skill Tracker makes that hidden layer visible.
 
-- See which skills are used across Codex, Claude Code, Cursor, Windsurf, Antigravity, AntigravityIDE, OpenCode, DeepSeek Harness (dsh), Aider, Cline/Roo/Kilo, Copilot, Continue, Gemini CLI, Hermes, Trae, and other local AI coding tools.
+- See which skills are used across Codex, Claude Code, Cursor, Windsurf, Antigravity, AntigravityIDE, OpenCode, DeepSeek Harness (dsh), WorkBuddy, CodeBuddy, Qoder, CodeGeeX, Baidu Comate, Aider, Cline/Roo/Kilo, Copilot, Continue, Gemini CLI, Hermes, Trae, and other local AI coding tools.
 - Translate each skill's purpose into Chinese so non-English users can understand the local skill library.
 - Search by natural language intent, such as "I need a skill that saves tokens".
 - Detect duplicated or overlapping skills and export reviewable cleanup plans.
@@ -38,7 +38,7 @@ Skill Tracker makes that hidden layer visible.
 
 Skill Tracker 是一个本地优先的 AI Agent 技能调用可视化工具。它扫描本机 AI 编程工具的会话日志，统计哪些 `SKILL.md` 被调用，并在静态 dashboard 中展示技能热度、调用链路、中文功能说明、重复 skill 治理、GitHub 搜索和可导出的行动方案。
 
-它适合想管理 Codex / Claude Code / Cursor / Windsurf / Antigravity / AntigravityIDE / OpenCode / DeepSeek Harness / Gemini CLI / Hermes / Trae 等工具技能体系的开发者。
+它适合想管理 Codex / Claude Code / Cursor / Windsurf / Antigravity / AntigravityIDE / OpenCode / DeepSeek Harness / WorkBuddy / CodeBuddy / Qoder / CodeGeeX / Baidu Comate / Gemini CLI / Hermes / Trae 等工具技能体系的开发者。
 
 ## Quick Start
 
@@ -103,7 +103,7 @@ GitHub's default "Source code" assets work for developers, but they look raw to 
 powershell -ExecutionPolicy Bypass -File .\scripts\package-release.ps1 -Version v0.6.0
 ```
 
-Upload both `dist/skill-tracker-v0.6.0-portable.zip` and `dist/SHA256SUMS.txt` to the GitHub release. Windows users run `run.bat`; Linux and macOS users run `bash run.sh`. The same package starts a local watcher and serves the dashboard while collecting real local data. Windows-only shortcut and login-startup controls are hidden on Linux and macOS.
+Upload both `dist/skill-tracker-v0.6.0-portable.zip` and `dist/SHA256SUMS.txt` to the GitHub release. Windows users run `run.bat`; Linux and macOS users run `bash run.sh`. The same package starts a local watcher and serves the dashboard while collecting real local data. Windows-only shortcut and login-startup controls are hidden on Linux and macOS. The release assets are the portable ZIP and checksum manifest; GitHub Packages is a separate, unused registry area.
 
 An `.exe` wrapper is optional later, mainly for one-click onboarding. It is not required for the current architecture because there is no installer or Windows service; the local watcher is a normal user-owned PowerShell process.
 
@@ -140,6 +140,8 @@ The **工具雷达 / Adaptive tools** view performs a bounded local discovery pa
 
 `OpenCode` and **DeepSeek Harness (`dsh`)** are separate profiles. DeepSeek Harness is the open-source DeepSeek agent harness; its JSONL adapter understands the native `user/message` event, direct `data.content` text blocks, and numeric `time` values. `Hermes` remains a separate profile and is not treated as an alias for DeepSeek Harness.
 
+v0.6.0 also promotes five mainstream local formats to first-class adapters: `WorkBuddy` project JSONL, `CodeBuddy` CLI/IDE logs, `Qoder` project/session logs (with legacy Tongyi Lingma / 通义灵码 aliases normalized to Qoder), `CodeGeeX` editor storage, and `Baidu Comate` / 文心快码 editor storage. These profiles require current installation evidence as well as a readable log source, so stale folders alone do not create a false current-tool row.
+
 ## Supported Sources
 
 Skill Tracker currently detects common local paths for:
@@ -156,6 +158,11 @@ Skill Tracker currently detects common local paths for:
 | Cline | `%APPDATA%/Code/User/globalStorage/saoudrizwan.claude-dev/` |
 | Codex | `~/.codex/sessions/`, `~/.codex/archived_sessions/` |
 | Cursor | `%APPDATA%/Cursor/logs/` |
+| WorkBuddy | `~/.workbuddy/projects/`, `~/.workbuddy/sessions/`, `%APPDATA%/WorkBuddy/logs/` |
+| CodeBuddy | `~/.codebuddy/logs/`, `~/.codebuddy/projects/`, `%APPDATA%/CodeBuddy/logs/` |
+| Qoder | `~/.qoder/projects/`, `~/.qoder/sessions/`, legacy `~/.lingma/` and `%APPDATA%/Qoder/logs/` |
+| CodeGeeX | `%APPDATA%/Code/User/globalStorage/AMiner.codegeex/`, `%APPDATA%/CodeGeeX/logs/` |
+| Baidu Comate / 文心快码 | `%APPDATA%/Code/User/globalStorage/BaiduComate.BaiduComate/`, `%APPDATA%/Comate/logs/` |
 | Continue | `~/.continue/sessions/` |
 | Gemini CLI | `~/.gemini/sessions/` |
 | GitHub Copilot | `%APPDATA%/Code/User/globalStorage/github.copilot-chat/`, `%APPDATA%/Code/User/workspaceStorage/` |
@@ -246,7 +253,7 @@ AI agents usually load a skill by reading a path like:
 skills/<name>/SKILL.md
 ```
 
-Skill Tracker scans local session logs for high-confidence skill signals: explicit `/skill` invocations, Claude Code `attributionSkill` records, DeepSeek Harness `user/message` events, and real tool reads of `SKILL.md`. Generated skill inventories, grep/search output, command output, and duplicate transcript copies are filtered out before data is emitted.
+Skill Tracker scans local session logs for high-confidence skill signals: explicit `/skill` invocations, Claude Code `attributionSkill` records, DeepSeek Harness `user/message` events, mainstream `message` records whose `role` is `user`, and real tool reads of `SKILL.md`. Both ISO timestamps and numeric Unix timestamps are normalized. Generated skill inventories, grep/search output, command output, and duplicate transcript copies are filtered out before data is emitted.
 
 Default deduplication key:
 

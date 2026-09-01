@@ -21,7 +21,7 @@ This roadmap prioritizes practical adoption first, then deeper agent-skill gover
   - Additional editor plugins.
   - Custom JSONL schemas.
   - Optional imported anonymized reports.
-- Adaptive tool discovery and bounded candidate probing (v0.6.0): shipped for OpenCode, DeepSeek Harness (`dsh`), and upgrade candidates such as Kiro/OpenClaw/Pi Agent/OpenHands.
+- Adaptive tool discovery and bounded candidate probing (v0.6.0): shipped for OpenCode, DeepSeek Harness (`dsh`), WorkBuddy, CodeBuddy, Qoder, CodeGeeX, and Baidu Comate / 文心快码. Kiro, OpenClaw, Pi Agent, and OpenHands remain bounded candidates until their native log contracts are stable enough to promote.
 
 ## Phase 3: Governance Intelligence
 

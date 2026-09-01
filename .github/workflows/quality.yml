@@ -45,6 +45,7 @@ jobs:
           ./scripts/test-collector-cache.ps1
           ./scripts/test-collector-antigravity-layout.ps1
           ./scripts/test-collector-tool-discovery.ps1
+          ./scripts/test-collector-mainstream-tools.ps1
           ./scripts/test-collector-watcher-read-retry.ps1
           ./scripts/test-start-dashboard-configured-output.ps1
           ./scripts/test-start-dashboard-adaptive-discovery.ps1

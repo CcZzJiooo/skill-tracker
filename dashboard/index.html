@@ -42,6 +42,11 @@
   --tool-cursor: #79e5d6;
   --tool-windsurf: #a98cff;
   --tool-opencode: #f0b85a;
+  --tool-workbuddy: #63b3ed;
+  --tool-codebuddy: #67e8f9;
+  --tool-qoder: #f59e8b;
+  --tool-codegeex: #c084fc;
+  --tool-baidu-comate: #fca5a5;
   --tool-aider: #ff7b6e;
   --tool-cline: #8fb7ff;
   --tool-roo-code: #7ed78b;
@@ -470,6 +475,11 @@ button {
 .tool-opencode { --tool-color: var(--tool-opencode); }
 .tool-OpenCode { --tool-color: var(--tool-opencode); }
 .tool-DeepSeekHarness { --tool-color: #4fc3a1; }
+.tool-WorkBuddy { --tool-color: var(--tool-workbuddy); }
+.tool-CodeBuddy { --tool-color: var(--tool-codebuddy); }
+.tool-Qoder { --tool-color: var(--tool-qoder); }
+.tool-CodeGeeX { --tool-color: var(--tool-codegeex); }
+.tool-BaiduComate { --tool-color: var(--tool-baidu-comate); }
 .tool-Aider { --tool-color: var(--tool-aider); }
 .tool-Cline { --tool-color: var(--tool-cline); }
 .tool-Roo-Code { --tool-color: var(--tool-roo-code); }
@@ -5946,7 +5956,7 @@ button.catalog-stat.active {
       {
         title: "工具雷达",
         step: "先看本机适配",
-        body: "每次启动和后台轮询前都会重新检查本机安装证据。当前工具只展示仍然存在的工具；删除工具后不再显示，但会在本次变更里留下已移除记录。OpenCode 与 DeepSeek Harness（dsh）按独立工具解析，待适配候选可通过 custom_tools 接入。"
+        body: "每次启动和后台轮询前都会重新检查本机安装证据。当前工具只展示仍然存在的工具；删除工具后不再显示，但会在本次变更里留下已移除记录。OpenCode 与 DeepSeek Harness（dsh）按独立工具解析，WorkBuddy、CodeBuddy、Qoder、CodeGeeX 和文心快码也有原生日志适配；待适配候选可通过 custom_tools 接入。"
       },
       {
         title: "调用日志",

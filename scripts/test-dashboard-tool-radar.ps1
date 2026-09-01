@@ -4,6 +4,8 @@ $ErrorActionPreference = "Stop"
 $repoRoot = Split-Path -Parent $PSScriptRoot
 $htmlPath = Join-Path $repoRoot "dashboard\index.html"
 $html = Get-Content -LiteralPath $htmlPath -Raw -Encoding UTF8
+$demoPath = Join-Path $repoRoot "dashboard\demo_data.js"
+$demo = Get-Content -LiteralPath $demoPath -Raw -Encoding UTF8
 
 $required = @(
     'data-view-button="tools"',
@@ -23,6 +25,11 @@ $required = @(
 foreach ($needle in $required) {
     if (-not $html.Contains($needle)) {
         throw "Dashboard tool radar contract is missing: $needle"
+    }
+}
+foreach ($tool in @("WorkBuddy", "CodeBuddy", "Qoder", "CodeGeeX", "Baidu Comate")) {
+    if (-not $demo.Contains($tool)) {
+        throw "Dashboard demo data is missing mainstream tool coverage: $tool"
     }
 }
 

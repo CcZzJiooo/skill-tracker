@@ -11,9 +11,11 @@ v0.6.0 makes tool detection adaptive. It scans for current installation evidence
 - Removed the old false-positive path where a stale log directory could keep a deleted tool visible. Current UI rows come from `visible_sources`; the full `sources` array remains available as diagnostic evidence.
 - Added canonical source identities for `OpenCode` and **DeepSeek Harness (`dsh`)**. `Hermes` stays a separate tool profile and is not treated as a DeepSeek Harness alias.
 - Added native DeepSeek Harness JSONL parsing for `user/message`, direct `data.content` text blocks, and numeric epoch-millisecond `time` values. The collector also recognizes the official npx package cache and common global command/package locations as installation evidence.
+- Added first-class mainstream adapters for `WorkBuddy`, `CodeBuddy`, `Qoder`, `CodeGeeX`, and `Baidu Comate` / 文心快码. WorkBuddy and CodeBuddy project/CLI logs, Qoder and legacy Tongyi Lingma session roots, and the CodeGeeX/Comate VS Code global-storage IDs are paired with executable or versioned-extension installation evidence.
+- Added a shared structured-event path for `message` records with `role=user`, including array and string content, plus numeric `timestamp` normalization. This covers the event shape used by the new mainstream fixtures without weakening the existing high-confidence skill matching rules.
 - Added bounded upgrade candidates for Kiro, OpenClaw, Pi Agent, and OpenHands. Candidate probing checks only a small set of known paths, commands, and process names; it does not crawl the whole disk.
 - Added a privacy-safe `tool-discovery` CLI command. `health` now includes the same redacted discovery summary, without local paths or raw session data.
-- Added regression coverage for canonical naming, stale-log removal, npx package discovery, native DeepSeek Harness events, launch-time candidate discovery, dashboard JavaScript/markup, and CLI redaction.
+- Added regression coverage for canonical naming, stale-log removal, npx package discovery, native DeepSeek Harness events, five mainstream tool adapters, launch-time candidate discovery, dashboard JavaScript/markup, and CLI redaction.
 
 ## Report contract
 
@@ -31,7 +33,7 @@ The `tool-discovery` CLI intentionally omits source paths, session IDs, raw logs
 ## Verification coverage
 
 - The version contract aligns `VERSION`, the CLI, the MCP server, and `CITATION.cff` at `0.6.0`.
-- The Windows suite covers collector discovery, official DeepSeek Harness event parsing, npx package markers, watcher transitions, launch-time rescans, dashboard radar contracts, CLI output, packaging, and stale-server handling.
+- The Windows suite covers collector discovery, official DeepSeek Harness event parsing, WorkBuddy/CodeBuddy/Qoder/CodeGeeX/Baidu Comate fixtures, npx package markers, watcher transitions, launch-time rescans, dashboard radar contracts, CLI output, packaging, and stale-server handling.
 - The portable package excludes generated telemetry, cache, PID, and heartbeat files as before.
 
-Local tests prove the collector and launcher behavior in the current Windows environment. They do not by themselves prove that a user's OpenCode or DeepSeek Harness installation exists, that an external package registry is reachable, or that a release asset has been published on GitHub Releases.
+Local tests prove the collector and launcher behavior in the current Windows environment. They do not by themselves prove that a user's tool installation exists, that an external package registry is reachable, or that a release asset has been published on GitHub Releases; the release checklist must verify the actual GitHub Release separately.

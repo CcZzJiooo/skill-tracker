@@ -70,7 +70,7 @@ function Get-SkillTrackerPlatformPaths {
         ) | Where-Object { $_ } | Select-Object -Unique
     }
 
-    $editorNames = @("Code", "Code - Insiders", "VSCodium", "Cursor", "Windsurf", "Trae", "Trae CN")
+    $editorNames = @("Code", "Code - Insiders", "VSCodium", "Cursor", "Windsurf", "Trae", "Trae CN", "Qoder", "Qoder CN", "CodeBuddy")
     $globalRoots = @($editorNames | ForEach-Object {
         Join-SkillTrackerPath $AppData $_ "User" "globalStorage"
     })

@@ -121,10 +121,14 @@ $editorExtensionInstallRoots = @(
     (Join-SkillTrackerPath $userHome ".kiro" "extensions"),
     (Join-SkillTrackerPath $appData "Code" "User" "extensions"),
     (Join-SkillTrackerPath $appData "Code - Insiders" "User" "extensions"),
+    (Join-SkillTrackerPath $appData "VSCodium" "User" "extensions"),
     (Join-SkillTrackerPath $appData "Cursor" "User" "extensions"),
     (Join-SkillTrackerPath $appData "Windsurf" "User" "extensions"),
     (Join-SkillTrackerPath $appData "Trae" "User" "extensions"),
-    (Join-SkillTrackerPath $appData "Trae CN" "User" "extensions")
+    (Join-SkillTrackerPath $appData "Trae CN" "User" "extensions"),
+    (Join-SkillTrackerPath $appData "Qoder" "User" "extensions"),
+    (Join-SkillTrackerPath $appData "Qoder CN" "User" "extensions"),
+    (Join-SkillTrackerPath $appData "CodeBuddy" "User" "extensions")
 ) | Where-Object { $_ } | Select-Object -Unique
 
 function Get-EditorExtensionInstallPatterns {
@@ -157,6 +161,10 @@ $skillRootCandidates = @(
     (Join-SkillTrackerPath $userHome ".kilo" "skills"),
     (Join-SkillTrackerPath $userHome ".qwen" "skills"),
     (Join-SkillTrackerPath $userHome ".dsh" "skills"),
+    (Join-SkillTrackerPath $userHome ".workbuddy" "skills"),
+    (Join-SkillTrackerPath $userHome ".codebuddy" "skills"),
+    (Join-SkillTrackerPath $userHome ".qoder" "skills"),
+    (Join-SkillTrackerPath $userHome ".lingma" "skills"),
     (Join-SkillTrackerPath $userHome ".config" "amp" "skills"),
     (Join-SkillTrackerPath $userHome ".config" "opencode" "skills"),
     (Join-SkillTrackerPath $userHome ".opencode" "skills"),
@@ -295,6 +303,11 @@ $AUTO_DETECT_TOOLS = @(
     @{ Name="Codex";       Paths=@((Join-SkillTrackerPath $codexHome "archived_sessions"),(Join-SkillTrackerPath $codexHome "sessions")); TsField="timestamp" },
     @{ Name="Cursor";      Paths=@((Join-SkillTrackerPath $userHome ".cursor" "logs"),(Join-SkillTrackerPath $appData "Cursor" "logs")); TsField="timestamp"; RequireInstall=$true; InstallPaths=$desktopToolPolicies["Cursor"].InstallPaths; CommandNames=$desktopToolPolicies["Cursor"].CommandNames; ProcessNames=$desktopToolPolicies["Cursor"].ProcessNames },
     @{ Name="Windsurf";    Paths=@((Join-SkillTrackerPath $userHome ".codeium" "windsurf" "logs"),(Join-SkillTrackerPath $appData "Windsurf" "logs")); TsField="timestamp"; RequireInstall=$true; InstallPaths=$desktopToolPolicies["Windsurf"].InstallPaths; CommandNames=$desktopToolPolicies["Windsurf"].CommandNames; ProcessNames=$desktopToolPolicies["Windsurf"].ProcessNames },
+    @{ Name="WorkBuddy";   Paths=@((Join-SkillTrackerPath $userHome ".workbuddy" "projects"),(Join-SkillTrackerPath $userHome ".workbuddy" "sessions"),(Join-SkillTrackerPath $userHome ".workbuddy" "logs"),(Join-SkillTrackerPath $appData "WorkBuddy" "logs"),(Join-SkillTrackerPath $localAppData "WorkBuddy" "logs"),(Join-SkillTrackerPath $appData "Tencent" "WorkBuddy" "Logs"),(Join-SkillTrackerPath $localAppData "Tencent" "WorkBuddy" "Logs")); TsField="timestamp"; Id="workbuddy"; Aliases=@("workbuddy"); Publisher="Tencent"; RuntimeKind="agent_harness"; ProviderHints=@("Tencent") },
+    @{ Name="CodeBuddy";   Paths=@((Join-SkillTrackerPath $userHome ".codebuddy" "logs"),(Join-SkillTrackerPath $userHome ".codebuddy" "projects"),(Join-SkillTrackerPath $appData "CodeBuddy" "logs"),(Join-SkillTrackerPath $localAppData "CodeBuddy" "logs"),(Join-SkillTrackerPath $appData "Tencent" "CodeBuddy" "logs"),(Join-SkillTrackerPath $localAppData "Tencent" "CodeBuddy" "logs")); TsField="timestamp"; Id="codebuddy"; Aliases=@("codebuddy"); Publisher="Tencent"; RuntimeKind="coding_agent"; ProviderHints=@("Tencent") },
+    @{ Name="Qoder";      Paths=@((Join-SkillTrackerPath $userHome ".qoder" "projects"),(Join-SkillTrackerPath $userHome ".qoder" "sessions"),(Join-SkillTrackerPath $userHome ".qoder" "logs"),(Join-SkillTrackerPath $userHome ".lingma" "projects"),(Join-SkillTrackerPath $userHome ".lingma" "sessions"),(Join-SkillTrackerPath $userHome ".lingma" "logs"),(Join-SkillTrackerPath $appData "Qoder" "logs"),(Join-SkillTrackerPath $localAppData "Qoder" "logs"),(Join-SkillTrackerPath $appData "Lingma" "logs"),(Join-SkillTrackerPath $localAppData "Lingma" "logs")); TsField="timestamp"; Id="qoder"; Aliases=@("qoder-cn","lingma","Tongyi Lingma","通义灵码"); Publisher="Alibaba Cloud"; RuntimeKind="coding_agent"; ProviderHints=@("Alibaba Cloud") },
+    @{ Name="CodeGeeX";   Paths=@((Get-EditorGlobalStoragePaths -ExtensionIds @("AMiner.codegeex","aminer.codegeex","codegeex-research.codegeex-research")) + @((Join-SkillTrackerPath $appData "CodeGeeX" "logs"),(Join-SkillTrackerPath $localAppData "CodeGeeX" "logs"))); TsField="timestamp"; Id="codegeex"; Aliases=@("codegeex"); Publisher="AMiner"; RuntimeKind="ide_extension"; ProviderHints=@("AMiner") },
+    @{ Name="Baidu Comate"; Paths=@((Get-EditorGlobalStoragePaths -ExtensionIds @("BaiduComate.BaiduComate","baiducomate.baiducomate")) + @((Join-SkillTrackerPath $appData "Comate" "logs"),(Join-SkillTrackerPath $localAppData "Comate" "logs"),(Join-SkillTrackerPath $appData "BaiduComate" "logs"),(Join-SkillTrackerPath $localAppData "BaiduComate" "logs"),(Join-SkillTrackerPath $appData "Baidu" "Comate" "logs"),(Join-SkillTrackerPath $localAppData "Baidu" "Comate" "logs"))); TsField="timestamp"; Id="baidu-comate"; Aliases=@("comate","baiducomate","文心快码"); Publisher="Baidu"; RuntimeKind="ide_extension"; ProviderHints=@("Baidu") },
     @{ Name="Continue";    Paths=@((Join-SkillTrackerPath $userHome ".continue" "sessions")); TsField="timestamp" },
     @{ Name="Gemini CLI";  Paths=@((Join-SkillTrackerPath $userHome ".gemini" "sessions")); TsField="created_at" },
     @{ Name="GitHub Copilot"; Paths=@(Get-EditorGlobalStoragePaths -ExtensionIds @("github.copilot-chat","github.copilot")); TsField="timestamp" },
@@ -326,6 +339,11 @@ $toolInstallPolicies = @{
     "ClaudeCode" = @{ CommandNames=@("claude"); InstallPaths=@(Get-CommandInstallPaths -CommandNames @("claude")) }
     "Cline" = @{ InstallPathPatterns=@(Get-EditorExtensionInstallPatterns -ExtensionIds @("saoudrizwan.claude-dev","cline.cline")) }
     "Codex" = @{ CommandNames=@("codex"); ProcessNames=@("codex"); InstallPaths=@((Join-SkillTrackerPath $localAppData "OpenAI" "Codex")) + @(Get-CommandInstallPaths -CommandNames @("codex")) }
+    "WorkBuddy" = @{ CommandNames=@("workbuddy"); ProcessNames=@("WorkBuddy"); InstallPaths=@((Join-SkillTrackerPath $localAppData "Programs" "WorkBuddy" "WorkBuddy.exe"),(Join-SkillTrackerPath $localAppData "WorkBuddy" "WorkBuddy.exe"),(Join-SkillTrackerPath $appData "WorkBuddy" "WorkBuddy.exe")) + @(Get-CommandInstallPaths -CommandNames @("workbuddy")) }
+    "CodeBuddy" = @{ CommandNames=@("codebuddy"); ProcessNames=@("CodeBuddy"); InstallPaths=@((Join-SkillTrackerPath $localAppData "Programs" "CodeBuddy" "CodeBuddy.exe"),(Join-SkillTrackerPath $localAppData "CodeBuddy" "CodeBuddy.exe"),(Join-SkillTrackerPath $appData "CodeBuddy" "CodeBuddy.exe")) + @(Get-CommandInstallPaths -CommandNames @("codebuddy")) }
+    "Qoder" = @{ CommandNames=@("qoder","qoder-cn","lingma"); ProcessNames=@("Qoder","Lingma"); InstallPaths=@((Join-SkillTrackerPath $localAppData "Programs" "Qoder" "Qoder.exe"),(Join-SkillTrackerPath $localAppData "Qoder" "Qoder.exe"),(Join-SkillTrackerPath $localAppData "Programs" "Lingma" "Lingma.exe"),(Join-SkillTrackerPath $localAppData "Lingma" "Lingma.exe")) + @(Get-CommandInstallPaths -CommandNames @("qoder","qoder-cn","lingma")) }
+    "CodeGeeX" = @{ InstallPathPatterns=@(Get-EditorExtensionInstallPatterns -ExtensionIds @("AMiner.codegeex","aminer.codegeex","codegeex-research.codegeex-research")) }
+    "Baidu Comate" = @{ InstallPathPatterns=@(Get-EditorExtensionInstallPatterns -ExtensionIds @("BaiduComate.BaiduComate","baiducomate.baiducomate")) }
     "Continue" = @{ InstallPathPatterns=@(Get-EditorExtensionInstallPatterns -ExtensionIds @("continue.continue")) }
     "Gemini CLI" = @{ CommandNames=@("gemini"); InstallPaths=@(Get-CommandInstallPaths -CommandNames @("gemini")) }
     "GitHub Copilot" = @{ InstallPathPatterns=@(Get-EditorExtensionInstallPatterns -ExtensionIds @("github.copilot-chat","github.copilot")) }
@@ -526,6 +544,17 @@ $toolNameAliases = @{
     "deepseekharness" = "DeepSeek Harness"
     "deepseek-harness" = "DeepSeek Harness"
     "dsh" = "DeepSeek Harness"
+    "workbuddy" = "WorkBuddy"
+    "codebuddy" = "CodeBuddy"
+    "qoder" = "Qoder"
+    "qoder-cn" = "Qoder"
+    "lingma" = "Qoder"
+    "tongyi lingma" = "Qoder"
+    "通义灵码" = "Qoder"
+    "codegeex" = "CodeGeeX"
+    "comate" = "Baidu Comate"
+    "baiducomate" = "Baidu Comate"
+    "文心快码" = "Baidu Comate"
 }
 function Get-CanonicalToolName {
     param([string]$Name)
@@ -1058,7 +1087,7 @@ $userRequestRx = [System.Text.RegularExpressions.Regex]'(?is)<USER_REQUEST>\s*(.
 $directSkillViewPathRx = [System.Text.RegularExpressions.Regex]'(?im)^\s*File Path:\s*`?(?:file:)?[^`\r\n]*[/\\]SKILL\.md`?\s*$'
 $directSkillViewPathExtractRx = [System.Text.RegularExpressions.Regex]'(?im)^\s*File Path:\s*`?(?:file:)?(?<path>[^`\r\n]*[/\\]SKILL\.md)`?\s*$'
 $timeRx   = [System.Text.RegularExpressions.Regex]'"(?:created_at|timestamp|time)"\s*:\s*"([^"]+)"'
-$unixRx   = [System.Text.RegularExpressions.Regex]'"(?:ts|time)"\s*:\s*(\d{9,13})'
+$unixRx   = [System.Text.RegularExpressions.Regex]'"(?:created_at|timestamp|time|ts)"\s*:\s*(\d{9,13})'
 $epoch    = ([datetimeoffset]::Parse('1970-01-01T00:00:00Z')).ToUniversalTime()
 $maxSignalLineChars = 131072
 $logReadChunkChars = 8192
@@ -1165,10 +1194,12 @@ function Add-LogLineChunk {
         $State.IsGenerated = $true
     }
     $hasDshUserMessageToken = $scanText -match '(?i)"type"\s*:\s*"user/message"'
-    if ($scanText.Contains('"type":"USER_INPUT"') -or
+    $hasUserTypeToken = $scanText -match '(?i)"type"\s*:\s*"user"'
+    $hasUserRoleToken = $scanText -match '(?i)"role"\s*:\s*"user"'
+    if ($scanText -match '(?i)"type"\s*:\s*"USER_INPUT"' -or
         $hasDshUserMessageToken -or
-        $scanText.Contains('"type":"user"') -or
-        $scanText.Contains('"role":"user"')) {
+        $hasUserTypeToken -or
+        $hasUserRoleToken) {
         $State.HasUserInput = $true
     }
     $hasSkillFileToken = $scanText.Contains('SKILL.md')
@@ -1186,11 +1217,13 @@ function Add-LogLineChunk {
     # chunks in a large transcript are ordinary text; only a chunk containing
     # a concrete skill/path/timestamp/command token needs semantic extraction.
     $hasStructuredSlashCommand = $scanText -match '(?i)"(?:text|content|message)"\s*:\s*"[^"\r\n]*\/[A-Za-z0-9]'
+    $hasStructuredUserMessage = ($scanText -match '(?i)"type"\s*:\s*"message"') -and $hasUserRoleToken
     $hasCommandToken = $scanText.Contains('<command-name>') -or
         $scanText.Contains('<USER_REQUEST>') -or
         $scanText.Contains('"/') -or
         $hasDshUserMessageToken -or
-        $hasStructuredSlashCommand
+        $hasStructuredSlashCommand -or
+        $hasStructuredUserMessage
     $hasTimestampToken = $scanText.Contains('"created_at"') -or
         $scanText.Contains('"timestamp"') -or
         $scanText.Contains('"time"') -or
@@ -1396,7 +1429,7 @@ function Get-ToolLogFiles {
     if (-not $Root -or -not (Test-Path -LiteralPath $Root)) { return @() }
 
     $broadEditorTools = @("Cline", "Roo Code", "Kilo Code", "GitHub Copilot", "Sourcegraph Cody", "Amazon Q", "Augment", "Tabby", "Tabnine")
-    $jsonMdTools = @("Aider", "Amp", "Goose", "OpenCode", "DeepSeek Harness", "Qwen Code", "Zed", "JetBrains AI", "Junie")
+    $jsonMdTools = @("Aider", "Amp", "Goose", "OpenCode", "DeepSeek Harness", "WorkBuddy", "CodeBuddy", "Qoder", "CodeGeeX", "Baidu Comate", "Qwen Code", "Zed", "JetBrains AI", "Junie")
     $extensions = @(".jsonl")
     if ($ToolName -in @("Cursor", "Windsurf") -or $ToolName -in $broadEditorTools -or $ToolName -in $jsonMdTools -or $ToolName -notin (@("ClaudeCode", "Codex") + $transcriptTools)) {
         $extensions = @(".jsonl", ".json", ".log", ".txt")
@@ -1497,8 +1530,10 @@ function Get-ExplicitSkillCommands {
         $Line.Contains('<USER_REQUEST>') -or
         $Line.Contains('USER_INPUT') -or
         ($Line -match '(?i)"type"\s*:\s*"user/message"') -or
+        (($Line -match '(?i)"type"\s*:\s*"message"') -and ($Line -match '(?i)"role"\s*:\s*"user"')) -or
         $Line.Contains('"type":"user"') -or
-        ($Line.Contains('"role"') -and $Line.Contains('"user"')) -or
+        ($Line -match '(?i)"type"\s*:\s*"user"') -or
+        ($Line -match '(?i)"role"\s*:\s*"user"') -or
         ($Line.Contains('event_msg') -and $Line.Contains('user_message'))
     if (-not $mayContainUserCommand) { return @() }
 
@@ -1523,6 +1558,16 @@ function Get-ExplicitSkillCommands {
         } elseif ($record.type -eq 'user') {
             if ($record.message.content -is [string]) { [void]$texts.Add($record.message.content) }
             if ($record.content -is [string]) { [void]$texts.Add($record.content) }
+            if ($record.text -is [string]) { [void]$texts.Add($record.text) }
+        } elseif ($record.type -eq 'message' -and $record.role -eq 'user') {
+            if ($record.content -is [string]) {
+                [void]$texts.Add($record.content)
+            } elseif ($record.content) {
+                foreach ($part in @($record.content)) {
+                    if ($part.text -is [string]) { [void]$texts.Add($part.text) }
+                    if ($part.content -is [string]) { [void]$texts.Add($part.content) }
+                }
+            }
             if ($record.text -is [string]) { [void]$texts.Add($record.text) }
         } elseif ($record.type -eq 'response_item' -and
                   $record.payload.type -eq 'message' -and

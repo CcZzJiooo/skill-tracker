@@ -86,33 +86,38 @@ var SKILL_LOG = [
   { skill: "to-issues", tool: "ClaudeCode", time: "2026-07-05T10:22:11+08:00", session: "demo-session-engineering-002", dedup: true, dedup_key: "ClaudeCode|demo-session-engineering-002|to-issues|14860151" },
   { skill: "web-design-guidelines", tool: "Antigravity", time: "2026-07-05T14:18:20+08:00", session: "demo-session-design-003", dedup: true, dedup_key: "Antigravity|demo-session-design-003|web-design-guidelines|14860270" },
   { skill: "threejs-animation", tool: "AntigravityIDE", time: "2026-07-05T14:25:46+08:00", session: "demo-session-ide-004", dedup: true, dedup_key: "AntigravityIDE|demo-session-ide-004|threejs-animation|14860273" },
-  { skill: "video-edit", tool: "Antigravity", time: "2026-07-05T15:03:12+08:00", session: "demo-session-media-004", dedup: true, dedup_key: "Antigravity|demo-session-media-004|video-edit|14860291" }
+  { skill: "video-edit", tool: "Antigravity", time: "2026-07-05T15:03:12+08:00", session: "demo-session-media-004", dedup: true, dedup_key: "Antigravity|demo-session-media-004|video-edit|14860291" },
+  { skill: "web-design-guidelines", tool: "WorkBuddy", time: "2026-07-05T16:10:04+08:00", session: "demo-session-workbuddy-005", dedup: true, dedup_key: "WorkBuddy|demo-session-workbuddy-005|web-design-guidelines|14860320" },
+  { skill: "tdd", tool: "CodeBuddy", time: "2026-07-05T16:20:18+08:00", session: "demo-session-codebuddy-006", dedup: true, dedup_key: "CodeBuddy|demo-session-codebuddy-006|tdd|14860328" },
+  { skill: "find-skills", tool: "Qoder", time: "2026-07-05T16:30:27+08:00", session: "demo-session-qoder-007", dedup: true, dedup_key: "Qoder|demo-session-qoder-007|find-skills|14860334" },
+  { skill: "threejs-animation", tool: "CodeGeeX", time: "2026-07-05T16:40:39+08:00", session: "demo-session-codegeex-008", dedup: true, dedup_key: "CodeGeeX|demo-session-codegeex-008|threejs-animation|14860340" },
+  { skill: "to-issues", tool: "Baidu Comate", time: "2026-07-05T16:50:45+08:00", session: "demo-session-comate-009", dedup: true, dedup_key: "Baidu Comate|demo-session-comate-009|to-issues|14860346" }
 ];
 
 var GENERATED_AT = "Demo data";
 var DEDUP_WINDOW_MINUTES = 2;
-var DETECTED_TOOLS = ["Codex", "ClaudeCode", "Antigravity", "AntigravityIDE", "OpenCode", "DeepSeek Harness"];
+var DETECTED_TOOLS = ["Codex", "ClaudeCode", "Antigravity", "AntigravityIDE", "OpenCode", "DeepSeek Harness", "WorkBuddy", "CodeBuddy", "Qoder", "CodeGeeX", "Baidu Comate"];
 var TOOL_REPORT = {
   generated_at: "Demo data",
   summary: {
-    supported_tools: ["Codex", "ClaudeCode", "Antigravity", "AntigravityIDE", "OpenCode", "DeepSeek Harness"],
-    installed_tools: ["Codex", "ClaudeCode", "Antigravity", "AntigravityIDE", "OpenCode", "DeepSeek Harness"],
-    known_tools: ["Aider", "Amazon Q", "Amp", "Antigravity", "AntigravityIDE", "Augment", "ClaudeCode", "Cline", "Codex", "Continue", "Cursor", "Gemini CLI", "GitHub Copilot", "Goose", "Hermes", "DeepSeek Harness", "JetBrains AI", "Junie", "Kilo Code", "OpenCode", "Qwen Code", "Roo Code", "Sourcegraph Cody", "Tabby", "Tabnine", "Trae", "Windsurf", "Zed"],
-    detected_source_count: 6,
-    scanned_file_count: 10,
-    raw_hits: 11,
-    dedup_hits: 9,
-    status_counts: { ok: 6, no_skill_hits: 0, no_log_files: 0, missing: 0, read_errors: 0 }
+    supported_tools: ["Codex", "ClaudeCode", "Antigravity", "AntigravityIDE", "OpenCode", "DeepSeek Harness", "WorkBuddy", "CodeBuddy", "Qoder", "CodeGeeX", "Baidu Comate"],
+    installed_tools: ["Codex", "ClaudeCode", "Antigravity", "AntigravityIDE", "OpenCode", "DeepSeek Harness", "WorkBuddy", "CodeBuddy", "Qoder", "CodeGeeX", "Baidu Comate"],
+    known_tools: ["Aider", "Amazon Q", "Amp", "Antigravity", "AntigravityIDE", "Augment", "Baidu Comate", "ClaudeCode", "Cline", "CodeBuddy", "CodeGeeX", "Codex", "Continue", "Cursor", "DeepSeek Harness", "Gemini CLI", "GitHub Copilot", "Goose", "Hermes", "JetBrains AI", "Junie", "Kilo Code", "OpenCode", "Qoder", "Qwen Code", "Roo Code", "Sourcegraph Cody", "Tabby", "Tabnine", "Trae", "Windsurf", "WorkBuddy", "Zed"],
+    detected_source_count: 11,
+    scanned_file_count: 15,
+    raw_hits: 16,
+    dedup_hits: 14,
+    status_counts: { ok: 11, no_skill_hits: 0, no_log_files: 0, missing: 0, read_errors: 0 }
   },
   discovery: {
     schema: "skill-tracker-tool-discovery@1",
     mode: "local",
     platform: "demo",
     scanned_at: "Demo data",
-    known_tool_count: 28,
-    installed_tool_count: 6,
-    installed_tools: ["Codex", "ClaudeCode", "Antigravity", "AntigravityIDE", "OpenCode", "DeepSeek Harness"],
-    newly_detected_tools: ["OpenCode", "DeepSeek Harness"],
+    known_tool_count: 33,
+    installed_tool_count: 11,
+    installed_tools: ["Codex", "ClaudeCode", "Antigravity", "AntigravityIDE", "OpenCode", "DeepSeek Harness", "WorkBuddy", "CodeBuddy", "Qoder", "CodeGeeX", "Baidu Comate"],
+    newly_detected_tools: ["OpenCode", "DeepSeek Harness", "WorkBuddy", "CodeBuddy", "Qoder", "CodeGeeX", "Baidu Comate"],
     removed_tools: ["Trae"],
     hidden_tool_count: 22,
     unknown_candidates: [
@@ -126,7 +131,12 @@ var TOOL_REPORT = {
     { tool: "ClaudeCode", profile_id: "claudecode", status: "ok", source_count: 1, files_scanned: 2, files_with_hits: 1, raw_hits: 3, dedup_hits: 2, read_errors: 0, latest_log_at: "2026-07-07T03:22:00Z", latest_hit_at: "2026-07-07T03:21:00Z", provider_hints: [] },
     { tool: "Codex", profile_id: "codex", status: "ok", source_count: 1, files_scanned: 4, files_with_hits: 2, raw_hits: 3, dedup_hits: 2, read_errors: 0, latest_log_at: "2026-07-07T03:25:00Z", latest_hit_at: "2026-07-07T03:24:00Z", provider_hints: [] },
     { tool: "OpenCode", profile_id: "opencode", publisher: "OpenCode", runtime_kind: "coding_agent", status: "ok", source_count: 1, files_scanned: 1, files_with_hits: 1, raw_hits: 1, dedup_hits: 1, read_errors: 0, latest_log_at: "2026-07-07T03:26:00Z", latest_hit_at: "2026-07-07T03:26:00Z", provider_hints: [] },
-    { tool: "DeepSeek Harness", profile_id: "deepseek-harness", publisher: "DeepSeek AI", runtime_kind: "agent_harness", status: "ok", source_count: 1, files_scanned: 1, files_with_hits: 1, raw_hits: 1, dedup_hits: 1, read_errors: 0, latest_log_at: "2026-07-07T03:27:00Z", latest_hit_at: "2026-07-07T03:27:00Z", provider_hints: ["DeepSeek"] }
+    { tool: "DeepSeek Harness", profile_id: "deepseek-harness", publisher: "DeepSeek AI", runtime_kind: "agent_harness", status: "ok", source_count: 1, files_scanned: 1, files_with_hits: 1, raw_hits: 1, dedup_hits: 1, read_errors: 0, latest_log_at: "2026-07-07T03:27:00Z", latest_hit_at: "2026-07-07T03:27:00Z", provider_hints: ["DeepSeek"] },
+    { tool: "WorkBuddy", profile_id: "workbuddy", publisher: "Tencent", runtime_kind: "agent_harness", status: "ok", source_count: 1, files_scanned: 1, files_with_hits: 1, raw_hits: 1, dedup_hits: 1, read_errors: 0, latest_log_at: "2026-07-07T08:10:04Z", latest_hit_at: "2026-07-07T08:10:04Z", provider_hints: ["Tencent"] },
+    { tool: "CodeBuddy", profile_id: "codebuddy", publisher: "Tencent", runtime_kind: "coding_agent", status: "ok", source_count: 1, files_scanned: 1, files_with_hits: 1, raw_hits: 1, dedup_hits: 1, read_errors: 0, latest_log_at: "2026-07-07T08:20:18Z", latest_hit_at: "2026-07-07T08:20:18Z", provider_hints: ["Tencent"] },
+    { tool: "Qoder", profile_id: "qoder", publisher: "Alibaba Cloud", runtime_kind: "coding_agent", status: "ok", source_count: 1, files_scanned: 1, files_with_hits: 1, raw_hits: 1, dedup_hits: 1, read_errors: 0, latest_log_at: "2026-07-07T08:30:27Z", latest_hit_at: "2026-07-07T08:30:27Z", provider_hints: ["Alibaba Cloud"] },
+    { tool: "CodeGeeX", profile_id: "codegeex", publisher: "AMiner", runtime_kind: "ide_extension", status: "ok", source_count: 1, files_scanned: 1, files_with_hits: 1, raw_hits: 1, dedup_hits: 1, read_errors: 0, latest_log_at: "2026-07-07T08:40:39Z", latest_hit_at: "2026-07-07T08:40:39Z", provider_hints: ["AMiner"] },
+    { tool: "Baidu Comate", profile_id: "baidu-comate", publisher: "Baidu", runtime_kind: "ide_extension", status: "ok", source_count: 1, files_scanned: 1, files_with_hits: 1, raw_hits: 1, dedup_hits: 1, read_errors: 0, latest_log_at: "2026-07-07T08:50:45Z", latest_hit_at: "2026-07-07T08:50:45Z", provider_hints: ["Baidu"] }
   ],
   sources: [
     { tool: "Antigravity", path: "demo://antigravity", source: "demo", detected: true, files_scanned: 1, files_with_hits: 1, latest_log_at: "2026-07-07T03:20:00Z", latest_hit_at: "2026-07-07T03:18:00Z", raw_hits: 2, dedup_hits: 2, read_errors: 0, status: "ok", status_reason: "skill_hits_detected" },
@@ -156,7 +166,12 @@ var TOOL_REPORT = {
     { tool: "Windsurf", path: "demo://windsurf", source: "demo", detected: false, files_scanned: 0, files_with_hits: 0, latest_log_at: "", latest_hit_at: "", raw_hits: 0, dedup_hits: 0, status: "missing", status_reason: "path_missing" },
     { tool: "Zed", path: "demo://zed", source: "demo", detected: false, files_scanned: 0, files_with_hits: 0, latest_log_at: "", latest_hit_at: "", raw_hits: 0, dedup_hits: 0, status: "missing", status_reason: "path_missing" },
     { tool: "OpenCode", path: "demo://opencode", source: "demo", detected: true, files_scanned: 1, files_with_hits: 1, latest_log_at: "2026-07-07T03:26:00Z", latest_hit_at: "2026-07-07T03:26:00Z", raw_hits: 1, dedup_hits: 1, status: "ok", status_reason: "skill_hits_detected", install_reason: "command_available" },
-    { tool: "DeepSeek Harness", path: "demo://deepseek-harness", source: "demo", detected: true, files_scanned: 1, files_with_hits: 1, latest_log_at: "2026-07-07T03:27:00Z", latest_hit_at: "2026-07-07T03:27:00Z", raw_hits: 1, dedup_hits: 1, status: "ok", status_reason: "skill_hits_detected", install_reason: "command_available" }
+    { tool: "DeepSeek Harness", path: "demo://deepseek-harness", source: "demo", detected: true, files_scanned: 1, files_with_hits: 1, latest_log_at: "2026-07-07T03:27:00Z", latest_hit_at: "2026-07-07T03:27:00Z", raw_hits: 1, dedup_hits: 1, status: "ok", status_reason: "skill_hits_detected", install_reason: "command_available" },
+    { tool: "WorkBuddy", path: "demo://workbuddy", source: "demo", detected: true, files_scanned: 1, files_with_hits: 1, latest_log_at: "2026-07-07T08:10:04Z", latest_hit_at: "2026-07-07T08:10:04Z", raw_hits: 1, dedup_hits: 1, status: "ok", status_reason: "skill_hits_detected", install_reason: "install_marker" },
+    { tool: "CodeBuddy", path: "demo://codebuddy", source: "demo", detected: true, files_scanned: 1, files_with_hits: 1, latest_log_at: "2026-07-07T08:20:18Z", latest_hit_at: "2026-07-07T08:20:18Z", raw_hits: 1, dedup_hits: 1, status: "ok", status_reason: "skill_hits_detected", install_reason: "install_marker" },
+    { tool: "Qoder", path: "demo://qoder", source: "demo", detected: true, files_scanned: 1, files_with_hits: 1, latest_log_at: "2026-07-07T08:30:27Z", latest_hit_at: "2026-07-07T08:30:27Z", raw_hits: 1, dedup_hits: 1, status: "ok", status_reason: "skill_hits_detected", install_reason: "install_marker" },
+    { tool: "CodeGeeX", path: "demo://codegeex", source: "demo", detected: true, files_scanned: 1, files_with_hits: 1, latest_log_at: "2026-07-07T08:40:39Z", latest_hit_at: "2026-07-07T08:40:39Z", raw_hits: 1, dedup_hits: 1, status: "ok", status_reason: "skill_hits_detected", install_reason: "install_marker" },
+    { tool: "Baidu Comate", path: "demo://baidu-comate", source: "demo", detected: true, files_scanned: 1, files_with_hits: 1, latest_log_at: "2026-07-07T08:50:45Z", latest_hit_at: "2026-07-07T08:50:45Z", raw_hits: 1, dedup_hits: 1, status: "ok", status_reason: "skill_hits_detected", install_reason: "install_marker" }
   ],
   visible_sources: [
     { tool: "Antigravity", path: "demo://antigravity", source: "demo", detected: true, files_scanned: 1, files_with_hits: 1, latest_log_at: "2026-07-07T03:20:00Z", latest_hit_at: "2026-07-07T03:18:00Z", raw_hits: 2, dedup_hits: 2, read_errors: 0, status: "ok", status_reason: "skill_hits_detected", install_reason: "install_marker" },
@@ -164,6 +179,11 @@ var TOOL_REPORT = {
     { tool: "ClaudeCode", path: "demo://claudecode", source: "demo", detected: true, files_scanned: 2, files_with_hits: 1, latest_log_at: "2026-07-07T03:22:00Z", latest_hit_at: "2026-07-07T03:21:00Z", raw_hits: 3, dedup_hits: 2, read_errors: 0, status: "ok", status_reason: "skill_hits_detected", install_reason: "command_available" },
     { tool: "Codex", path: "demo://codex", source: "demo", detected: true, files_scanned: 4, files_with_hits: 2, latest_log_at: "2026-07-07T03:25:00Z", latest_hit_at: "2026-07-07T03:24:00Z", raw_hits: 3, dedup_hits: 2, read_errors: 0, status: "ok", status_reason: "skill_hits_detected", install_reason: "command_available" },
     { tool: "OpenCode", path: "demo://opencode", source: "demo", detected: true, files_scanned: 1, files_with_hits: 1, latest_log_at: "2026-07-07T03:26:00Z", latest_hit_at: "2026-07-07T03:26:00Z", raw_hits: 1, dedup_hits: 1, read_errors: 0, status: "ok", status_reason: "skill_hits_detected", install_reason: "command_available" },
-    { tool: "DeepSeek Harness", path: "demo://deepseek-harness", source: "demo", detected: true, files_scanned: 1, files_with_hits: 1, latest_log_at: "2026-07-07T03:27:00Z", latest_hit_at: "2026-07-07T03:27:00Z", raw_hits: 1, dedup_hits: 1, read_errors: 0, status: "ok", status_reason: "skill_hits_detected", install_reason: "command_available" }
+    { tool: "DeepSeek Harness", path: "demo://deepseek-harness", source: "demo", detected: true, files_scanned: 1, files_with_hits: 1, latest_log_at: "2026-07-07T03:27:00Z", latest_hit_at: "2026-07-07T03:27:00Z", raw_hits: 1, dedup_hits: 1, read_errors: 0, status: "ok", status_reason: "skill_hits_detected", install_reason: "command_available" },
+    { tool: "WorkBuddy", path: "demo://workbuddy", source: "demo", detected: true, files_scanned: 1, files_with_hits: 1, latest_log_at: "2026-07-07T08:10:04Z", latest_hit_at: "2026-07-07T08:10:04Z", raw_hits: 1, dedup_hits: 1, read_errors: 0, status: "ok", status_reason: "skill_hits_detected", install_reason: "install_marker" },
+    { tool: "CodeBuddy", path: "demo://codebuddy", source: "demo", detected: true, files_scanned: 1, files_with_hits: 1, latest_log_at: "2026-07-07T08:20:18Z", latest_hit_at: "2026-07-07T08:20:18Z", raw_hits: 1, dedup_hits: 1, read_errors: 0, status: "ok", status_reason: "skill_hits_detected", install_reason: "install_marker" },
+    { tool: "Qoder", path: "demo://qoder", source: "demo", detected: true, files_scanned: 1, files_with_hits: 1, latest_log_at: "2026-07-07T08:30:27Z", latest_hit_at: "2026-07-07T08:30:27Z", raw_hits: 1, dedup_hits: 1, read_errors: 0, status: "ok", status_reason: "skill_hits_detected", install_reason: "install_marker" },
+    { tool: "CodeGeeX", path: "demo://codegeex", source: "demo", detected: true, files_scanned: 1, files_with_hits: 1, latest_log_at: "2026-07-07T08:40:39Z", latest_hit_at: "2026-07-07T08:40:39Z", raw_hits: 1, dedup_hits: 1, read_errors: 0, status: "ok", status_reason: "skill_hits_detected", install_reason: "install_marker" },
+    { tool: "Baidu Comate", path: "demo://baidu-comate", source: "demo", detected: true, files_scanned: 1, files_with_hits: 1, latest_log_at: "2026-07-07T08:50:45Z", latest_hit_at: "2026-07-07T08:50:45Z", raw_hits: 1, dedup_hits: 1, read_errors: 0, status: "ok", status_reason: "skill_hits_detected", install_reason: "install_marker" }
   ]
 };
