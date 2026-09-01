@@ -536,10 +536,6 @@ if (-not (Test-SkillTrackerServer -ListenPort $Port)) {
     }
 }
 
-if (-not $NoBrowser) {
-    Open-SkillTrackerBrowser -Url "http://127.0.0.1:$Port/index.html"
-}
-
 # Auto-ensure desktop shortcut on initial launch
 $shortcutScript = Join-Path $PSScriptRoot "scripts\manage-shortcut.ps1"
 if ($RunningOnWindows -and (Test-Path -LiteralPath $shortcutScript)) {
@@ -566,8 +562,9 @@ if ($NoWatch -and (-not $hasGeneratedData -or $ForceScan)) {
     }
     Assert-GeneratedDashboardData
 } elseif (-not $NoWatch) {
-    if ($ForceScan -and (Test-CollectorWatcher)) {
+    if (Test-CollectorWatcher) {
         [System.IO.File]::WriteAllText($CollectorTriggerPath, [DateTimeOffset]::UtcNow.ToString("o"), [System.Text.Encoding]::UTF8)
+        Write-Host "已请求后台收集器重新扫描本机工具与最新日志。"
     } elseif (-not (Test-CollectorWatcher)) {
         if (Start-CollectorWatcher) {
             if ($hasGeneratedData) {
@@ -579,4 +576,8 @@ if ($NoWatch -and (-not $hasGeneratedData -or $ForceScan)) {
             Write-Warning "Could not start the background collector watcher."
         }
     }
+}
+
+if (-not $NoBrowser) {
+    Open-SkillTrackerBrowser -Url "http://127.0.0.1:$Port/index.html"
 }

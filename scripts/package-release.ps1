@@ -15,7 +15,7 @@ $ErrorActionPreference = "Stop"
 
 $RepoRoot = Split-Path -Parent $PSScriptRoot
 if ([string]::IsNullOrWhiteSpace($Version)) {
-    throw "Release version is required. Pass -Version, for example: -Version v0.5.1"
+    throw "Release version is required. Pass -Version, for example: -Version v0.6.0"
 }
 $SafeVersion = $Version -replace "[^A-Za-z0-9._-]", "-"
 

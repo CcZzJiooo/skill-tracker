@@ -10,7 +10,7 @@ const args = process.argv.slice(2);
 const version = fs.readFileSync(path.join(root, "VERSION"), "utf8").trim();
 
 function usage() {
-  console.log(`Skill Tracker CLI ${version}\n\n  collect       run the local collector\n  open          start the local dashboard server\n  health        print an explainable skill health report\n  export FILE   export an anonymous aggregate report\n  import FILE   validate and summarize an anonymous report\n  benchmark DIR compare anonymous reports in a directory\n\nOptions: --json writes machine-readable output for health/export/import/benchmark.`);
+  console.log(`Skill Tracker CLI ${version}\n\n  collect          run the local collector\n  open             start the local dashboard server\n  health           print an explainable skill health report\n  tool-discovery   print the current adaptive tool scan\n  export FILE      export an anonymous aggregate report\n  import FILE      validate and summarize an anonymous report\n  benchmark DIR    compare anonymous reports in a directory\n\nOptions: --json writes machine-readable output for health/export/import/benchmark/tool-discovery.`);
 }
 
 function readJson(file) { return JSON.parse(fs.readFileSync(file, "utf8").replaceAll("\uFEFF", "")); }
@@ -27,6 +27,70 @@ function rows() {
 function catalog() {
   const file = path.join(dashboard, "skill_catalog.json");
   return fs.existsSync(file) ? readJson(file) : [];
+}
+function toolDiscovery() {
+  const file = path.join(dashboard, "tool_report.json");
+  if (!fs.existsSync(file)) {
+    return {
+      schema: "skill-tracker-tool-discovery@1",
+      available: false,
+      reason: "tool_report_missing",
+      generated_at: null,
+      platform: null,
+      installed_tools: [],
+      newly_detected_tools: [],
+      removed_tools: [],
+      unknown_candidates: [],
+      known_tool_count: 0,
+      installed_tool_count: 0,
+      scan_method: null,
+    };
+  }
+  let report;
+  try {
+    report = readJson(file);
+  } catch (error) {
+    return {
+      schema: "skill-tracker-tool-discovery@1",
+      available: false,
+      reason: "tool_report_invalid",
+      error: error.message,
+      generated_at: null,
+      platform: null,
+      installed_tools: [],
+      newly_detected_tools: [],
+      removed_tools: [],
+      unknown_candidates: [],
+      known_tool_count: 0,
+      installed_tool_count: 0,
+      scan_method: null,
+    };
+  }
+  const discovery = report.discovery || {};
+  const names = (value) => Array.isArray(value) ? value.filter((item) => typeof item === "string") : [];
+  const candidates = Array.isArray(discovery.unknown_candidates)
+    ? discovery.unknown_candidates
+        .filter((item) => item && typeof item.name === "string")
+        .map((item) => ({
+          name: item.name,
+          profile_id: typeof item.profile_id === "string" ? item.profile_id : null,
+          status: typeof item.status === "string" ? item.status : "unknown",
+          install_reason: typeof item.install_reason === "string" ? item.install_reason : null,
+        }))
+    : [];
+  return {
+    schema: discovery.schema || "skill-tracker-tool-discovery@1",
+    available: true,
+    generated_at: report.generated_at || discovery.scanned_at || null,
+    platform: discovery.platform || null,
+    installed_tools: names(discovery.installed_tools),
+    newly_detected_tools: names(discovery.newly_detected_tools),
+    removed_tools: names(discovery.removed_tools),
+    unknown_candidates: candidates,
+    known_tool_count: Number.isFinite(discovery.known_tool_count) ? discovery.known_tool_count : 0,
+    installed_tool_count: Number.isFinite(discovery.installed_tool_count) ? discovery.installed_tool_count : names(discovery.installed_tools).length,
+    scan_method: discovery.scan_method || null,
+  };
 }
 function healthReport() {
   const log = rows();
@@ -56,7 +120,7 @@ function healthReport() {
     const action = reasons.includes("缺少说明") ? "rewrite" : reasons.includes("长期未使用") ? "observe" : reasons.includes("短时间重复读取率高") ? "merge" : "keep";
     return { skill: item.skill, calls: item.calls, raw_calls: item.raw_calls, tools: [...item.tools].sort(), sessions: item.sessions.size, latest: item.latest, duplicate_rate: Number(duplicateRate.toFixed(3)), health: action, reasons };
   }).sort((a, b) => b.calls - a.calls || a.skill.localeCompare(b.skill));
-  return { schema: "skill-tracker-health@1", generated_at: generatedAt(), source_generated_at: readGeneratedAt(), skills, summary: { skills: skills.length, keep: skills.filter((x) => x.health === "keep").length, merge: skills.filter((x) => x.health === "merge").length, rewrite: skills.filter((x) => x.health === "rewrite").length, observe: skills.filter((x) => x.health === "observe").length } };
+  return { schema: "skill-tracker-health@1", generated_at: generatedAt(), source_generated_at: readGeneratedAt(), tool_discovery: toolDiscovery(), skills, summary: { skills: skills.length, keep: skills.filter((x) => x.health === "keep").length, merge: skills.filter((x) => x.health === "merge").length, rewrite: skills.filter((x) => x.health === "rewrite").length, observe: skills.filter((x) => x.health === "observe").length } };
 }
 function readGeneratedAt() {
   const file = path.join(dashboard, "skill_data.js");
@@ -104,6 +168,7 @@ try {
   if (command === "collect") process.exit(runPowerShell(path.join(root, "collect.ps1"), ["-ForceScan"]));
   if (command === "open") process.exit(runPowerShell(path.join(root, "start-dashboard.ps1"), dashboardArgs(args.slice(1))));
   if (command === "health") { output(healthReport()); process.exit(0); }
+  if (command === "tool-discovery" || command === "tools") { output(toolDiscovery()); process.exit(0); }
   if (command === "export") { const file = args[1]; if (!file) throw new Error("export requires FILE"); writeJson(path.resolve(file), anonymousReport()); console.log(`wrote ${path.resolve(file)}`); process.exit(0); }
   if (command === "import") { const value = validateReport(readJson(path.resolve(args[1]))); output({ schema: value.schema, source_generated_at: value.source_generated_at, totals: value.totals, tools: value.tools.length, health_rows: value.health.length }); process.exit(0); }
   if (command === "benchmark") { const dir = path.resolve(args[1] || "."); const reports = fs.readdirSync(dir).filter((name) => name.endsWith(".json")).map((name) => validateReport(readJson(path.join(dir, name)))); output({ schema: "skill-tracker-benchmark@1", generated_at: generatedAt(), reports: reports.map((value) => ({ source_generated_at: value.source_generated_at, totals: value.totals, tools: value.tools.length, health_rows: value.health.length })) }); process.exit(0); }

@@ -65,6 +65,11 @@ $codexHome = if ($env:CODEX_HOME) {
 } else {
     [System.IO.Path]::Combine($userHome, ".codex")
 }
+$dshSessionRoot = if ($env:DSH_SESSION_ROOT) {
+    Resolve-ConfiguredPath -Path ([string]$env:DSH_SESSION_ROOT) -BaseDirectory (Get-Location).Path
+} else {
+    [System.IO.Path]::Combine($userHome, ".dsh", "sessions")
+}
 $runningOnWindows = [System.Runtime.InteropServices.RuntimeInformation]::IsOSPlatform([System.Runtime.InteropServices.OSPlatform]::Windows)
 $runningOnMacOS = [System.Runtime.InteropServices.RuntimeInformation]::IsOSPlatform([System.Runtime.InteropServices.OSPlatform]::OSX)
 $runtimePlatform = if ($runningOnWindows) { "Windows" } elseif ($runningOnMacOS) { "MacOS" } else { "Linux" }
@@ -101,6 +106,40 @@ function Get-EditorGlobalStoragePaths {
     return $paths
 }
 
+# Extension globalStorage can survive an uninstall, so it is a log source but
+# not a reliable installation marker. The package directories below are the
+# bounded, user-owned locations where VS Code-compatible extensions are
+# actually installed. This keeps a removed extension from being resurrected by
+# stale globalStorage data.
+$editorExtensionInstallRoots = @(
+    (Join-SkillTrackerPath $userHome ".vscode" "extensions"),
+    (Join-SkillTrackerPath $userHome ".vscode-insiders" "extensions"),
+    (Join-SkillTrackerPath $userHome ".cursor" "extensions"),
+    (Join-SkillTrackerPath $userHome ".windsurf" "extensions"),
+    (Join-SkillTrackerPath $userHome ".trae" "extensions"),
+    (Join-SkillTrackerPath $userHome ".trae-cn" "extensions"),
+    (Join-SkillTrackerPath $userHome ".kiro" "extensions"),
+    (Join-SkillTrackerPath $appData "Code" "User" "extensions"),
+    (Join-SkillTrackerPath $appData "Code - Insiders" "User" "extensions"),
+    (Join-SkillTrackerPath $appData "Cursor" "User" "extensions"),
+    (Join-SkillTrackerPath $appData "Windsurf" "User" "extensions"),
+    (Join-SkillTrackerPath $appData "Trae" "User" "extensions"),
+    (Join-SkillTrackerPath $appData "Trae CN" "User" "extensions")
+) | Where-Object { $_ } | Select-Object -Unique
+
+function Get-EditorExtensionInstallPatterns {
+    param([string[]]$ExtensionIds)
+
+    $patterns = @()
+    foreach ($root in @($editorExtensionInstallRoots)) {
+        if (-not $root) { continue }
+        foreach ($id in @($ExtensionIds)) {
+            if ($id) { $patterns += (Join-SkillTrackerPath $root ([string]$id + "-*")) }
+        }
+    }
+    return @($patterns | Select-Object -Unique)
+}
+
 $skillRootCandidates = @(
     (Join-SkillTrackerPath $PSScriptRoot ".agents" "skills"),
     (Join-SkillTrackerPath $PSScriptRoot ".cursor" "skills"),
@@ -117,6 +156,7 @@ $skillRootCandidates = @(
     (Join-SkillTrackerPath $userHome ".roo" "skills"),
     (Join-SkillTrackerPath $userHome ".kilo" "skills"),
     (Join-SkillTrackerPath $userHome ".qwen" "skills"),
+    (Join-SkillTrackerPath $userHome ".dsh" "skills"),
     (Join-SkillTrackerPath $userHome ".config" "amp" "skills"),
     (Join-SkillTrackerPath $userHome ".config" "opencode" "skills"),
     (Join-SkillTrackerPath $userHome ".opencode" "skills"),
@@ -185,6 +225,63 @@ $desktopToolPolicies = @{
     "Zed"         = @{ InstallPaths = @(Get-DesktopInstallPaths -DirectoryName "Zed" -ExecutableName "Zed.exe"); CommandNames = @("zed"); ProcessNames = @("Zed") }
 }
 
+function Get-CommandInstallPaths {
+    param([string[]]$CommandNames)
+
+    $roots = @(
+        (Join-SkillTrackerPath $appData "npm"),
+        (Join-SkillTrackerPath $localAppData "npm"),
+        (Join-SkillTrackerPath $userHome ".npm-global" "bin"),
+        (Join-SkillTrackerPath $userHome ".local" "bin")
+    ) | Where-Object { $_ } | Select-Object -Unique
+    $suffixes = if ($runtimePlatform -eq "Windows") { @(".cmd", ".ps1", ".exe", "") } else { @("", ".sh") }
+    $paths = @()
+    foreach ($root in $roots) {
+        foreach ($name in @($CommandNames)) {
+            foreach ($suffix in $suffixes) {
+                $paths += (Join-SkillTrackerPath $root ([string]$name + $suffix))
+            }
+        }
+    }
+    return @($paths | Select-Object -Unique)
+}
+
+function Get-NpmPackageInstallPatterns {
+    param([string[]]$PackageNames)
+
+    $globalRoots = @(
+        (Join-SkillTrackerPath $appData "npm" "node_modules"),
+        (Join-SkillTrackerPath $localAppData "npm" "node_modules"),
+        (Join-SkillTrackerPath $userHome ".npm-global" "lib" "node_modules"),
+        (Join-SkillTrackerPath $userHome ".npm" "node_modules")
+    ) | Where-Object { $_ } | Select-Object -Unique
+    $npxRoots = @(
+        (Join-SkillTrackerPath $appData "npm-cache" "_npx"),
+        (Join-SkillTrackerPath $localAppData "npm-cache" "_npx"),
+        (Join-SkillTrackerPath $userHome ".npm" "_npx")
+    ) | Where-Object { $_ } | Select-Object -Unique
+    $patterns = @()
+    foreach ($packageName in @($PackageNames)) {
+        if (-not $packageName) { continue }
+        $packageParts = ([string]$packageName).Split('/', 2)
+        foreach ($root in $globalRoots) {
+            $patterns += if ($packageParts.Count -eq 2) {
+                Join-SkillTrackerPath $root $packageParts[0] $packageParts[1] "package.json"
+            } else {
+                Join-SkillTrackerPath $root $packageParts[0] "package.json"
+            }
+        }
+        foreach ($root in $npxRoots) {
+            $patterns += if ($packageParts.Count -eq 2) {
+                Join-SkillTrackerPath $root "*" "node_modules" $packageParts[0] $packageParts[1] "package.json"
+            } else {
+                Join-SkillTrackerPath $root "*" "node_modules" $packageParts[0] "package.json"
+            }
+        }
+    }
+    return @($patterns | Select-Object -Unique)
+}
+
 $transcriptTools = @("Antigravity", "AntigravityIDE")
 $AUTO_DETECT_TOOLS = @(
     @{ Name="Antigravity";   Paths=@((Join-SkillTrackerPath $userHome ".gemini" "antigravity" "brain")); TsField="created_at"; RequireInstall=$true; InstallPaths=$desktopToolPolicies["Antigravity"].InstallPaths; CommandNames=$desktopToolPolicies["Antigravity"].CommandNames; ProcessNames=$desktopToolPolicies["Antigravity"].ProcessNames },
@@ -202,11 +299,12 @@ $AUTO_DETECT_TOOLS = @(
     @{ Name="Gemini CLI";  Paths=@((Join-SkillTrackerPath $userHome ".gemini" "sessions")); TsField="created_at" },
     @{ Name="GitHub Copilot"; Paths=@(Get-EditorGlobalStoragePaths -ExtensionIds @("github.copilot-chat","github.copilot")); TsField="timestamp" },
     @{ Name="Goose";       Paths=@((Join-SkillTrackerPath $userHome ".config" "goose" "sessions"),(Join-SkillTrackerPath $userHome ".local" "share" "goose" "sessions"),(Join-SkillTrackerPath $userHome ".local" "state" "goose" "logs"),(Join-SkillTrackerPath $appData "goose" "sessions"),(Join-SkillTrackerPath $appData "goose" "logs")); TsField="timestamp" },
-    @{ Name="Hermes";      Paths=@((Join-SkillTrackerPath $userHome ".hermes" "sessions"),(Join-SkillTrackerPath $userHome ".hermes" "logs"),(Join-SkillTrackerPath $appData "Hermes" "logs"),(Join-SkillTrackerPath $localAppData "Hermes" "logs")); TsField="timestamp" },
+    @{ Name="Hermes";      Paths=@((Join-SkillTrackerPath $userHome ".hermes" "sessions"),(Join-SkillTrackerPath $userHome ".hermes" "logs"),(Join-SkillTrackerPath $appData "Hermes" "logs"),(Join-SkillTrackerPath $localAppData "Hermes" "logs")); TsField="timestamp"; Aliases=@("hermes-agent") },
+    @{ Name="DeepSeek Harness"; Paths=@($dshSessionRoot,(Join-SkillTrackerPath $userHome ".dsh" "logs"),(Join-SkillTrackerPath $appData "dsh" "sessions"),(Join-SkillTrackerPath $appData "dsh" "logs"),(Join-SkillTrackerPath $localAppData "dsh" "sessions"),(Join-SkillTrackerPath $localAppData "dsh" "logs")); TsField="time"; Id="deepseek-harness"; Aliases=@("DeepSeekHarness","deepseekharness","deepseek-harness","dsh"); Publisher="DeepSeek AI"; RuntimeKind="agent_harness"; ProviderHints=@("DeepSeek") },
     @{ Name="JetBrains AI"; Paths=@(Get-EditorGlobalStoragePaths -ExtensionIds @("JetBrains.jetbrains-ai-assistant","jetbrains.jetbrains-ai-assistant")); TsField="timestamp" },
     @{ Name="Junie";       Paths=@((Join-SkillTrackerPath $userHome ".junie" "logs"),(Join-SkillTrackerPath $userHome ".junie" "sessions")); TsField="timestamp" },
     @{ Name="Kilo Code";   Paths=@((Get-EditorGlobalStoragePaths -ExtensionIds @("kilocode.kilo-code","kilo-code.kilo-code")) + @((Join-SkillTrackerPath $userHome ".kilo"),(Join-SkillTrackerPath $appData "kilo"))); TsField="timestamp" },
-    @{ Name="opencode";    Paths=@((Join-SkillTrackerPath $userHome ".local" "share" "opencode" "log"),(Join-SkillTrackerPath $userHome ".local" "share" "opencode"),(Join-SkillTrackerPath $appData "opencode" "log"),(Join-SkillTrackerPath $appData "opencode"),(Join-SkillTrackerPath $userHome ".config" "opencode")); TsField="timestamp" },
+    @{ Name="OpenCode";    Paths=@((Join-SkillTrackerPath $userHome ".local" "share" "opencode" "log"),(Join-SkillTrackerPath $userHome ".local" "share" "opencode"),(Join-SkillTrackerPath $appData "opencode" "log"),(Join-SkillTrackerPath $appData "opencode"),(Join-SkillTrackerPath $userHome ".config" "opencode")); TsField="timestamp"; Id="opencode"; Aliases=@("opencode") ; Publisher="OpenCode"; RuntimeKind="coding_agent" },
     @{ Name="Qwen Code";   Paths=@((Join-SkillTrackerPath $userHome ".qwen" "logs" "openai"),(Join-SkillTrackerPath $userHome ".qwen" "debug"),(Join-SkillTrackerPath $userHome ".qwen"),(Join-SkillTrackerPath $userHome ".config" "qwen")); TsField="timestamp" },
     @{ Name="Roo Code";    Paths=@(Get-EditorGlobalStoragePaths -ExtensionIds @("rooveterinaryinc.roo-cline","roocode.roo-cline","roo-cline.roo-cline")); TsField="timestamp" },
     @{ Name="Sourcegraph Cody"; Paths=@(Get-EditorGlobalStoragePaths -ExtensionIds @("sourcegraph.cody-ai","sourcegraph.cody")); TsField="timestamp" },
@@ -216,15 +314,59 @@ $AUTO_DETECT_TOOLS = @(
     @{ Name="Zed";         Paths=@((Join-SkillTrackerPath $localAppData "Zed" "logs"),(Join-SkillTrackerPath $localAppData "Zed" "conversations"),(Join-SkillTrackerPath $appData "Zed" "logs"),(Join-SkillTrackerPath $userHome ".config" "zed" "conversations"),(Join-SkillTrackerPath $userHome ".local" "share" "zed" "conversations"),(Join-SkillTrackerPath $userHome ".local" "share" "zed" "logs")); TsField="timestamp"; RequireInstall=$true; InstallPaths=$desktopToolPolicies["Zed"].InstallPaths; CommandNames=$desktopToolPolicies["Zed"].CommandNames; ProcessNames=$desktopToolPolicies["Zed"].ProcessNames }
 )
 
+# Every built-in profile now needs fresh installation evidence. Historical log
+# directories remain diagnostic sources, but by themselves they no longer make
+# a deleted tool look installed. CLI profiles use command/package markers;
+# editor extensions use their versioned installation directories.
+$toolInstallPolicies = @{
+    "Aider" = @{ CommandNames=@("aider"); InstallPaths=@(Get-CommandInstallPaths -CommandNames @("aider")) }
+    "Amazon Q" = @{ InstallPathPatterns=@(Get-EditorExtensionInstallPatterns -ExtensionIds @("amazonwebservices.amazon-q-vscode","amazonwebservices.aws-toolkit-vscode")) }
+    "Amp" = @{ CommandNames=@("amp"); InstallPaths=@(Get-CommandInstallPaths -CommandNames @("amp")) }
+    "Augment" = @{ InstallPathPatterns=@(Get-EditorExtensionInstallPatterns -ExtensionIds @("augment.vscode-augment","augment.vscode-augment-nightly")) }
+    "ClaudeCode" = @{ CommandNames=@("claude"); InstallPaths=@(Get-CommandInstallPaths -CommandNames @("claude")) }
+    "Cline" = @{ InstallPathPatterns=@(Get-EditorExtensionInstallPatterns -ExtensionIds @("saoudrizwan.claude-dev","cline.cline")) }
+    "Codex" = @{ CommandNames=@("codex"); ProcessNames=@("codex"); InstallPaths=@((Join-SkillTrackerPath $localAppData "OpenAI" "Codex")) + @(Get-CommandInstallPaths -CommandNames @("codex")) }
+    "Continue" = @{ InstallPathPatterns=@(Get-EditorExtensionInstallPatterns -ExtensionIds @("continue.continue")) }
+    "Gemini CLI" = @{ CommandNames=@("gemini"); InstallPaths=@(Get-CommandInstallPaths -CommandNames @("gemini")) }
+    "GitHub Copilot" = @{ InstallPathPatterns=@(Get-EditorExtensionInstallPatterns -ExtensionIds @("github.copilot-chat","github.copilot")) }
+    "Goose" = @{ CommandNames=@("goose"); InstallPaths=@(Get-CommandInstallPaths -CommandNames @("goose")) }
+    "Hermes" = @{ CommandNames=@("hermes"); ProcessNames=@("hermes"); InstallPaths=@((Join-SkillTrackerPath $userHome ".hermes" "bin" "hermes"),(Join-SkillTrackerPath $userHome ".hermes" "bin" "hermes.exe"),(Join-SkillTrackerPath $userHome ".hermes" "bin" "hermes.cmd")) + @(Get-CommandInstallPaths -CommandNames @("hermes")) }
+    "DeepSeek Harness" = @{ CommandNames=@("dsh"); ProcessNames=@("dsh"); InstallPaths=@((Join-SkillTrackerPath $userHome ".dsh" "bin" "dsh"),(Join-SkillTrackerPath $userHome ".dsh" "bin" "dsh.cmd"),(Join-SkillTrackerPath $userHome ".dsh" "bin" "dsh.ps1")) + @(Get-CommandInstallPaths -CommandNames @("dsh")); InstallPathPatterns=@(Get-NpmPackageInstallPatterns -PackageNames @("@deepseek-ai/dsh")) }
+    "JetBrains AI" = @{ InstallPathPatterns=@(Get-EditorExtensionInstallPatterns -ExtensionIds @("JetBrains.jetbrains-ai-assistant","jetbrains.jetbrains-ai-assistant")) }
+    "Junie" = @{ CommandNames=@("junie"); InstallPaths=@((Join-SkillTrackerPath $userHome ".junie" "bin" "junie"),(Join-SkillTrackerPath $userHome ".junie" "bin" "junie.exe")) + @(Get-CommandInstallPaths -CommandNames @("junie")) }
+    "Kilo Code" = @{ InstallPathPatterns=@(Get-EditorExtensionInstallPatterns -ExtensionIds @("kilocode.kilo-code","kilo-code.kilo-code")) }
+    "OpenCode" = @{ CommandNames=@("opencode"); ProcessNames=@("opencode"); InstallPaths=@((Join-SkillTrackerPath $localAppData "Programs" "OpenCode" "opencode.exe"),(Join-SkillTrackerPath $localAppData "Programs" "OpenCode" "OpenCode.exe"),(Join-SkillTrackerPath $localAppData "Programs" "opencode" "opencode.exe"),(Join-SkillTrackerPath $localAppData "OpenCode" "opencode.exe"),(Join-SkillTrackerPath $localAppData "OpenCode" "OpenCode.exe"),(Join-SkillTrackerPath $userHome ".local" "bin" "opencode"),(Join-SkillTrackerPath $userHome ".opencode" "bin" "opencode")) + @(Get-CommandInstallPaths -CommandNames @("opencode")); InstallPathPatterns=@(Get-NpmPackageInstallPatterns -PackageNames @("opencode-ai","@opencode-ai/cli")) }
+    "Qwen Code" = @{ CommandNames=@("qwen","qwen-code"); InstallPaths=@((Join-SkillTrackerPath $userHome ".qwen" "bin" "qwen"),(Join-SkillTrackerPath $userHome ".qwen" "bin" "qwen.cmd"),(Join-SkillTrackerPath $userHome ".qwen" "bin" "qwen-code")) + @(Get-CommandInstallPaths -CommandNames @("qwen","qwen-code")) }
+    "Roo Code" = @{ InstallPathPatterns=@(Get-EditorExtensionInstallPatterns -ExtensionIds @("rooveterinaryinc.roo-cline","roocode.roo-cline","roo-cline.roo-cline")) }
+    "Sourcegraph Cody" = @{ InstallPathPatterns=@(Get-EditorExtensionInstallPatterns -ExtensionIds @("sourcegraph.cody-ai","sourcegraph.cody")) }
+    "Tabby" = @{ InstallPathPatterns=@(Get-EditorExtensionInstallPatterns -ExtensionIds @("TabbyML.vscode-tabby","tabbyml.vscode-tabby")) }
+    "Tabnine" = @{ InstallPathPatterns=@(Get-EditorExtensionInstallPatterns -ExtensionIds @("TabNine.tabnine-vscode","tabnine.tabnine-vscode")); InstallPaths=@((Join-SkillTrackerPath $userHome ".tabnine" "TabNine.exe"),(Join-SkillTrackerPath $userHome ".tabnine" "tabnine.exe"),(Join-SkillTrackerPath $appData "TabNine" "TabNine.exe"),(Join-SkillTrackerPath $appData "Tabnine" "Tabnine.exe")) }
+}
+foreach ($tool in $AUTO_DETECT_TOOLS) {
+    if ($null -eq $tool.RequireInstall) { $tool.RequireInstall = $true }
+    if ($toolInstallPolicies.ContainsKey($tool.Name)) {
+        foreach ($property in $toolInstallPolicies[$tool.Name].Keys) {
+            $tool[$property] = $toolInstallPolicies[$tool.Name][$property]
+        }
+    }
+}
+
 function Test-ToolInstalled {
     param([hashtable]$Tool)
 
-    if (-not $Tool.RequireInstall) {
+    if ($Tool.ContainsKey("RequireInstall") -and -not $Tool.RequireInstall) {
         return [PSCustomObject]@{ Installed = $true; Reason = "log_source_allowed" }
     }
 
     foreach ($path in @($Tool.InstallPaths)) {
         if ($path -and (Test-Path -LiteralPath $path)) {
+            return [PSCustomObject]@{ Installed = $true; Reason = "install_marker" }
+        }
+    }
+    foreach ($pattern in @($Tool.InstallPathPatterns)) {
+        if (-not $pattern) { continue }
+        $matches = @(Get-ChildItem -Path $pattern -Force -ErrorAction SilentlyContinue | Select-Object -First 1)
+        if ($matches.Count -gt 0) {
             return [PSCustomObject]@{ Installed = $true; Reason = "install_marker" }
         }
     }
@@ -240,6 +382,38 @@ function Test-ToolInstalled {
         }
     }
     return [PSCustomObject]@{ Installed = $false; Reason = "install_marker_missing" }
+}
+
+# A small, bounded candidate probe gives the dashboard a useful upgrade path
+# for fast-moving agent tools without pretending that an arbitrary directory is
+# an installed product. Candidates are reported only when a current executable,
+# command, or process signal exists; stale logs alone are deliberately hidden.
+$ADAPTIVE_CANDIDATES = @(
+    @{ Name="Kiro"; Id="kiro"; Paths=@((Join-SkillTrackerPath $appData "Kiro" "logs"),(Join-SkillTrackerPath $appData "Kiro" "User" "workspaceStorage"),(Join-SkillTrackerPath $userHome ".kiro" "sessions"),(Join-SkillTrackerPath $userHome ".kiro" "logs")); RequireInstall=$true; InstallPaths=@((Join-SkillTrackerPath $localAppData "Programs" "Kiro" "Kiro.exe"),(Join-SkillTrackerPath $localAppData "Kiro" "Kiro.exe")); CommandNames=@("kiro"); ProcessNames=@("Kiro"); TsField="timestamp" },
+    @{ Name="OpenClaw"; Id="openclaw"; Paths=@((Join-SkillTrackerPath $userHome ".openclaw" "sessions"),(Join-SkillTrackerPath $userHome ".openclaw" "logs"),(Join-SkillTrackerPath $appData "OpenClaw" "logs"),(Join-SkillTrackerPath $localAppData "OpenClaw" "logs")); RequireInstall=$true; InstallPaths=@((Join-SkillTrackerPath $userHome ".openclaw" "bin" "openclaw"),(Join-SkillTrackerPath $userHome ".openclaw" "bin" "openclaw.cmd")) + @(Get-CommandInstallPaths -CommandNames @("openclaw")); CommandNames=@("openclaw"); ProcessNames=@("openclaw"); TsField="timestamp" },
+    @{ Name="Pi Agent"; Id="pi-agent"; Paths=@((Join-SkillTrackerPath $userHome ".pi" "agent" "sessions"),(Join-SkillTrackerPath $userHome ".pi" "agent" "logs")); RequireInstall=$true; InstallPaths=@((Join-SkillTrackerPath $userHome ".local" "bin" "pi"),(Join-SkillTrackerPath $userHome ".pi" "bin" "pi")) + @(Get-CommandInstallPaths -CommandNames @("pi")); CommandNames=@("pi"); TsField="timestamp" },
+    @{ Name="OpenHands"; Id="openhands"; Paths=@((Join-SkillTrackerPath $userHome ".openhands" "sessions"),(Join-SkillTrackerPath $userHome ".openhands" "logs"),(Join-SkillTrackerPath $appData "OpenHands" "logs")); RequireInstall=$true; InstallPaths=@((Join-SkillTrackerPath $userHome ".openhands" "bin" "openhands")) + @(Get-CommandInstallPaths -CommandNames @("openhands")); CommandNames=@("openhands"); ProcessNames=@("openhands"); TsField="timestamp" }
+)
+$script:unknownToolCandidates = @()
+
+function Find-UnregisteredToolCandidates {
+    $candidates = @()
+    $knownNames = @($AUTO_DETECT_TOOLS | ForEach-Object { [string]$_.Name })
+    foreach ($candidate in $ADAPTIVE_CANDIDATES) {
+        if ($candidate.Name -in $knownNames) { continue }
+        $presence = Test-ToolInstalled -Tool $candidate
+        if (-not $presence.Installed) { continue }
+        $existingLogRoots = @($candidate.Paths | Where-Object { $_ -and (Test-Path -LiteralPath $_) })
+        $candidates += [PSCustomObject]@{
+            name = [string]$candidate.Name
+            profile_id = [string]$candidate.Id
+            status = "installed_unadapted"
+            install_reason = [string]$presence.Reason
+            log_roots = $existingLogRoots
+            recommendation = "检测到安装证据，但当前版本还没有稳定的日志适配器；可先用 custom_tools 指定会话目录。"
+        }
+    }
+    return @($candidates)
 }
 
 $sourceReports = [System.Collections.Generic.List[PSCustomObject]]::new()
@@ -289,7 +463,12 @@ function Add-SourceReport {
 $activeSources = [System.Collections.Generic.List[hashtable]]::new()
 $activeSourceKeys = @{}
 function Get-ActiveSourceFingerprint {
-    return (($activeSources | ForEach-Object { "$($_.Name)|$($_.Root)|$($_.TsField)" }) -join "`n")
+    $sourceFingerprint = ($activeSources | ForEach-Object { "$($_.Name)|$($_.Root)|$($_.TsField)" }) -join "`n"
+    $candidateFingerprint = @($script:unknownToolCandidates | ForEach-Object {
+        $roots = @($_.log_roots) -join "|"
+        "candidate|$($_.name)|$($_.status)|$($_.install_reason)|$roots"
+    }) -join "`n"
+    return $sourceFingerprint + "`n" + $candidateFingerprint
 }
 
 function Refresh-ActiveSources {
@@ -299,6 +478,7 @@ function Refresh-ActiveSources {
     $activeSourceKeys.Clear()
     $sourceReports.Clear()
     $sourceReportByKey.Clear()
+    $script:unknownToolCandidates = @(Find-UnregisteredToolCandidates)
 
     foreach ($tool in $AUTO_DETECT_TOOLS) {
         $presence = Test-ToolInstalled -Tool $tool
@@ -334,6 +514,54 @@ function Refresh-ActiveSources {
         Write-Warning "No AI tools detected. Writing an empty local scan report."
     }
     return Get-ActiveSourceFingerprint
+}
+
+# Keep the previous published set separate from the static profile catalog.
+# Older reports used `summary.supported_tools` for every built-in candidate, so
+# migration first prefers detected rows and only then falls back to the newer
+# discovery fields. This makes a removed tool visible in the radar as a
+# transition without keeping it in the current tool list.
+$toolNameAliases = @{
+    "opencode" = "OpenCode"
+    "deepseekharness" = "DeepSeek Harness"
+    "deepseek-harness" = "DeepSeek Harness"
+    "dsh" = "DeepSeek Harness"
+}
+function Get-CanonicalToolName {
+    param([string]$Name)
+    $value = [string]$Name
+    if (-not $value) { return "" }
+    $key = $value.Trim().ToLowerInvariant()
+    if ($toolNameAliases.ContainsKey($key)) { return [string]$toolNameAliases[$key] }
+    return $value.Trim()
+}
+
+function Get-ReportCurrentToolNames {
+    param([object]$Report)
+
+    if (-not $Report) { return @() }
+    $names = @()
+    if ($Report.discovery -and $Report.discovery.installed_tools) {
+        $names = @($Report.discovery.installed_tools | ForEach-Object { Get-CanonicalToolName ([string]$_) })
+    } elseif ($Report.summary -and $Report.summary.installed_tools) {
+        $names = @($Report.summary.installed_tools | ForEach-Object { Get-CanonicalToolName ([string]$_) })
+    } elseif ($Report.sources) {
+        $names = @($Report.sources | Where-Object { $_.detected } | ForEach-Object { Get-CanonicalToolName ([string]$_.tool) })
+    } elseif ($Report.tools) {
+        $names = @($Report.tools | Where-Object { $_.status -and $_.status -ne "missing" } | ForEach-Object { Get-CanonicalToolName ([string]$_.tool) })
+    }
+    return @($names | Where-Object { $_ } | Sort-Object -Unique)
+}
+
+$toolReportJsonPath = Join-Path $cfg.output_dir "tool_report.json"
+$lastPublishedToolNames = @()
+if (Test-Path -LiteralPath $toolReportJsonPath -PathType Leaf) {
+    try {
+        $previousToolReport = Get-Content -LiteralPath $toolReportJsonPath -Raw -Encoding UTF8 | ConvertFrom-Json
+        $lastPublishedToolNames = @(Get-ReportCurrentToolNames -Report $previousToolReport)
+    } catch {
+        Write-Warning "Could not read the previous tool report; discovery transition history starts fresh."
+    }
 }
 
 $activeSourceFingerprint = Refresh-ActiveSources
@@ -829,9 +1057,9 @@ $commandNameSkillRx = [System.Text.RegularExpressions.Regex]'(?is)<command-name>
 $userRequestRx = [System.Text.RegularExpressions.Regex]'(?is)<USER_REQUEST>\s*(.*?)\s*</USER_REQUEST>'
 $directSkillViewPathRx = [System.Text.RegularExpressions.Regex]'(?im)^\s*File Path:\s*`?(?:file:)?[^`\r\n]*[/\\]SKILL\.md`?\s*$'
 $directSkillViewPathExtractRx = [System.Text.RegularExpressions.Regex]'(?im)^\s*File Path:\s*`?(?:file:)?(?<path>[^`\r\n]*[/\\]SKILL\.md)`?\s*$'
-$timeRx   = [System.Text.RegularExpressions.Regex]'"(?:created_at|timestamp)"\s*:\s*"([^"]+)"'
-$unixRx   = [System.Text.RegularExpressions.Regex]'"ts"\s*:\s*(\d{9,13})'
-$epoch    = [datetime]'1970-01-01T00:00:00Z'
+$timeRx   = [System.Text.RegularExpressions.Regex]'"(?:created_at|timestamp|time)"\s*:\s*"([^"]+)"'
+$unixRx   = [System.Text.RegularExpressions.Regex]'"(?:ts|time)"\s*:\s*(\d{9,13})'
+$epoch    = ([datetimeoffset]::Parse('1970-01-01T00:00:00Z')).ToUniversalTime()
 $maxSignalLineChars = 131072
 $logReadChunkChars = 8192
 $logLineOverlapChars = 8192
@@ -936,7 +1164,9 @@ function Add-LogLineChunk {
     if (Test-GeneratedSkillInventoryLine -Line $scanText) {
         $State.IsGenerated = $true
     }
+    $hasDshUserMessageToken = $scanText -match '(?i)"type"\s*:\s*"user/message"'
     if ($scanText.Contains('"type":"USER_INPUT"') -or
+        $hasDshUserMessageToken -or
         $scanText.Contains('"type":"user"') -or
         $scanText.Contains('"role":"user"')) {
         $State.HasUserInput = $true
@@ -955,11 +1185,15 @@ function Add-LogLineChunk {
     # Avoid running several backtracking regexes over every JSON chunk. Most
     # chunks in a large transcript are ordinary text; only a chunk containing
     # a concrete skill/path/timestamp/command token needs semantic extraction.
+    $hasStructuredSlashCommand = $scanText -match '(?i)"(?:text|content|message)"\s*:\s*"[^"\r\n]*\/[A-Za-z0-9]'
     $hasCommandToken = $scanText.Contains('<command-name>') -or
         $scanText.Contains('<USER_REQUEST>') -or
-        $scanText.Contains('"/')
+        $scanText.Contains('"/') -or
+        $hasDshUserMessageToken -or
+        $hasStructuredSlashCommand
     $hasTimestampToken = $scanText.Contains('"created_at"') -or
         $scanText.Contains('"timestamp"') -or
+        $scanText.Contains('"time"') -or
         $scanText.Contains('"ts"')
     $needsSemanticScan = $hasSkillFileToken -or $hasCommandToken -or
         ($State.Length -gt $maxSignalLineChars -and $hasTimestampToken)
@@ -1162,12 +1396,12 @@ function Get-ToolLogFiles {
     if (-not $Root -or -not (Test-Path -LiteralPath $Root)) { return @() }
 
     $broadEditorTools = @("Cline", "Roo Code", "Kilo Code", "GitHub Copilot", "Sourcegraph Cody", "Amazon Q", "Augment", "Tabby", "Tabnine")
-    $jsonMdTools = @("Aider", "Amp", "Goose", "opencode", "Qwen Code", "Zed", "JetBrains AI", "Junie")
+    $jsonMdTools = @("Aider", "Amp", "Goose", "OpenCode", "DeepSeek Harness", "Qwen Code", "Zed", "JetBrains AI", "Junie")
     $extensions = @(".jsonl")
     if ($ToolName -in @("Cursor", "Windsurf") -or $ToolName -in $broadEditorTools -or $ToolName -in $jsonMdTools -or $ToolName -notin (@("ClaudeCode", "Codex") + $transcriptTools)) {
         $extensions = @(".jsonl", ".json", ".log", ".txt")
     }
-    if ($ToolName -in @("Aider", "Amp", "opencode", "Qwen Code") -or $ToolName -in $broadEditorTools) {
+    if ($ToolName -in @("Aider", "Amp", "OpenCode", "DeepSeek Harness", "Qwen Code") -or $ToolName -in $broadEditorTools) {
         $extensions += ".md"
         $extensions += ".history"
     }
@@ -1262,6 +1496,7 @@ function Get-ExplicitSkillCommands {
     $mayContainUserCommand = $Line.Contains('<command-name>') -or
         $Line.Contains('<USER_REQUEST>') -or
         $Line.Contains('USER_INPUT') -or
+        ($Line -match '(?i)"type"\s*:\s*"user/message"') -or
         $Line.Contains('"type":"user"') -or
         ($Line.Contains('"role"') -and $Line.Contains('"user"')) -or
         ($Line.Contains('event_msg') -and $Line.Contains('user_message'))
@@ -1273,9 +1508,22 @@ function Get-ExplicitSkillCommands {
         if ($record.type -eq 'USER_INPUT') {
             if ($record.content -is [string]) { [void]$texts.Add($record.content) }
             if ($record.text -is [string]) { [void]$texts.Add($record.text) }
+        } elseif ($record.type -eq 'user/message') {
+            $content = if ($record.data) { $record.data.content } else { $null }
+            if ($content -is [string]) {
+                [void]$texts.Add($content)
+            } elseif ($content) {
+                foreach ($part in @($content)) {
+                    if ($part.text -is [string]) { [void]$texts.Add($part.text) }
+                }
+            }
+            if ($record.data -and $record.data.text -is [string]) {
+                [void]$texts.Add($record.data.text)
+            }
         } elseif ($record.type -eq 'user') {
             if ($record.message.content -is [string]) { [void]$texts.Add($record.message.content) }
             if ($record.content -is [string]) { [void]$texts.Add($record.content) }
+            if ($record.text -is [string]) { [void]$texts.Add($record.text) }
         } elseif ($record.type -eq 'response_item' -and
                   $record.payload.type -eq 'message' -and
                   $record.payload.role -eq 'user') {
@@ -1914,7 +2162,16 @@ $logPath = Join-Path $cfg.output_dir "skill_log.js"
 
 # ── Output tool source coverage report ────────────────────────────────────────
 $toolReports = @($sourceReports | Sort-Object tool, path)
-$supportedToolNames = @($AUTO_DETECT_TOOLS | ForEach-Object { $_.Name } | Sort-Object -Unique)
+$visibleToolReports = @($toolReports | Where-Object { $_.detected } | Sort-Object tool, path)
+$knownToolNames = @($AUTO_DETECT_TOOLS | ForEach-Object { $_.Name } | Sort-Object -Unique)
+$currentToolNames = @($activeSources | ForEach-Object { [string]$_.Name } | Where-Object { $_ } | Sort-Object -Unique)
+$supportedToolNames = @($currentToolNames)
+$newlyDetectedTools = @($currentToolNames | Where-Object { $_ -notin @($lastPublishedToolNames) })
+$removedTools = @($lastPublishedToolNames | Where-Object { $_ -notin @($currentToolNames) } | Sort-Object -Unique)
+$toolProfileByName = @{}
+foreach ($profile in $AUTO_DETECT_TOOLS) {
+    $toolProfileByName[[string]$profile.Name] = $profile
+}
 $toolSummaries = @()
 foreach ($toolName in $supportedToolNames) {
     $rows = @($toolReports | Where-Object { $_.tool -eq $toolName })
@@ -1936,8 +2193,19 @@ foreach ($toolName in $supportedToolNames) {
     }
     $latestHitAt = @($detectedRows | Where-Object { $_.latest_hit_at } | Select-Object -ExpandProperty latest_hit_at | Sort-Object -Descending | Select-Object -First 1)
     $latestLogAt = @($detectedRows | Where-Object { $_.latest_log_at } | Select-Object -ExpandProperty latest_log_at | Sort-Object -Descending | Select-Object -First 1)
+    $profile = $toolProfileByName[[string]$toolName]
+    $profileId = if ($profile -and $profile.Id) {
+        [string]$profile.Id
+    } else {
+        ([string]$toolName).ToLowerInvariant() -replace '[^a-z0-9]+', '-'
+    }
     $toolSummaries += [PSCustomObject]@{
         tool            = $toolName
+        profile_id      = $profileId.Trim('-')
+        publisher       = if ($profile -and $profile.Publisher) { [string]$profile.Publisher } else { "" }
+        runtime_kind    = if ($profile -and $profile.RuntimeKind) { [string]$profile.RuntimeKind } else { "coding_tool" }
+        aliases         = if ($profile -and $profile.Aliases) { @($profile.Aliases) } else { @() }
+        provider_hints  = if ($profile -and $profile.ProviderHints) { @($profile.ProviderHints) } else { @() }
         status          = $status
         source_count    = $detectedRows.Count
         files_scanned   = $files
@@ -1961,8 +2229,10 @@ $toolReportObj = [PSCustomObject]@{
     build_id = $buildId
     summary = [PSCustomObject]@{
         supported_tools       = $supportedToolNames
+        installed_tools        = $currentToolNames
+        known_tools             = $knownToolNames
         skill_roots           = @($skillRoots)
-        detected_source_count = @($toolReports | Where-Object { $_.detected }).Count
+        detected_source_count = $visibleToolReports.Count
         scanned_file_count    = [int](($toolReports | Measure-Object files_scanned -Sum).Sum)
         raw_hits              = [int](($toolReports | Measure-Object raw_hits -Sum).Sum)
         dedup_hits            = [int](($toolReports | Measure-Object dedup_hits -Sum).Sum)
@@ -1970,14 +2240,36 @@ $toolReportObj = [PSCustomObject]@{
         read_error_file_count = $readFailureFiles.Count
         status_counts         = [PSCustomObject]$statusCounts
     }
+    discovery = [PSCustomObject]@{
+        schema               = "skill-tracker-tool-discovery@1"
+        mode                 = "local"
+        platform             = $runtimePlatform
+        scanned_at           = $genAt
+        known_tool_count     = $knownToolNames.Count
+        installed_tool_count = $currentToolNames.Count
+        installed_tools      = $currentToolNames
+        newly_detected_tools = $newlyDetectedTools
+        removed_tools        = $removedTools
+        hidden_tool_count    = [Math]::Max(0, $knownToolNames.Count - @($currentToolNames | Where-Object { $_ -in $knownToolNames }).Count)
+        unknown_candidates   = @($script:unknownToolCandidates)
+        scan_method          = "profile_registry+bounded_candidate_probe"
+    }
     tools = $toolSummaries
+    # `sources` retains non-detected diagnostics for troubleshooting. The UI
+    # consumes `visible_sources`, so deleted tools do not remain on screen just
+    # because an old log directory is still present.
     sources = $toolReports
+    visible_sources = $visibleToolReports
 }
 $toolReportJsonPath = Join-Path $cfg.output_dir "tool_report.json"
 [System.IO.File]::WriteAllText($toolReportJsonPath, ($toolReportObj | ConvertTo-Json -Depth 8), [System.Text.Encoding]::UTF8)
 $toolReportJsPath = Join-Path $cfg.output_dir "tool_report.js"
 $toolReportJson = $toolReportObj | ConvertTo-Json -Depth 8 -Compress
 [System.IO.File]::WriteAllText($toolReportJsPath, "var TOOL_REPORT = $toolReportJson;`nvar BUILD_ID = $buildId;`n", [System.Text.Encoding]::UTF8)
+
+# The next watcher cycle compares against this successful publication, not the
+# original startup snapshot, so a persistent deletion is reported once.
+$lastPublishedToolNames = @($currentToolNames)
 
 if ($Watch -and $retryFileKeys.Count -gt 0) {
     # Do not let a transient read failure become the new watcher baseline.

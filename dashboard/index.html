@@ -468,6 +468,8 @@ button {
 .tool-Cursor { --tool-color: var(--tool-cursor); }
 .tool-Windsurf { --tool-color: var(--tool-windsurf); }
 .tool-opencode { --tool-color: var(--tool-opencode); }
+.tool-OpenCode { --tool-color: var(--tool-opencode); }
+.tool-DeepSeekHarness { --tool-color: #4fc3a1; }
 .tool-Aider { --tool-color: var(--tool-aider); }
 .tool-Cline { --tool-color: var(--tool-cline); }
 .tool-Roo-Code { --tool-color: var(--tool-roo-code); }
@@ -724,6 +726,145 @@ button {
 }
 
 .tool-audit-path {
+  font-family: var(--font-mono);
+}
+
+.tool-radar-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.18fr) minmax(320px, 0.82fr);
+  gap: 12px;
+  padding: 12px;
+}
+
+.tool-radar-card {
+  min-width: 0;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: color-mix(in srgb, var(--surface) 94%, transparent);
+  box-shadow: var(--shadow);
+  overflow: hidden;
+}
+
+.tool-radar-card.wide {
+  grid-column: 1 / -1;
+}
+
+.tool-radar-card-head {
+  min-height: 54px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 13px 15px;
+  border-bottom: 1px solid var(--border);
+}
+
+.tool-radar-card-head h4 {
+  margin: 0;
+  color: var(--text);
+  font-size: 13px;
+}
+
+.tool-radar-card-head span {
+  color: var(--dim);
+  font-size: 11px;
+  text-align: right;
+}
+
+.tool-radar-list {
+  display: grid;
+  gap: 8px;
+  padding: 12px 15px 15px;
+}
+
+.tool-radar-item {
+  min-width: 0;
+  display: grid;
+  gap: 6px;
+  padding: 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: color-mix(in srgb, var(--surface-2) 72%, transparent);
+}
+
+.tool-radar-item-head,
+.tool-radar-meta,
+.tool-radar-change {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  min-width: 0;
+}
+
+.tool-radar-item-head strong {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-family: var(--font-mono);
+  font-size: 12px;
+}
+
+.tool-radar-status,
+.tool-radar-provider,
+.tool-radar-change span {
+  flex: 0 0 auto;
+  border-radius: 999px;
+  padding: 3px 7px;
+  font-size: 10px;
+  font-weight: 760;
+  white-space: nowrap;
+}
+
+.tool-radar-status {
+  color: color-mix(in srgb, var(--accent) 76%, var(--text));
+  background: color-mix(in srgb, var(--accent) 13%, transparent);
+}
+
+.tool-radar-provider {
+  justify-self: start;
+  color: color-mix(in srgb, var(--accent-2) 78%, var(--text));
+  background: color-mix(in srgb, var(--accent-2) 12%, transparent);
+}
+
+.tool-radar-meta,
+.tool-radar-item p,
+.tool-radar-empty {
+  color: var(--dim);
+  font-size: 11px;
+  line-height: 1.45;
+}
+
+.tool-radar-item p,
+.tool-radar-empty {
+  margin: 0;
+}
+
+.tool-radar-change {
+  justify-content: flex-start;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.tool-radar-change:last-child {
+  border-bottom: 0;
+}
+
+.tool-radar-change.added span {
+  color: color-mix(in srgb, var(--accent) 78%, var(--text));
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+}
+
+.tool-radar-change.removed span {
+  color: color-mix(in srgb, var(--danger) 78%, var(--text));
+  background: color-mix(in srgb, var(--danger) 12%, transparent);
+}
+
+.tool-radar-path {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
   font-family: var(--font-mono);
 }
 
@@ -2456,6 +2597,10 @@ button.catalog-stat.active {
     grid-template-columns: 1fr;
   }
 
+  .tool-radar-grid {
+    grid-template-columns: 1fr;
+  }
+
   .catalog-summary {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
@@ -2578,6 +2723,23 @@ button.catalog-stat.active {
   .tool-audit-list {
     grid-template-columns: 1fr;
     max-height: 260px;
+  }
+
+  .tool-radar-grid {
+    padding: 10px;
+  }
+
+  .tool-radar-card.wide {
+    grid-column: auto;
+  }
+
+  .tool-radar-card-head {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .tool-radar-card-head span {
+    text-align: left;
   }
 
   .dashboard-controls {
@@ -2874,32 +3036,36 @@ button.catalog-stat.active {
           <span class="nav-index">01</span>
           <span class="nav-label"><strong>统计总览</strong><span>Skill usage</span></span>
         </button>
-        <button type="button" data-view-button="log">
+        <button type="button" data-view-button="tools">
           <span class="nav-index">02</span>
+          <span class="nav-label"><strong>工具雷达</strong><span>Adaptive tools</span></span>
+        </button>
+        <button type="button" data-view-button="log">
+          <span class="nav-index">03</span>
           <span class="nav-label"><strong>调用日志</strong><span>Audit stream</span></span>
         </button>
         <button type="button" data-view-button="catalog">
-          <span class="nav-index">03</span>
+          <span class="nav-index">04</span>
           <span class="nav-label"><strong>技能字典</strong><span>CN catalog</span></span>
         </button>
         <button type="button" data-view-button="governance">
-          <span class="nav-index">04</span>
+          <span class="nav-index">05</span>
           <span class="nav-label"><strong>治理洞察</strong><span>Governance</span></span>
         </button>
         <button type="button" data-view-button="actions">
-          <span class="nav-index">05</span>
+          <span class="nav-index">06</span>
           <span class="nav-label"><strong>行动方案</strong><span>Action lab</span></span>
         </button>
         <button type="button" data-view-button="matrix">
-          <span class="nav-index">06</span>
+          <span class="nav-index">07</span>
           <span class="nav-label"><strong>矩阵实验室</strong><span>Skill matrix</span></span>
         </button>
         <button type="button" data-view-button="github">
-          <span class="nav-index">07</span>
+          <span class="nav-index">08</span>
           <span class="nav-label"><strong>GitHub 雷达</strong><span>Online radar</span></span>
         </button>
         <button type="button" data-view-button="manual">
-          <span class="nav-index">08</span>
+          <span class="nav-index">09</span>
           <span class="nav-label"><strong>操作手册</strong><span>How to use</span></span>
         </button>
       </nav>
@@ -3013,6 +3179,41 @@ button.catalog-stat.active {
 
           <div class="pager" id="skillPager"></div>
         </section>
+      </div>
+    </section>
+
+    <section class="view-panel" id="view-tools" aria-labelledby="toolRadarHeading">
+      <div class="section" style="margin-top: 18px;">
+        <div class="section-head">
+          <div class="section-title">
+            <h3 id="toolRadarHeading">工具雷达</h3>
+            <p>每次启动和后台轮询前重新读取本机安装证据；删除工具后只保留变更记录，不继续占用当前工具列表</p>
+          </div>
+        </div>
+        <div class="catalog-summary" id="toolRadarSummary"></div>
+        <div class="tool-radar-grid">
+          <section class="tool-radar-card wide" aria-labelledby="toolRadarCurrentHeading">
+            <div class="tool-radar-card-head">
+              <h4 id="toolRadarCurrentHeading">当前已发现工具</h4>
+              <span id="toolRadarScanMeta">--</span>
+            </div>
+            <div class="tool-radar-list" id="toolRadarCurrent"></div>
+          </section>
+          <section class="tool-radar-card" aria-labelledby="toolRadarChangesHeading">
+            <div class="tool-radar-card-head">
+              <h4 id="toolRadarChangesHeading">本次变更</h4>
+              <span>新增 / 已移除</span>
+            </div>
+            <div class="tool-radar-list" id="toolRadarChanges"></div>
+          </section>
+          <section class="tool-radar-card" aria-labelledby="toolRadarCandidatesHeading">
+            <div class="tool-radar-card-head">
+              <h4 id="toolRadarCandidatesHeading">待适配候选</h4>
+              <span>受限探测，不扫描整台机器</span>
+            </div>
+            <div class="tool-radar-list" id="toolRadarCandidates"></div>
+          </section>
+        </div>
       </div>
     </section>
 
@@ -3505,6 +3706,7 @@ button.catalog-stat.active {
   var githubSortMode = "relevance";
   var pageTitles = {
     stats: "AI Skill Usage Analytics",
+    tools: "Adaptive Tool Radar",
     log: "Skill Call Audit Stream",
     catalog: "Chinese Skill Catalog",
     governance: "Skill Governance Insights",
@@ -3563,6 +3765,11 @@ button.catalog-stat.active {
     statsDateReset: document.getElementById("statsDateReset"),
     statsDateSummary: document.getElementById("statsDateSummary"),
     toolAuditPanel: document.getElementById("toolAuditPanel"),
+    toolRadarSummary: document.getElementById("toolRadarSummary"),
+    toolRadarScanMeta: document.getElementById("toolRadarScanMeta"),
+    toolRadarCurrent: document.getElementById("toolRadarCurrent"),
+    toolRadarChanges: document.getElementById("toolRadarChanges"),
+    toolRadarCandidates: document.getElementById("toolRadarCandidates"),
     trendSubtitle: document.getElementById("trendSubtitle"),
     skillSearch: document.getElementById("skillSearch"),
     skillTableBody: document.getElementById("skillTableBody"),
@@ -3588,6 +3795,7 @@ button.catalog-stat.active {
   renderStatsDateRange();
   renderMetrics();
   renderToolAudit();
+  renderToolRadar();
   renderTrend();
   renderToolFilters();
   renderCatalogCategoryOptions();
@@ -4081,7 +4289,15 @@ button.catalog-stat.active {
     var topTool = topTools[0] || "--";
     var translatedPct = skillRows.length ? translatedSkills / skillRows.length * 100 : 0;
     var reportSummary = (toolReport && toolReport.summary) || {};
-    var supportedTools = (reportSummary.supported_tools || []).length || tools.length;
+    var reportSources = toolReport
+      ? (Array.isArray(toolReport.visible_sources)
+        ? toolReport.visible_sources
+        : (toolReport.sources || []).filter(function (source) { return source && source.detected === true; }))
+      : [];
+    var reportToolNames = Array.isArray(reportSummary.installed_tools)
+      ? reportSummary.installed_tools
+      : unique(reportSources.map(function (source) { return source.tool; }));
+    var supportedTools = reportToolNames.length || tools.length;
     var scannedFiles = Number(reportSummary.scanned_file_count || 0);
     var detectedSources = Number(reportSummary.detected_source_count || 0);
     var highConfidence = getTotalCalls();
@@ -4089,7 +4305,7 @@ button.catalog-stat.active {
       { label: "主力工具", value: topTool, sub: topTool === "--" ? "暂无工具命中" : formatNum(toolCounts[topTool]) + " 次命中" },
       { label: "中文覆盖", value: translatedPct.toFixed(1) + "%", sub: formatNum(translatedSkills) + " / " + formatNum(skillRows.length) + " 已翻译" },
       { label: "去重窗口", value: countMode === "raw" ? "RAW" : dedupWindowMinutes + "m", sub: countMode === "raw" ? "展示每次读取" : "同会话重复读取合并" },
-      { label: "支持工具", value: formatNum(supportedTools), sub: "内置主流工具路径" },
+      { label: "本机工具", value: formatNum(supportedTools), sub: "本次扫描有安装证据" },
       { label: "扫描文件", value: formatNum(scannedFiles), sub: formatNum(detectedSources) + " 个来源" },
       { label: "高置信记录", value: formatNum(highConfidence), sub: countMode === "raw" ? "原始命中" : "去重命中" }
     ];
@@ -4109,11 +4325,14 @@ button.catalog-stat.active {
       return;
     }
 
-    var sources = toolReport.sources;
-    var toolNames = unique([].concat(
-      (toolReport.summary && toolReport.summary.supported_tools) || [],
-      sources.map(function (source) { return source.tool; })
-    )).filter(Boolean).sort();
+    var sources = Array.isArray(toolReport.visible_sources)
+      ? toolReport.visible_sources
+      : (toolReport.sources || []).filter(function (source) { return source && source.detected === true; });
+    var installedToolNames = toolReport.summary && Array.isArray(toolReport.summary.installed_tools)
+      ? toolReport.summary.installed_tools
+      : [];
+    var toolNames = unique(installedToolNames.length ? installedToolNames : sources.map(function (source) { return source.tool; }))
+      .filter(Boolean).sort();
     var scannedFiles = sources.reduce(function (sum, row) { return sum + Number(row.files_scanned || 0); }, 0);
     var rawHits = sources.reduce(function (sum, row) { return sum + Number(row.raw_hits || 0); }, 0);
     var dedupHits = sources.reduce(function (sum, row) { return sum + Number(row.dedup_hits || 0); }, 0);
@@ -4150,10 +4369,10 @@ button.catalog-stat.active {
       return a.rank - b.rank || b.raw - a.raw || b.files - a.files || a.tool.localeCompare(b.tool);
     });
     var rowsHtml = rowModels.map(function (item) {
-      var pathRows = item.detected.length ? item.detected : item.rows;
-      var fullPathText = pathRows.length ? pathRows.map(function (row) { return row.path; }).join(" | ") : "default paths missing";
+      var pathRows = item.detected;
+      var fullPathText = pathRows.length ? pathRows.map(function (row) { return row.path; }).join(" | ") : "no visible source";
       var compactPaths = pathRows.slice(0, 2).map(function (row) { return compactLocalPath(row.path); });
-      var pathText = compactPaths.length ? compactPaths.join(" | ") + (pathRows.length > 2 ? " +" + formatNum(pathRows.length - 2) : "") : "default paths missing";
+      var pathText = compactPaths.length ? compactPaths.join(" | ") + (pathRows.length > 2 ? " +" + formatNum(pathRows.length - 2) : "") : "no visible source";
       return '<article class="tool-audit-row ' + escapeAttr(item.status.kind) + '">'
         + '<div class="tool-audit-main">'
         + '<span class="tool-audit-dot" aria-hidden="true"></span>'
@@ -4173,6 +4392,119 @@ button.catalog-stat.active {
     els.toolAuditPanel.innerHTML = '<div class="tool-audit-head"><h3 class="tool-audit-title">工具覆盖状态</h3><div class="tool-audit-summary">' + escapeHtml(summary) + '</div></div>'
       + '<div class="tool-audit-kpis">' + kpis + '</div>'
       + '<div class="tool-audit-list">' + rowsHtml + '</div>';
+  }
+
+  function renderToolRadar() {
+    if (!els.toolRadarSummary || !els.toolRadarCurrent || !els.toolRadarChanges || !els.toolRadarCandidates) return;
+    if (!toolReport) {
+      els.toolRadarSummary.innerHTML = '<div class="tool-radar-empty">尚未生成本机工具扫描报告。运行 collect.ps1 或点击“同步”后再查看。</div>';
+      els.toolRadarCurrent.innerHTML = '<div class="tool-radar-empty">暂无扫描结果。</div>';
+      els.toolRadarChanges.innerHTML = '<div class="tool-radar-empty">暂无变更记录。</div>';
+      els.toolRadarCandidates.innerHTML = '<div class="tool-radar-empty">暂无待适配候选。</div>';
+      if (els.toolRadarScanMeta) els.toolRadarScanMeta.textContent = "--";
+      return;
+    }
+
+    var reportSummary = toolReport.summary || {};
+    var discovery = toolReport.discovery || {};
+    var toolRows = Array.isArray(toolReport.tools) ? toolReport.tools : [];
+    var visibleSources = Array.isArray(toolReport.visible_sources)
+      ? toolReport.visible_sources
+      : (toolReport.sources || []).filter(function (source) { return source && source.detected === true; });
+    var currentNames = unique([].concat(
+      Array.isArray(discovery.installed_tools) ? discovery.installed_tools : [],
+      Array.isArray(reportSummary.installed_tools) ? reportSummary.installed_tools : []
+    )).filter(Boolean);
+    if (!currentNames.length) {
+      currentNames = unique(visibleSources.map(function (source) { return source.tool; })).filter(Boolean);
+    }
+    currentNames.sort();
+    var added = unique(discovery.newly_detected_tools || []);
+    var removed = unique(discovery.removed_tools || []);
+    var candidates = Array.isArray(discovery.unknown_candidates) ? discovery.unknown_candidates : [];
+
+    function getToolRow(name) {
+      for (var index = 0; index < toolRows.length; index += 1) {
+        if (String(toolRows[index].tool || "") === name) return toolRows[index];
+      }
+      return { tool: name, status: "no_log_files", raw_hits: 0, dedup_hits: 0, files_scanned: 0, provider_hints: [] };
+    }
+
+    function statusLabel(status) {
+      return {
+        ok: "已读取",
+        no_skill_hits: "日志未命中 skill",
+        no_log_files: "已安装待观察",
+        missing: "未发现"
+      }[String(status || "")] || "已发现";
+    }
+
+    function evidenceLabel(value) {
+      return {
+        install_marker: "安装标记",
+        command_available: "命令可用",
+        process_running: "进程运行中",
+        configured_custom_source: "自定义来源"
+      }[String(value || "")] || String(value || "扫描证据");
+    }
+
+    var installedCount = currentNames.length;
+    var knownCount = Number(discovery.known_tool_count || (reportSummary.known_tools || []).length || 0);
+    var cards = [
+      { label: "当前工具", value: installedCount },
+      { label: "已知适配", value: toolRows.length },
+      { label: "待适配候选", value: candidates.length },
+      { label: "本次移除", value: removed.length }
+    ];
+    els.toolRadarSummary.innerHTML = cards.map(function (card) {
+      return '<div class="catalog-stat"><span>' + escapeHtml(card.label) + '</span><strong>' + formatNum(card.value) + '</strong></div>';
+    }).join("");
+
+    if (els.toolRadarScanMeta) {
+      var scanAt = discovery.scanned_at || toolReport.generated_at || "";
+      var platform = discovery.platform ? " · " + discovery.platform : "";
+      var method = discovery.scan_method ? " · " + discovery.scan_method : "";
+      els.toolRadarScanMeta.textContent = "扫描 " + formatDate(scanAt) + platform + method + (knownCount ? " · 已知档案 " + formatNum(knownCount) : "");
+    }
+
+    els.toolRadarCurrent.innerHTML = currentNames.length
+      ? currentNames.map(function (name) {
+          var row = getToolRow(name);
+          var sources = visibleSources.filter(function (source) { return source.tool === name; });
+          var evidence = unique(sources.map(function (source) { return evidenceLabel(source.install_reason); })).join(" / ");
+          var providers = Array.isArray(row.provider_hints) ? row.provider_hints.filter(Boolean) : [];
+          var path = sources.length ? compactLocalPath(sources[0].path) : "暂无可见日志来源";
+          return '<article class="tool-radar-item">'
+            + '<div class="tool-radar-item-head"><strong class="' + toolClass(name) + '">' + escapeHtml(name) + '</strong><span class="tool-radar-status">' + escapeHtml(statusLabel(row.status)) + '</span></div>'
+            + (providers.length ? '<span class="tool-radar-provider">模型/提供商提示：' + escapeHtml(providers.join(" / ")) + '</span>' : '')
+            + '<div class="tool-radar-meta"><span>' + escapeHtml(evidence || "安装证据已记录") + '</span><span>' + formatNum(Number(row.raw_hits || 0)) + ' raw · ' + formatNum(Number(row.dedup_hits || 0)) + ' dedup</span></div>'
+            + '<div class="tool-radar-meta tool-radar-path" title="' + escapeAttr(path) + '">' + escapeHtml(path) + '</div>'
+            + '</article>';
+        }).join("")
+      : '<div class="tool-radar-empty">本次没有发现带有当前安装证据的工具。历史日志不会单独把工具重新显示出来。</div>';
+
+    var changeRows = [];
+    added.forEach(function (name) {
+      changeRows.push('<div class="tool-radar-change added"><span>新增</span><strong>' + escapeHtml(name) + '</strong></div>');
+    });
+    removed.forEach(function (name) {
+      changeRows.push('<div class="tool-radar-change removed"><span>已移除</span><strong>' + escapeHtml(name) + '</strong></div>');
+    });
+    els.toolRadarChanges.innerHTML = changeRows.length
+      ? changeRows.join("")
+      : '<div class="tool-radar-empty">本次扫描没有安装变化。</div>';
+
+    els.toolRadarCandidates.innerHTML = candidates.length
+      ? candidates.map(function (candidate) {
+          var roots = Array.isArray(candidate.log_roots) ? candidate.log_roots : [];
+          var rootText = roots.length ? roots.map(compactLocalPath).join(" · ") : "尚无已知日志根目录";
+          return '<article class="tool-radar-item">'
+            + '<div class="tool-radar-item-head"><strong>' + escapeHtml(candidate.name || candidate.profile_id || "未命名工具") + '</strong><span class="tool-radar-status">待适配</span></div>'
+            + '<p>' + escapeHtml(candidate.recommendation || "检测到安装证据，等待日志适配器") + '</p>'
+            + '<div class="tool-radar-meta tool-radar-path" title="' + escapeAttr(rootText) + '">' + escapeHtml(rootText) + '</div>'
+            + '</article>';
+        }).join("")
+      : '<div class="tool-radar-empty">没有发现带有安装证据的新工具。删除后只剩历史日志的工具不会出现在这里。</div>';
   }
 
   function toolAuditStatus(detected, files, raw) {
@@ -5612,6 +5944,11 @@ button.catalog-stat.active {
         body: "用于快速判断当前机器上哪些 skill 最常被调用。活跃排行支持全量、日榜、月榜、年榜，切换去重/原始口径可以分辨真实使用量和重复读取噪声。"
       },
       {
+        title: "工具雷达",
+        step: "先看本机适配",
+        body: "每次启动和后台轮询前都会重新检查本机安装证据。当前工具只展示仍然存在的工具；删除工具后不再显示，但会在本次变更里留下已移除记录。OpenCode 与 DeepSeek Harness（dsh）按独立工具解析，待适配候选可通过 custom_tools 接入。"
+      },
+      {
         title: "调用日志",
         step: "追踪来源",
         body: "用于查看每次 skill 调用来自哪个工具、哪次会话。点击会话 ID 可以展开同一轮对话里的完整技能时间线。"
@@ -6668,9 +7005,10 @@ button.catalog-stat.active {
                   renderStatsDateRange();
 
                   // Call all UI renderers
-                  renderMetrics();
-                  renderToolAudit();
-                  renderTrend();
+                   renderMetrics();
+                   renderToolAudit();
+                   renderToolRadar();
+                   renderTrend();
                   renderSkills(false);
                   renderLogs(false);
                   renderCatalog(false);

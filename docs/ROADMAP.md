@@ -21,6 +21,7 @@ This roadmap prioritizes practical adoption first, then deeper agent-skill gover
   - Additional editor plugins.
   - Custom JSONL schemas.
   - Optional imported anonymized reports.
+- Adaptive tool discovery and bounded candidate probing (v0.6.0): shipped for OpenCode, DeepSeek Harness (`dsh`), and upgrade candidates such as Kiro/OpenClaw/Pi Agent/OpenHands.
 
 ## Phase 3: Governance Intelligence
 
@@ -35,6 +36,7 @@ This roadmap prioritizes practical adoption first, then deeper agent-skill gover
 - CLI wrapper:
   - `skill-tracker collect`
   - `skill-tracker open`
+  - `skill-tracker tool-discovery`
   - `skill-tracker export`
 - Optional installer.
 - Cross-platform runtime hardening and native packaging.

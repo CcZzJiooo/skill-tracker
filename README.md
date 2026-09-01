@@ -11,7 +11,7 @@ Local-first observability for AI agent skills.
 
 Skill Tracker scans local AI coding-agent session logs, detects `SKILL.md` usage, and turns skill calls into a private dashboard: heatmaps, timelines, Chinese skill descriptions, duplicate-skill governance, GitHub discovery, and exportable action plans.
 
-Current release: `v0.5.1` — reliable large-log scanning, watcher retry/health reporting, configurable output directories, and separate `Antigravity` / `AntigravityIDE` source identities.
+Current release: `v0.6.0` — adaptive local tool discovery, launch-time rescans, deletion-aware tool history, and native `OpenCode` / `DeepSeek Harness (dsh)` support.
 
 ![Skill Tracker v0.5.0 light theme dashboard overview](docs/v0.5.0-light-overview.png)
 
@@ -27,7 +27,7 @@ Modern AI coding agents can call skills, plugins, prompts, and local workflows, 
 
 Skill Tracker makes that hidden layer visible.
 
-- See which skills are used across Codex, Claude Code, Cursor, Windsurf, Antigravity, AntigravityIDE, opencode, Aider, Cline/Roo/Kilo, Copilot, Continue, Gemini CLI, Hermes, Trae, and other local AI coding tools.
+- See which skills are used across Codex, Claude Code, Cursor, Windsurf, Antigravity, AntigravityIDE, OpenCode, DeepSeek Harness (dsh), Aider, Cline/Roo/Kilo, Copilot, Continue, Gemini CLI, Hermes, Trae, and other local AI coding tools.
 - Translate each skill's purpose into Chinese so non-English users can understand the local skill library.
 - Search by natural language intent, such as "I need a skill that saves tokens".
 - Detect duplicated or overlapping skills and export reviewable cleanup plans.
@@ -38,7 +38,7 @@ Skill Tracker makes that hidden layer visible.
 
 Skill Tracker 是一个本地优先的 AI Agent 技能调用可视化工具。它扫描本机 AI 编程工具的会话日志，统计哪些 `SKILL.md` 被调用，并在静态 dashboard 中展示技能热度、调用链路、中文功能说明、重复 skill 治理、GitHub 搜索和可导出的行动方案。
 
-它适合想管理 Codex / Claude Code / Cursor / Windsurf / Antigravity / AntigravityIDE / Gemini CLI / Hermes / Trae 等工具技能体系的开发者。
+它适合想管理 Codex / Claude Code / Cursor / Windsurf / Antigravity / AntigravityIDE / OpenCode / DeepSeek Harness / Gemini CLI / Hermes / Trae 等工具技能体系的开发者。
 
 ## Quick Start
 
@@ -68,7 +68,7 @@ cd skill-tracker
 # Linux/macOS: bash run.sh
 ```
 
-The first launch reads local AI-agent logs and opens the browser. Later launches reuse the current watcher and open the latest generated data without repeating the slow historical scan; the watcher continues refreshing new log entries in the background. Windows uses Windows PowerShell or PowerShell 7. Linux and macOS require `pwsh` (PowerShell 7) on `PATH`.
+The first launch reads local AI-agent logs and opens the browser. Every later launch asks the current watcher to rescan installation evidence and the latest log state before opening the dashboard; the watcher continues refreshing new log entries and tool changes in the background. Windows uses Windows PowerShell or PowerShell 7. Linux and macOS require `pwsh` (PowerShell 7) on `PATH`.
 
 Manual mode:
 
@@ -100,10 +100,10 @@ It has two runtime parts:
 GitHub's default "Source code" assets work for developers, but they look raw to non-technical users. For releases, maintainers should attach the cross-platform portable ZIP:
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File .\scripts\package-release.ps1 -Version v0.5.1
+powershell -ExecutionPolicy Bypass -File .\scripts\package-release.ps1 -Version v0.6.0
 ```
 
-Upload both `dist/skill-tracker-v0.5.1-portable.zip` and `dist/SHA256SUMS.txt` to the GitHub release. Windows users run `run.bat`; Linux and macOS users run `bash run.sh`. The same package starts a local watcher and serves the dashboard while collecting real local data. Windows-only shortcut and login-startup controls are hidden on Linux and macOS.
+Upload both `dist/skill-tracker-v0.6.0-portable.zip` and `dist/SHA256SUMS.txt` to the GitHub release. Windows users run `run.bat`; Linux and macOS users run `bash run.sh`. The same package starts a local watcher and serves the dashboard while collecting real local data. Windows-only shortcut and login-startup controls are hidden on Linux and macOS.
 
 An `.exe` wrapper is optional later, mainly for one-click onboarding. It is not required for the current architecture because there is no installer or Windows service; the local watcher is a normal user-owned PowerShell process.
 
@@ -119,6 +119,7 @@ An `.exe` wrapper is optional later, mainly for one-click onboarding. It is not 
 | Action lab | Turns governance findings into P0/P1/P2 tasks with evidence and acceptance criteria. |
 | Duplicate cleanup export | Exports a JSON cleanup plan and a PowerShell archive script. The script previews by default and only moves files when explicitly applied. |
 | Skill x tool matrix | Shows cross-platform skill coverage and tool preference patterns. |
+| Adaptive tool radar | Rescans installed tools on launch and watcher cycles, hides deleted tools from the current list, records add/remove transitions, and surfaces bounded candidates for future adapters. |
 | GitHub radar | Searches public GitHub repositories, checks repository freshness, latest release, and API rate limit state. |
 | Anonymous export | Exports privacy-safe reports without real session IDs, local paths, raw skill names, or full descriptions. |
 | Built-in manual | Explains every dashboard section inside the app, because many GitHub users do not read README files first. |
@@ -129,11 +130,15 @@ The collector reads each installed `SKILL.md` frontmatter (`description`, option
 
 Each catalog entry records `zh_desc_source` (`manual`, `frontmatter`, or `auto_rule`), a source hash, and the local summary version. Existing entries without a source marker are treated as manual text, so historical edits remain safe. Editing a summary in the dashboard marks it as manual when the catalog JSON is exported.
 
-### Dashboard date range and tool summary
+### Dashboard date range, tool summary, and adaptive radar
 
 The overview uses valid timestamps from the collected skill-call rows. With no date filter, the dashboard shows the actual earliest and latest matching calls in the current local report; it does not invent a reporting start date. Selecting a start or end date applies that inclusive range to overview metrics, the ranking, skill details, and the audit stream without changing local telemetry.
 
 The top bar shows the first four detected tools and a compact expandable count for the rest, so a machine with many installed agent tools remains readable at desktop and mobile widths.
+
+The **工具雷达 / Adaptive tools** view performs a bounded local discovery pass before each launcher run and during watcher refreshes. A built-in tool is current only when its executable, package, command, process, or versioned extension installation evidence is present; an old log directory by itself cannot resurrect a deleted tool. `dashboard/tool_report.json` separates the current `installed_tools` set from the known profile catalog, `discovery.removed_tools`, and `discovery.unknown_candidates`. Diagnostic `sources` keeps hidden rows for troubleshooting, while the UI uses `visible_sources` so deleted tools do not remain in the visible list.
+
+`OpenCode` and **DeepSeek Harness (`dsh`)** are separate profiles. DeepSeek Harness is the open-source DeepSeek agent harness; its JSONL adapter understands the native `user/message` event, direct `data.content` text blocks, and numeric `time` values. `Hermes` remains a separate profile and is not treated as an alias for DeepSeek Harness.
 
 ## Supported Sources
 
@@ -156,9 +161,10 @@ Skill Tracker currently detects common local paths for:
 | GitHub Copilot | `%APPDATA%/Code/User/globalStorage/github.copilot-chat/`, `%APPDATA%/Code/User/workspaceStorage/` |
 | Goose | `~/.config/goose/sessions/`, `~/.local/share/goose/sessions/` |
 | Hermes | `~/.hermes/sessions/`, `~/.hermes/logs/` |
+| DeepSeek Harness (`dsh`) | `~/.dsh/sessions/` by default, or `DSH_SESSION_ROOT`; JSONL session trees and `~/.dsh/logs/` |
 | JetBrains AI / Junie | `%LOCALAPPDATA%/JetBrains/`, `%APPDATA%/JetBrains/`, `~/.junie/logs/` |
 | Kilo Code | `%APPDATA%/Code/User/globalStorage/kilocode.kilo-code/`, `~/.kilo/` |
-| opencode | `~/.local/share/opencode/log/`, `~/.config/opencode/` |
+| OpenCode | `~/.local/share/opencode/log/`, `~/.config/opencode/`, `%APPDATA%/opencode/` |
 | Qwen Code | `~/.qwen/logs/openai/`, `~/.qwen/debug/`, `~/.qwen/` |
 | Roo Code | `%APPDATA%/Code/User/globalStorage/rooveterinaryinc.roo-cline/` |
 | Sourcegraph Cody | `%APPDATA%/Code/User/globalStorage/sourcegraph.cody-ai/` |
@@ -177,9 +183,9 @@ After collection, Skill Tracker writes a local tool coverage report:
 - `dashboard/tool_report.json`
 - `dashboard/tool_report.js`
 
-This report shows every built-in or custom source path, whether it exists on the user's machine, how many log files were scanned, and how many raw/deduplicated skill hits were found. It is the source of truth for checking whether a downloaded copy can read that user's local tools correctly.
+This report shows every built-in or custom source path, whether it exists on the user's machine, how many log files were scanned, and how many raw/deduplicated skill hits were found. `summary.installed_tools` and `discovery.installed_tools` are the current tool set; `discovery.newly_detected_tools` and `discovery.removed_tools` describe the transition since the previous successful publication. `discovery.unknown_candidates` contains bounded install signals for tools that do not yet have a stable adapter. The full `sources` array intentionally retains non-detected diagnostic rows, while `visible_sources` is the UI-safe current-source projection.
 
-Unknown tools cannot be guaranteed automatically unless their log path and log format expose skill calls. Add those paths through `custom_tools`, then run the collector verification command below.
+Unknown tools cannot be guaranteed automatically unless their log path and log format expose skill calls. The bounded candidate probe currently gives upgrade leads for tools such as Kiro, OpenClaw, Pi Agent, and OpenHands when a current install signal exists; it does not crawl the whole disk. Add a candidate's log path through `custom_tools`, then run the collector verification command below.
 
 ## Configuration
 
@@ -205,7 +211,7 @@ Fields:
 - `output_dir`: Dashboard data output directory. Relative paths are resolved from the directory containing `config.json`, and the launcher serves generated files from this directory.
 - `max_log_entries`: Maximum log entries emitted for the dashboard.
 - `dedup_window_minutes`: Time bucket used to collapse repeated reads.
-- `custom_tools`: Extra tool names and session-log directories. Relative paths are resolved from the directory containing `config.json`.
+- `custom_tools`: Extra tool names and session-log directories. Relative paths are resolved from the directory containing `config.json`. Use this for a detected-but-not-yet-adapted candidate or an installation with a custom log root.
 
 ## Generated Files
 
@@ -240,7 +246,7 @@ AI agents usually load a skill by reading a path like:
 skills/<name>/SKILL.md
 ```
 
-Skill Tracker scans local session logs for high-confidence skill signals: explicit `/skill` invocations, Claude Code `attributionSkill` records, and real tool reads of `SKILL.md`. Generated skill inventories, grep/search output, command output, and duplicate transcript copies are filtered out before data is emitted.
+Skill Tracker scans local session logs for high-confidence skill signals: explicit `/skill` invocations, Claude Code `attributionSkill` records, DeepSeek Harness `user/message` events, and real tool reads of `SKILL.md`. Generated skill inventories, grep/search output, command output, and duplicate transcript copies are filtered out before data is emitted.
 
 Default deduplication key:
 
@@ -263,14 +269,15 @@ powershell -ExecutionPolicy Bypass -File .\scripts\verify-collector.ps1 -SkipCol
 Node.js 20+ users can use the dependency-free CLI in addition to the Windows launcher:
 
 ```powershell
-node .\tools\skill-tracker-cli.mjs collect
-node .\tools\skill-tracker-cli.mjs health --json
-node .\tools\skill-tracker-cli.mjs export .\skill-tracker-report.json
+  node .\tools\skill-tracker-cli.mjs collect
+  node .\tools\skill-tracker-cli.mjs health --json
+  node .\tools\skill-tracker-cli.mjs tool-discovery --json
+  node .\tools\skill-tracker-cli.mjs export .\skill-tracker-report.json
 node .\tools\skill-tracker-cli.mjs import .\skill-tracker-report.json
 node .\tools\skill-tracker-cli.mjs benchmark .\reports
 ```
 
-The anonymous report contains aggregate counts and stable opaque IDs only; it does not include raw logs, local paths, session IDs, skill names, or descriptions. The adapter contract is documented in [`adapters/README.md`](adapters/README.md). A read-only MCP stdio server is available with `node tools/mcp-server.mjs`; it exposes only the local explainable health report.
+The anonymous report contains aggregate counts and stable opaque IDs only; it does not include raw logs, local paths, session IDs, skill names, or descriptions. `tool-discovery` exposes only canonical tool names, install-state transitions, candidate names/statuses, and scan metadata; it intentionally omits local paths. The adapter contract is documented in [`adapters/README.md`](adapters/README.md). A read-only MCP stdio server is available with `node tools/mcp-server.mjs`; it exposes only the local explainable health report.
 
 GitHub Actions can run the collector contract, CLI syntax, adapter schema, and `SKILL.md` metadata checks from `.github/workflows/quality.yml`.
 
@@ -281,6 +288,7 @@ The verifier checks:
 - deduplicated rows have unique dedup keys;
 - visible raw log rows are not duplicated;
 - `tool_report.js` exists and every detected tool has a source coverage row;
+- discovery current tools and visible source rows agree, while removed tools remain diagnostic-only;
 - report `raw_hits` is at least the number of emitted log rows.
 
 ## Open Source Positioning
@@ -312,7 +320,9 @@ skill-tracker/
 |   |-- skill_catalog.js        # generated, ignored, under output_dir
 |   |-- skill_data.js           # generated, ignored, under output_dir
 |   |-- skill_log.js            # generated, ignored, under output_dir
-|   `-- skill_call_stats.json   # generated, ignored, under output_dir
+   |   |-- skill_call_stats.json   # generated, ignored, under output_dir
+   |   |-- tool_report.json        # generated, ignored, adaptive discovery report
+   |   `-- tool_report.js          # generated, ignored, browser copy of the report
 |-- docs/
 |   |-- LAUNCH_KIT.md
 |   |-- ROADMAP.md
@@ -345,7 +355,7 @@ Near-term priorities:
 - More native Linux/macOS launcher and packaging polish.
 - More skill-source adapters.
 - Import validation for `skill_catalog.json`.
-- A small CLI wrapper, such as `skill-tracker collect` and `skill-tracker open`.
+- A richer CLI surface for tool adapters and watcher diagnostics.
 - Optional GitHub token support for higher API limits.
 
 ## Spread the Project

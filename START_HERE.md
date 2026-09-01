@@ -11,7 +11,7 @@ Use the release package, not GitHub's auto-generated "Source code" download.
 3. Windows: double-click `run.bat` (or `创建桌面快捷方式.bat`).
 4. Linux/macOS: install PowerShell 7, open a terminal in the extracted folder, and run `bash run.sh`.
 
-The launcher reads your local AI-agent logs and generates local dashboard data. On Windows it can also create a `技能追踪器.lnk` shortcut and configure login startup. Those Windows integration controls are hidden on Linux and macOS.
+The launcher reads your local AI-agent logs and generates local dashboard data. Before every launch it refreshes the bounded tool-discovery scan; if a watcher is already running, the launch requests that watcher to rescan before opening the dashboard. On Windows it can also create a `技能追踪器.lnk` shortcut and configure login startup. Those Windows integration controls are hidden on Linux and macOS.
 
 If no supported local logs are found, the dashboard opens with an empty local scan report. Demo data is only a static fallback for inspecting the interface without running the launcher.
 
@@ -50,7 +50,7 @@ pwsh -NoLogo -NoProfile -File ./start-dashboard.ps1
 Skill Tracker is a local-first observability tool:
 
 - `collect.ps1` scans local AI-agent session logs.
-- `dashboard/index.html` visualizes skill usage, Chinese descriptions, governance findings, and GitHub discovery.
+- `dashboard/index.html` visualizes skill usage, Chinese descriptions, governance findings, GitHub discovery, and the adaptive tool radar.
 - `run.bat` is the Windows entry point; `run.sh` is the Linux/macOS entry point.
 
 It is not a single agent `skill`, because it observes and manages many skills across tools. It is not currently an `.exe`, because the project does not need an installer or background service.
@@ -80,3 +80,9 @@ Generated local telemetry stays on your machine and is ignored by Git. It is wri
 - `dashboard/tool_report.js`
 
 Use the dashboard's anonymous export before sharing reports or screenshots publicly.
+
+## Adaptive Tool Radar
+
+Open **工具雷达 / Adaptive tools** after launch to see the current local tool set. A tool is shown as current only when the collector finds installation evidence such as an executable, package, command, process, or versioned editor extension. A leftover log directory is kept for diagnostics but cannot by itself make a deleted tool appear again.
+
+The radar distinguishes `OpenCode` from `DeepSeek Harness (dsh)`. DeepSeek Harness session logs use its append-only JSONL event format; `DSH_SESSION_ROOT` can override the default `~/.dsh/sessions/` location. Tools that have an install signal but no stable adapter yet appear as bounded candidates, such as Kiro, OpenClaw, Pi Agent, or OpenHands. Use `custom_tools` for a candidate's known log directory when you want to collect it before a native adapter is added.

@@ -38,19 +38,23 @@ jobs:
           ./scripts/verify-collector.ps1 -SkipCollect
           ./scripts/test-run-bat-contract.ps1
           ./scripts/test-package-release.ps1
-      - name: Validate v0.5.1 collector and launcher regressions
+      - name: Validate v0.6.0 collector, discovery, and launcher regressions
         shell: pwsh
         run: |
           ./scripts/test-collector-codex-latest-read.ps1
           ./scripts/test-collector-cache.ps1
           ./scripts/test-collector-antigravity-layout.ps1
+          ./scripts/test-collector-tool-discovery.ps1
           ./scripts/test-collector-watcher-read-retry.ps1
           ./scripts/test-start-dashboard-configured-output.ps1
+          ./scripts/test-start-dashboard-adaptive-discovery.ps1
+          ./scripts/test-dashboard-tool-radar.ps1
       - name: Validate CLI and MCP
         shell: pwsh
         run: |
           node --check tools/skill-tracker-cli.mjs
           node --check tools/mcp-server.mjs
+          node scripts/test-cli-tool-discovery.mjs
           node tools/skill-tracker-cli.mjs --help
       - name: Validate skill adapter schema
         shell: pwsh
