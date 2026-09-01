@@ -3,13 +3,45 @@
     [int]$Port = 17830,
     [switch]$NoBrowser,
     [switch]$NoWatch,
-    [switch]$ForceScan
+    [switch]$ForceScan,
+    [string]$ConfigFile = "$PSScriptRoot/config.json"
 )
 
 $ErrorActionPreference = "Stop"
 $Root = $PSScriptRoot
 $DashboardDir = Join-Path $Root "dashboard"
 $CollectorPath = Join-Path $Root "collect.ps1"
+$resolvedConfigFile = if ([System.IO.Path]::IsPathRooted($ConfigFile)) {
+    [System.IO.Path]::GetFullPath($ConfigFile)
+} else {
+    [System.IO.Path]::GetFullPath((Join-Path (Get-Location).Path $ConfigFile))
+}
+if (-not (Test-Path -LiteralPath $resolvedConfigFile -PathType Leaf) -and -not [System.IO.Path]::IsPathRooted($ConfigFile)) {
+    $packageConfig = [System.IO.Path]::GetFullPath((Join-Path $PSScriptRoot $ConfigFile))
+    if (Test-Path -LiteralPath $packageConfig -PathType Leaf) { $resolvedConfigFile = $packageConfig }
+}
+$configBaseDir = Split-Path -Parent $resolvedConfigFile
+$configuredOutputDir = "./dashboard"
+if (Test-Path -LiteralPath $resolvedConfigFile -PathType Leaf) {
+    try {
+        $launcherConfig = Get-Content -LiteralPath $resolvedConfigFile -Raw -Encoding UTF8 | ConvertFrom-Json
+        if ($launcherConfig.output_dir) { $configuredOutputDir = [string]$launcherConfig.output_dir }
+    } catch {
+        Write-Warning "Could not parse config.json for the dashboard output path; using ./dashboard."
+    }
+}
+$configuredOutputDir = [Environment]::ExpandEnvironmentVariables($configuredOutputDir).Trim()
+$configuredHome = if ($env:USERPROFILE) { $env:USERPROFILE } elseif ($env:HOME) { $env:HOME } else { "" }
+if ($configuredHome -and $configuredOutputDir -match '^~([\\/]|$)') {
+    $configuredOutputDir = $configuredHome + $configuredOutputDir.Substring(1)
+}
+$DataDir = if ([System.IO.Path]::IsPathRooted($configuredOutputDir)) {
+    [System.IO.Path]::GetFullPath($configuredOutputDir)
+} else {
+    [System.IO.Path]::GetFullPath((Join-Path $configBaseDir $configuredOutputDir))
+}
+New-Item -ItemType Directory -Path $DataDir -Force | Out-Null
+$HeartbeatMaxAgeSeconds = 90
 $RunningOnWindows = [System.Runtime.InteropServices.RuntimeInformation]::IsOSPlatform([System.Runtime.InteropServices.OSPlatform]::Windows)
 $RunningOnMacOS = [System.Runtime.InteropServices.RuntimeInformation]::IsOSPlatform([System.Runtime.InteropServices.OSPlatform]::OSX)
 $PowerShellExecutable = try { (Get-Process -Id $PID -ErrorAction Stop).Path } catch { $null }
@@ -30,7 +62,16 @@ $RequiredGeneratedFiles = @(
     "skill_catalog.js",
     "tool_report.js"
 )
-$CollectorTriggerPath = Join-Path $DashboardDir ".collector.trigger"
+$GeneratedDataFiles = @(
+    "skill_data.js",
+    "skill_log.js",
+    "skill_call_stats.json",
+    "skill_catalog.json",
+    "skill_catalog.js",
+    "tool_report.json",
+    "tool_report.js"
+)
+$CollectorTriggerPath = Join-Path $DataDir ".collector.trigger"
 
 function Start-SkillTrackerPowerShell {
     param(
@@ -43,7 +84,14 @@ function Start-SkillTrackerPowerShell {
     $argumentList = @("-NoLogo", "-NoProfile")
     if ($RunningOnWindows) { $argumentList += @("-ExecutionPolicy", "Bypass") }
     $argumentList += @("-File", $quotedScriptPath)
-    $argumentList += $ScriptArguments
+    foreach ($argument in $ScriptArguments) {
+        $value = [string]$argument
+        if ($value -match '[\s"]') {
+            $argumentList += '"' + $value.Replace('"', '\"') + '"'
+        } else {
+            $argumentList += $value
+        }
+    }
 
     $startParams = @{
         FilePath = $PowerShellExecutable
@@ -143,7 +191,7 @@ function Start-NoCacheServer {
         $context = $listener.GetContext()
         try {
             $rawPath = [Uri]::UnescapeDataString($context.Request.Url.AbsolutePath)
-            if ($rawPath -eq "/api/sync" -or $rawPath.StartsWith("/api/shortcut/")) {
+            if ($rawPath -eq "/api/sync" -or $rawPath -eq "/api/watcher-status" -or $rawPath.StartsWith("/api/shortcut/")) {
                 $method = $context.Request.HttpMethod.ToUpperInvariant()
                 $shortcutScript = Join-Path $Root "scripts\manage-shortcut.ps1"
                 $bytes = @()
@@ -158,6 +206,10 @@ function Start-NoCacheServer {
                         message = "Desktop shortcuts and login startup are available on Windows only."
                     }
                     $bytes = [System.Text.Encoding]::UTF8.GetBytes(($resObj | ConvertTo-Json -Compress))
+                } elseif ($rawPath -eq "/api/watcher-status" -and $method -eq "GET") {
+                    $context.Response.StatusCode = 200
+                    $context.Response.ContentType = "application/json; charset=utf-8"
+                    $bytes = [System.Text.Encoding]::UTF8.GetBytes((Get-CollectorWatcherStatus | ConvertTo-Json -Compress))
                 } elseif ($rawPath -eq "/api/sync" -and ($method -eq "POST" -or $method -eq "GET")) {
                     $context.Response.StatusCode = 202
                     $context.Response.ContentType = "application/json; charset=utf-8"
@@ -209,7 +261,8 @@ function Start-NoCacheServer {
             } else {
                 $requestPath = $rawPath.TrimStart('/')
                 if ([string]::IsNullOrWhiteSpace($requestPath)) { $requestPath = "index.html" }
-                $dashboardFullPath = [System.IO.Path]::GetFullPath($DashboardDir)
+                $contentRoot = if ($GeneratedDataFiles -contains $requestPath) { $DataDir } else { $DashboardDir }
+                $dashboardFullPath = [System.IO.Path]::GetFullPath($contentRoot)
                 $platformRequestPath = $requestPath.Replace([char]'/', [System.IO.Path]::DirectorySeparatorChar)
                 $fullPath = [System.IO.Path]::GetFullPath((Join-Path $dashboardFullPath $platformRequestPath))
                 $dashboardPrefix = $dashboardFullPath.TrimEnd(
@@ -259,48 +312,111 @@ function Start-NoCacheServer {
 
 function Assert-GeneratedDashboardData {
     foreach ($file in $RequiredGeneratedFiles) {
-        $path = Join-Path $DashboardDir $file
+        $path = Join-Path $DataDir $file
         if (-not (Test-Path -LiteralPath $path -PathType Leaf)) {
             throw "Initial local collection did not generate $file."
         }
     }
 }
 
-function Test-CollectorWatcher {
-    $pidPath = Join-Path $DashboardDir ".collector.pid"
-    if (-not (Test-Path -LiteralPath $pidPath -PathType Leaf)) { return $false }
-
-    $watcherPidText = (Get-Content -LiteralPath $pidPath -Raw -ErrorAction SilentlyContinue).Trim()
-    [int]$watcherPid = 0
-    if (-not [int]::TryParse($watcherPidText, [ref]$watcherPid) -or $watcherPid -le 0) {
-        Remove-Item -LiteralPath $pidPath -Force -ErrorAction SilentlyContinue
-        return $false
+function Read-CollectorHeartbeat {
+    $heartbeatPath = Join-Path $DataDir ".collector-heartbeat.json"
+    if (-not (Test-Path -LiteralPath $heartbeatPath -PathType Leaf)) { return $null }
+    try {
+        return Get-Content -LiteralPath $heartbeatPath -Raw -Encoding UTF8 | ConvertFrom-Json
+    } catch {
+        return $null
     }
+}
 
-    $process = Get-Process -Id $watcherPid -ErrorAction SilentlyContinue
+function Get-CollectorWatcherStatus {
+    $pidPath = Join-Path $DataDir ".collector.pid"
+    $heartbeat = Read-CollectorHeartbeat
+    $pidText = if (Test-Path -LiteralPath $pidPath -PathType Leaf) {
+        (Get-Content -LiteralPath $pidPath -Raw -ErrorAction SilentlyContinue).Trim()
+    } else { "" }
+    [int]$watcherPid = 0
+    $pidValid = [int]::TryParse($pidText, [ref]$watcherPid) -and $watcherPid -gt 0
+    $process = if ($pidValid) { Get-Process -Id $watcherPid -ErrorAction SilentlyContinue } else { $null }
     $commandLine = if ($process) { Get-ProcessCommandLine -ProcessId $watcherPid } else { "" }
     $commandComparison = if ($RunningOnWindows) { [System.StringComparison]::OrdinalIgnoreCase } else { [System.StringComparison]::Ordinal }
-    if ($env:SKILL_TRACKER_DEBUG) {
-        Write-Host "Watcher check PID=$watcherPid process=$([bool]$process) collector='$CollectorPath' command='$commandLine'"
+    $processMatches = [bool]($process -and $commandLine -and
+        $commandLine.IndexOf($CollectorPath, $commandComparison) -ge 0 -and
+        $commandLine.IndexOf("-Watch", [System.StringComparison]::OrdinalIgnoreCase) -ge 0)
+    $heartbeatPid = 0
+    $heartbeatPidValid = $false
+    if ($heartbeat -and [int]::TryParse([string]$heartbeat.pid, [ref]$heartbeatPid)) {
+        $heartbeatPidValid = $heartbeatPid -gt 0
     }
-    if (-not $process -or -not $commandLine -or
-        $commandLine.IndexOf($CollectorPath, $commandComparison) -lt 0 -or
-        $commandLine.IndexOf("-Watch", [System.StringComparison]::OrdinalIgnoreCase) -lt 0) {
+    $heartbeatUpdatedAt = $null
+    if ($heartbeat -and $heartbeat.updated_at) {
+        try { $heartbeatUpdatedAt = [DateTimeOffset]::Parse([string]$heartbeat.updated_at).ToUniversalTime() } catch { $heartbeatUpdatedAt = $null }
+    }
+    $heartbeatAgeSeconds = if ($heartbeatUpdatedAt) {
+        [Math]::Max(0, [int]([DateTimeOffset]::UtcNow - $heartbeatUpdatedAt).TotalSeconds)
+    } else { $null }
+    $heartbeatFresh = [bool]($heartbeat -and $heartbeatPidValid -and $heartbeatPid -eq $watcherPid -and
+        $heartbeatAgeSeconds -ne $null -and $heartbeatAgeSeconds -le $HeartbeatMaxAgeSeconds -and
+        [string]$heartbeat.status -ne "error")
+    $running = [bool]($pidValid -and $processMatches -and $heartbeatFresh)
+    $state = if ($heartbeat -and $heartbeat.status) { [string]$heartbeat.status } elseif ($running) { "unknown" } else { "stopped" }
+    if (-not $running -and ($processMatches -or $heartbeat)) { $state = "stale" }
+
+    return [PSCustomObject]@{
+        running               = $running
+        output_dir            = $DataDir
+        pid                   = if ($pidValid) { $watcherPid } else { $null }
+        process_exists        = [bool]$process
+        process_matches       = $processMatches
+        command_line          = $commandLine
+        heartbeat_exists      = [bool]$heartbeat
+        heartbeat_pid         = if ($heartbeatPidValid) { $heartbeatPid } else { $null }
+        heartbeat_fresh       = $heartbeatFresh
+        heartbeat_age_seconds = $heartbeatAgeSeconds
+        status                = $state
+        last_updated_at       = if ($heartbeat) { [string]$heartbeat.updated_at } else { "" }
+        last_scan_at          = if ($heartbeat) { [string]$heartbeat.last_scan_at } else { "" }
+        last_successful_scan_at = if ($heartbeat) { [string]$heartbeat.last_successful_scan_at } else { "" }
+        last_error             = if ($heartbeat) { [string]$heartbeat.last_error } else { "" }
+    }
+}
+
+function Test-CollectorWatcher {
+    param([switch]$SkipVersionCheck)
+
+    $pidPath = Join-Path $DataDir ".collector.pid"
+    $heartbeatPath = Join-Path $DataDir ".collector-heartbeat.json"
+    $status = Get-CollectorWatcherStatus
+    $watcherPid = if ($status.pid) { [int]$status.pid } else { 0 }
+    $process = if ($watcherPid -gt 0) { Get-Process -Id $watcherPid -ErrorAction SilentlyContinue } else { $null }
+    if ($env:SKILL_TRACKER_DEBUG) {
+        Write-Host "Watcher check PID=$watcherPid running=$($status.running) process=$([bool]$process) collector='$CollectorPath' status=$($status.status) heartbeat_age=$($status.heartbeat_age_seconds)"
+    }
+    if (-not $status.running) {
+        if ($status.process_matches -and $process) {
+            Stop-Process -Id $watcherPid -Force -ErrorAction SilentlyContinue
+            Wait-Process -Id $watcherPid -Timeout 5 -ErrorAction SilentlyContinue
+        }
         Remove-Item -LiteralPath $pidPath -Force -ErrorAction SilentlyContinue
+        Remove-Item -LiteralPath $heartbeatPath -Force -ErrorAction SilentlyContinue
         return $false
     }
 
-    try {
-        $collectorWriteUtc = (Get-Item -LiteralPath $CollectorPath -ErrorAction Stop).LastWriteTimeUtc
-        $watcherStartUtc = ([datetime]$process.StartTime).ToUniversalTime()
-        if ($watcherStartUtc -lt $collectorWriteUtc) {
-            Stop-Process -Id $watcherPid -Force -ErrorAction SilentlyContinue
-            Wait-Process -Id $watcherPid -Timeout 5 -ErrorAction SilentlyContinue
-            Remove-Item -LiteralPath $pidPath -Force -ErrorAction SilentlyContinue
-            return $false
+    if (-not $SkipVersionCheck) {
+        try {
+            $collectorWriteUtc = (Get-Item -LiteralPath $CollectorPath -ErrorAction Stop).LastWriteTimeUtc
+            $watcherStartUtc = ([datetime]$process.StartTime).ToUniversalTime()
+            if ($watcherStartUtc -lt $collectorWriteUtc) {
+                Stop-Process -Id $watcherPid -Force -ErrorAction SilentlyContinue
+                Wait-Process -Id $watcherPid -Timeout 5 -ErrorAction SilentlyContinue
+                Remove-Item -LiteralPath $pidPath -Force -ErrorAction SilentlyContinue
+                Remove-Item -LiteralPath $heartbeatPath -Force -ErrorAction SilentlyContinue
+                return $false
+            }
+        } catch {
+            # If process metadata is unavailable, ownership and the mutex
+            # remain the safety checks.
         }
-    } catch {
-        # If process metadata is unavailable, ownership and the mutex remain the safety checks.
     }
 
     return $true
@@ -308,12 +424,29 @@ function Test-CollectorWatcher {
 
 function Start-CollectorWatcher {
     if (Test-CollectorWatcher) { return $true }
-    try {
-        Start-SkillTrackerPowerShell -ScriptPath $CollectorPath -ScriptArguments @("-Watch") | Out-Null
-        return $true
-    } catch {
-        return $false
+    for ($attempt = 0; $attempt -lt 3; $attempt++) {
+        if ($attempt -gt 0) {
+            # A forced replacement can leave the named mutex in the old
+            # process teardown window for a few hundred milliseconds.
+            Start-Sleep -Milliseconds 500
+        }
+        try {
+            $watcherProcess = Start-SkillTrackerPowerShell -ScriptPath $CollectorPath -ScriptArguments @("-ConfigFile", $resolvedConfigFile, "-Watch")
+            if (-not $watcherProcess) { continue }
+            $deadline = (Get-Date).AddSeconds(15)
+            do {
+                if (Test-CollectorWatcher -SkipVersionCheck) { return $true }
+                if ($watcherProcess.HasExited) { break }
+                Start-Sleep -Milliseconds 300
+            } while ((Get-Date) -lt $deadline)
+            if (Test-CollectorWatcher -SkipVersionCheck) { return $true }
+            if (-not $watcherProcess.HasExited) { return $false }
+        } catch {
+            # Retry only startup failures; the final attempt reports the
+            # unavailable watcher to the caller without masking the dashboard.
+        }
     }
+    return $false
 }
 
 if ($Server) {
@@ -333,7 +466,7 @@ if (-not (Test-SkillTrackerServer -ListenPort $Port)) {
         throw "Port $Port is already used by another local server. Stop that server or choose another port."
     }
 
-    Start-SkillTrackerPowerShell -ScriptPath $PSCommandPath -ScriptArguments @("-Server", "-Port", "$Port") | Out-Null
+    Start-SkillTrackerPowerShell -ScriptPath $PSCommandPath -ScriptArguments @("-Server", "-Port", "$Port", "-ConfigFile", $resolvedConfigFile) | Out-Null
     if (-not (Wait-SkillTrackerServer -ListenPort $Port -TimeoutSeconds 20)) {
         throw "Dashboard server did not become ready on http://127.0.0.1:$Port/."
     }
@@ -355,7 +488,7 @@ if ($RunningOnWindows -and (Test-Path -LiteralPath $shortcutScript)) {
 
 $hasGeneratedData = $true
 foreach ($file in $RequiredGeneratedFiles) {
-    if (-not (Test-Path -LiteralPath (Join-Path $DashboardDir $file) -PathType Leaf)) {
+    if (-not (Test-Path -LiteralPath (Join-Path $DataDir $file) -PathType Leaf)) {
         $hasGeneratedData = $false
         break
     }
@@ -363,7 +496,7 @@ foreach ($file in $RequiredGeneratedFiles) {
 
 if ($NoWatch -and (-not $hasGeneratedData -or $ForceScan)) {
     Write-Host "Reading local AI-agent logs..."
-    & $CollectorPath -ForceScan
+    & $CollectorPath -ConfigFile $resolvedConfigFile -ForceScan
     if (-not $?) {
         throw "Initial local collection failed."
     }

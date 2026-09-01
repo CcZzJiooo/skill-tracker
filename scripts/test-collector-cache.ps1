@@ -80,13 +80,38 @@ try {
 
         [System.IO.File]::AppendAllText($logPath, '{"type":"USER_INPUT","timestamp":"2026-08-05T02:00:00Z","text":"/cache-skill "}' + "`n", [System.Text.Encoding]::UTF8)
         [System.IO.File]::SetLastWriteTimeUtc($logPath, [DateTime]::UtcNow.AddSeconds(2))
-        $third = Invoke-Collection
-        if ($third -notmatch 'Cache:\s+0 reused,\s+1 parsed') { throw "Modified fixture file was not reparsed." }
-        $stats = Get-Content -LiteralPath (Join-Path $outputDir "skill_call_stats.json") -Raw -Encoding UTF8 | ConvertFrom-Json
-        if ((@($stats.skill_call_stats | Where-Object skill -eq "cache-skill")[0]).raw_count -lt 2) {
-            throw "Reparsed cache fixture did not preserve both dated calls."
-        }
+    $third = Invoke-Collection
+    if ($third -notmatch 'Cache:\s+0 reused,\s+1 parsed') { throw "Modified fixture file was not reparsed." }
+    $stats = Get-Content -LiteralPath (Join-Path $outputDir "skill_call_stats.json") -Raw -Encoding UTF8 | ConvertFrom-Json
+    if ((@($stats.skill_call_stats | Where-Object skill -eq "cache-skill")[0]).raw_count -lt 2) {
+        throw "Reparsed cache fixture did not preserve both dated calls."
+    }
+
+    # A transient file lock must not replace the last good cache entry with an
+    # empty successful-looking result. Once the lock is released, the changed
+    # file must be retried and both calls must be visible.
+    [System.IO.File]::AppendAllText($logPath, '{"type":"USER_INPUT","timestamp":"2026-08-05T03:00:00Z","text":"/cache-skill "}' + "`n", [System.Text.Encoding]::UTF8)
+    [System.IO.File]::SetLastWriteTimeUtc($logPath, [DateTime]::UtcNow.AddSeconds(4))
+    $lockStream = $null
+    try {
+        $lockStream = [System.IO.FileStream]::new(
+            $logPath,
+            [System.IO.FileMode]::Open,
+            [System.IO.FileAccess]::Read,
+            [System.IO.FileShare]::None
+        )
+        Invoke-Collection | Out-Null
     } finally {
+        if ($lockStream) { $lockStream.Dispose() }
+    }
+
+    $recovered = Invoke-Collection
+    if ($recovered -notmatch 'Cache:\s+0 reused,\s+1 parsed') { throw "Collector did not retry a file after a transient read failure." }
+    $recoveredStats = Get-Content -LiteralPath (Join-Path $outputDir "skill_call_stats.json") -Raw -Encoding UTF8 | ConvertFrom-Json
+    if ((@($recoveredStats.skill_call_stats | Where-Object skill -eq "cache-skill")[0]).raw_count -lt 3) {
+        throw "Collector lost cached calls after recovering from a transient file lock."
+    }
+} finally {
         $env:USERPROFILE = $priorUserProfile
         $env:HOME = $priorHome
         $env:APPDATA = $priorAppData

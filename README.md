@@ -11,6 +11,8 @@ Local-first observability for AI agent skills.
 
 Skill Tracker scans local AI coding-agent session logs, detects `SKILL.md` usage, and turns skill calls into a private dashboard: heatmaps, timelines, Chinese skill descriptions, duplicate-skill governance, GitHub discovery, and exportable action plans.
 
+Current release: `v0.5.1` — reliable large-log scanning, watcher retry/health reporting, configurable output directories, and separate `Antigravity` / `AntigravityIDE` source identities.
+
 ![Skill Tracker v0.5.0 light theme dashboard overview](docs/v0.5.0-light-overview.png)
 
 ### v0.5.0 Light Theme Preview
@@ -25,7 +27,7 @@ Modern AI coding agents can call skills, plugins, prompts, and local workflows, 
 
 Skill Tracker makes that hidden layer visible.
 
-- See which skills are used across Codex, Claude Code, Cursor, Windsurf, Antigravity, opencode, Aider, Cline/Roo/Kilo, Copilot, Continue, Gemini CLI, Hermes, Trae, and other local AI coding tools.
+- See which skills are used across Codex, Claude Code, Cursor, Windsurf, Antigravity, AntigravityIDE, opencode, Aider, Cline/Roo/Kilo, Copilot, Continue, Gemini CLI, Hermes, Trae, and other local AI coding tools.
 - Translate each skill's purpose into Chinese so non-English users can understand the local skill library.
 - Search by natural language intent, such as "I need a skill that saves tokens".
 - Detect duplicated or overlapping skills and export reviewable cleanup plans.
@@ -36,7 +38,7 @@ Skill Tracker makes that hidden layer visible.
 
 Skill Tracker 是一个本地优先的 AI Agent 技能调用可视化工具。它扫描本机 AI 编程工具的会话日志，统计哪些 `SKILL.md` 被调用，并在静态 dashboard 中展示技能热度、调用链路、中文功能说明、重复 skill 治理、GitHub 搜索和可导出的行动方案。
 
-它适合想管理 Codex / Claude Code / Cursor / Windsurf / Antigravity / Gemini CLI / Hermes / Trae 等工具技能体系的开发者。
+它适合想管理 Codex / Claude Code / Cursor / Windsurf / Antigravity / AntigravityIDE / Gemini CLI / Hermes / Trae 等工具技能体系的开发者。
 
 ## Quick Start
 
@@ -98,10 +100,10 @@ It has two runtime parts:
 GitHub's default "Source code" assets work for developers, but they look raw to non-technical users. For releases, maintainers should attach the cross-platform portable ZIP:
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File .\scripts\package-release.ps1 -Version v0.5.0
+powershell -ExecutionPolicy Bypass -File .\scripts\package-release.ps1 -Version v0.5.1
 ```
 
-Upload both `dist/skill-tracker-v0.5.0-portable.zip` and `dist/SHA256SUMS.txt` to the GitHub release. Windows users run `run.bat`; Linux and macOS users run `bash run.sh`. The same package starts a local watcher and serves the dashboard while collecting real local data. Windows-only shortcut and login-startup controls are hidden on Linux and macOS.
+Upload both `dist/skill-tracker-v0.5.1-portable.zip` and `dist/SHA256SUMS.txt` to the GitHub release. Windows users run `run.bat`; Linux and macOS users run `bash run.sh`. The same package starts a local watcher and serves the dashboard while collecting real local data. Windows-only shortcut and login-startup controls are hidden on Linux and macOS.
 
 An `.exe` wrapper is optional later, mainly for one-click onboarding. It is not required for the current architecture because there is no installer or Windows service; the local watcher is a normal user-owned PowerShell process.
 
@@ -139,7 +141,8 @@ Skill Tracker currently detects common local paths for:
 
 | Tool | Example log path |
 |---|---|
-| Antigravity IDE | `~/.gemini/antigravity-ide/brain/` |
+| Antigravity | `~/.gemini/antigravity/brain/` |
+| AntigravityIDE | `~/.gemini/antigravity-ide/brain/` |
 | Aider | `.aider.chat.history.md`, `.aider.llm.history` in the current project or configured project path |
 | Amazon Q Developer | `%APPDATA%/Code/User/globalStorage/amazonwebservices.amazon-q-vscode/` |
 | Amp | `~/.config/amp/`, `%APPDATA%/amp/` |
@@ -199,14 +202,14 @@ Fields:
 
 - `skills_root`: One local skill directory. Leave empty to auto-detect common folders.
 - `skills_roots`: Optional extra skill directories. Hermes skills such as `~/.hermes/skills` are auto-detected when present.
-- `output_dir`: Dashboard data output directory.
+- `output_dir`: Dashboard data output directory. Relative paths are resolved from the directory containing `config.json`, and the launcher serves generated files from this directory.
 - `max_log_entries`: Maximum log entries emitted for the dashboard.
 - `dedup_window_minutes`: Time bucket used to collapse repeated reads.
-- `custom_tools`: Extra tool names and session-log directories.
+- `custom_tools`: Extra tool names and session-log directories. Relative paths are resolved from the directory containing `config.json`.
 
 ## Generated Files
 
-Running `collect.ps1` generates or updates:
+Running `collect.ps1` generates or updates these files under the configured `output_dir` (the default is `dashboard/`):
 
 - `dashboard/skill_data.js`
 - `dashboard/skill_log.js`
@@ -305,11 +308,11 @@ skill-tracker/
 |-- dashboard/
 |   |-- index.html
 |   |-- demo_data.js
-|   |-- skill_catalog.json      # generated, ignored
-|   |-- skill_catalog.js        # generated, ignored
-|   |-- skill_data.js           # generated, ignored
-|   |-- skill_log.js            # generated, ignored
-|   `-- skill_call_stats.json   # generated, ignored
+|   |-- skill_catalog.json      # generated, ignored, under output_dir
+|   |-- skill_catalog.js        # generated, ignored, under output_dir
+|   |-- skill_data.js           # generated, ignored, under output_dir
+|   |-- skill_log.js            # generated, ignored, under output_dir
+|   `-- skill_call_stats.json   # generated, ignored, under output_dir
 |-- docs/
 |   |-- LAUNCH_KIT.md
 |   |-- ROADMAP.md

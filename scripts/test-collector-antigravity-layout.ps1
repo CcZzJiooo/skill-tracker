@@ -7,12 +7,18 @@ $collector = Join-Path $repoRoot "collect.ps1"
 $tempRoot = Join-Path ([System.IO.Path]::GetTempPath()) ("skill-tracker-antigravity-layout-" + [guid]::NewGuid().ToString("N"))
 $fakeHome = Join-Path $tempRoot "home"
 $skillsRoot = Join-Path $fakeHome "skills"
-$skillDir = Join-Path $skillsRoot "antigravity-layout-skill"
-$brainRoot = Join-Path $fakeHome ".gemini\antigravity-ide\brain"
-$transcriptDir = Join-Path $brainRoot "00000000-0000-0000-0000-000000000001\.system_generated\logs"
-$transcriptPath = Join-Path $transcriptDir "transcript.jsonl"
-$installDir = Join-Path $fakeHome "AppData\Local\Programs\Antigravity IDE"
-$installPath = Join-Path $installDir "Antigravity IDE.exe"
+$cliSkillDir = Join-Path $skillsRoot "antigravity-layout-skill"
+$ideSkillDir = Join-Path $skillsRoot "antigravity-ide-layout-skill"
+$cliBrainRoot = Join-Path $fakeHome ".gemini\antigravity\brain"
+$ideBrainRoot = Join-Path $fakeHome ".gemini\antigravity-ide\brain"
+$cliTranscriptDir = Join-Path $cliBrainRoot "00000000-0000-0000-0000-000000000001\.system_generated\logs"
+$ideTranscriptDir = Join-Path $ideBrainRoot "00000000-0000-0000-0000-000000000002\.system_generated\logs"
+$cliTranscriptPath = Join-Path $cliTranscriptDir "transcript.jsonl"
+$ideTranscriptPath = Join-Path $ideTranscriptDir "transcript.jsonl"
+$cliInstallDir = Join-Path $fakeHome "AppData\Local\Programs\Antigravity"
+$cliInstallPath = Join-Path $cliInstallDir "Antigravity.exe"
+$ideInstallDir = Join-Path $fakeHome "AppData\Local\Programs\Antigravity IDE"
+$ideInstallPath = Join-Path $ideInstallDir "Antigravity IDE.exe"
 $outputDir = Join-Path $tempRoot "dashboard"
 $configPath = Join-Path $tempRoot "config.json"
 
@@ -32,21 +38,36 @@ function Read-JsValue {
     return ($json | ConvertFrom-Json)
 }
 
-function Get-AntigravitySourceRow {
+function Get-SourceRow {
+    param(
+        [string]$ToolName,
+        [string]$PathFragment
+    )
+
     $report = Get-Content -LiteralPath (Join-Path $outputDir "tool_report.json") -Raw -Encoding UTF8 | ConvertFrom-Json
-    return @($report.sources | Where-Object { $_.tool -eq "Antigravity" -and $_.path -like "*\.gemini\antigravity-ide\brain" })[0]
+    return @($report.sources | Where-Object { $_.tool -eq $ToolName -and $_.path -like "*$PathFragment" })[0]
 }
 
 try {
-    New-Item -ItemType Directory -Path $skillDir,$transcriptDir -Force | Out-Null
+    New-Item -ItemType Directory -Path $cliSkillDir,$ideSkillDir,$cliTranscriptDir,$ideTranscriptDir -Force | Out-Null
     [System.IO.File]::WriteAllText(
-        (Join-Path $skillDir "SKILL.md"),
+        (Join-Path $cliSkillDir "SKILL.md"),
         "---`nname: antigravity-layout-skill`ndescription: Antigravity layout fixture.`n---`n",
         [System.Text.Encoding]::UTF8
     )
     [System.IO.File]::WriteAllText(
-        $transcriptPath,
+        (Join-Path $ideSkillDir "SKILL.md"),
+        "---`nname: antigravity-ide-layout-skill`ndescription: Antigravity IDE layout fixture.`n---`n",
+        [System.Text.Encoding]::UTF8
+    )
+    [System.IO.File]::WriteAllText(
+        $cliTranscriptPath,
         '{"step_index":0,"type":"USER_INPUT","created_at":"2026-08-05T01:00:00Z","content":"<USER_REQUEST>\n/antigravity-layout-skill\n</USER_REQUEST>"}' + "`n",
+        [System.Text.Encoding]::UTF8
+    )
+    [System.IO.File]::WriteAllText(
+        $ideTranscriptPath,
+        '{"step_index":0,"type":"USER_INPUT","created_at":"2026-08-05T01:01:00Z","content":"<USER_REQUEST>\n/antigravity-ide-layout-skill\n</USER_REQUEST>"}' + "`n",
         [System.Text.Encoding]::UTF8
     )
     $config = [ordered]@{
@@ -76,23 +97,37 @@ try {
         [Environment]::SetEnvironmentVariable("ProgramFiles(x86)", (Join-Path $fakeHome "ProgramFiles-x86"), "Process")
 
         Invoke-Collection | Out-Null
-        $row = Get-AntigravitySourceRow
+        $cliRow = Get-SourceRow -ToolName "Antigravity" -PathFragment "\.gemini\antigravity\brain"
+        $ideRow = Get-SourceRow -ToolName "AntigravityIDE" -PathFragment "\.gemini\antigravity-ide\brain"
+        if (-not $cliRow -or -not $ideRow) {
+            throw "Collector did not expose separate Antigravity and AntigravityIDE source rows."
+        }
         $realAntigravityRunning = @(Get-Process -Name "Antigravity IDE","Antigravity" -ErrorAction SilentlyContinue).Count -gt 0
-        if (-not $realAntigravityRunning -and ($row.detected -or $row.files_scanned -ne 0 -or $row.status_reason -ne "tool_not_installed")) {
-            throw "Antigravity logs were scanned without an installation marker: $($row | ConvertTo-Json -Compress)"
+        if (-not $realAntigravityRunning) {
+            foreach ($row in @($cliRow, $ideRow)) {
+                if ($row.detected -or $row.files_scanned -ne 0 -or $row.status_reason -ne "tool_not_installed") {
+                    throw "Antigravity source was scanned without an installation marker: $($row | ConvertTo-Json -Compress)"
+                }
+            }
         }
 
-        New-Item -ItemType Directory -Path $installDir -Force | Out-Null
-        New-Item -ItemType File -Path $installPath -Force | Out-Null
+        New-Item -ItemType Directory -Path $cliInstallDir,$ideInstallDir -Force | Out-Null
+        New-Item -ItemType File -Path $cliInstallPath,$ideInstallPath -Force | Out-Null
         Invoke-Collection | Out-Null
-        $row = Get-AntigravitySourceRow
-        if (-not $row.detected -or $row.files_scanned -lt 1 -or $row.install_reason -ne "install_marker") {
-            throw "Antigravity IDE's spaced install path was not detected: $($row | ConvertTo-Json -Compress)"
+        $cliRow = Get-SourceRow -ToolName "Antigravity" -PathFragment "\.gemini\antigravity\brain"
+        $ideRow = Get-SourceRow -ToolName "AntigravityIDE" -PathFragment "\.gemini\antigravity-ide\brain"
+        foreach ($row in @($cliRow, $ideRow)) {
+            if (-not $row.detected -or $row.files_scanned -lt 1 -or $row.install_reason -ne "install_marker") {
+                throw "Separated Antigravity installation marker was not detected: $($row | ConvertTo-Json -Compress)"
+            }
         }
 
         $log = @(Read-JsValue -Path (Join-Path $outputDir "skill_log.js") -Name "SKILL_LOG")
         if (-not (@($log | Where-Object { $_.tool -eq "Antigravity" -and $_.skill -eq "antigravity-layout-skill" }).Count)) {
-            throw "Antigravity transcript skill call was not emitted."
+            throw "Antigravity transcript skill call was not emitted under Antigravity."
+        }
+        if (-not (@($log | Where-Object { $_.tool -eq "AntigravityIDE" -and $_.skill -eq "antigravity-ide-layout-skill" }).Count)) {
+            throw "Antigravity IDE transcript skill call was not emitted under AntigravityIDE."
         }
     } finally {
         $env:USERPROFILE = $priorUserProfile

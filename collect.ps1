@@ -14,9 +14,35 @@ param(
 
 # ── Load config ────────────────────────────────────────────────────────────────
 $cfg = @{ skills_root=""; skills_roots=@(); output_dir="./dashboard"; max_log_entries=5000; dedup_window_minutes=2; custom_tools=@() }
-if (Test-Path $ConfigFile) {
+$resolvedConfigFile = if ([System.IO.Path]::IsPathRooted($ConfigFile)) {
+    [System.IO.Path]::GetFullPath($ConfigFile)
+} else {
+    [System.IO.Path]::GetFullPath((Join-Path (Get-Location).Path $ConfigFile))
+}
+if (-not (Test-Path -LiteralPath $resolvedConfigFile -PathType Leaf) -and -not [System.IO.Path]::IsPathRooted($ConfigFile)) {
+    $packageConfig = [System.IO.Path]::GetFullPath((Join-Path $PSScriptRoot $ConfigFile))
+    if (Test-Path -LiteralPath $packageConfig -PathType Leaf) { $resolvedConfigFile = $packageConfig }
+}
+$configBaseDir = Split-Path -Parent $resolvedConfigFile
+function Resolve-ConfiguredPath {
+    param(
+        [string]$Path,
+        [string]$BaseDirectory = $configBaseDir
+    )
+    if ([string]::IsNullOrWhiteSpace($Path)) { return "" }
+    $expanded = [Environment]::ExpandEnvironmentVariables([string]$Path).Trim()
+    $configuredHome = if ($env:USERPROFILE) { $env:USERPROFILE } elseif ($env:HOME) { $env:HOME } else { "" }
+    if ($configuredHome -and $expanded -match '^~([\\/]|$)') {
+        $expanded = $configuredHome + $expanded.Substring(1)
+    }
+    if ([System.IO.Path]::IsPathRooted($expanded)) {
+        return [System.IO.Path]::GetFullPath($expanded)
+    }
+    return [System.IO.Path]::GetFullPath((Join-Path $BaseDirectory $expanded))
+}
+if (Test-Path -LiteralPath $resolvedConfigFile -PathType Leaf) {
     try {
-        $raw = Get-Content $ConfigFile -Raw | ConvertFrom-Json
+        $raw = Get-Content -LiteralPath $resolvedConfigFile -Raw | ConvertFrom-Json
         if ($raw.skills_root)     { $cfg.skills_root     = $raw.skills_root }
         if ($raw.skills_roots)    { $cfg.skills_roots    = $raw.skills_roots }
         if ($raw.output_dir)      { $cfg.output_dir      = $raw.output_dir }
@@ -27,14 +53,18 @@ if (Test-Path $ConfigFile) {
 }
 if ($SkillsRoot) { $cfg.skills_root = $SkillsRoot }
 if ($OutputDir)  { $cfg.output_dir  = $OutputDir }
-if (-not [System.IO.Path]::IsPathRooted($cfg.output_dir)) {
-    $cfg.output_dir = Join-Path $PSScriptRoot $cfg.output_dir
-}
+$outputBaseDir = if ($OutputDir) { $PSScriptRoot } else { $configBaseDir }
+$cfg.output_dir = Resolve-ConfiguredPath -Path ([string]$cfg.output_dir) -BaseDirectory $outputBaseDir
 New-Item -ItemType Directory -Path $cfg.output_dir -Force | Out-Null
 
 # ── Auto-detect skills roots ───────────────────────────────────────────────────
 $userHome = $env:USERPROFILE
 if (-not $userHome) { $userHome = $env:HOME }
+$codexHome = if ($env:CODEX_HOME) {
+    Resolve-ConfiguredPath -Path ([string]$env:CODEX_HOME) -BaseDirectory (Get-Location).Path
+} else {
+    [System.IO.Path]::Combine($userHome, ".codex")
+}
 $runningOnWindows = [System.Runtime.InteropServices.RuntimeInformation]::IsOSPlatform([System.Runtime.InteropServices.OSPlatform]::Windows)
 $runningOnMacOS = [System.Runtime.InteropServices.RuntimeInformation]::IsOSPlatform([System.Runtime.InteropServices.OSPlatform]::OSX)
 $runtimePlatform = if ($runningOnWindows) { "Windows" } elseif ($runningOnMacOS) { "MacOS" } else { "Linux" }
@@ -76,8 +106,8 @@ $skillRootCandidates = @(
     (Join-SkillTrackerPath $PSScriptRoot ".cursor" "skills"),
     (Join-SkillTrackerPath $PSScriptRoot ".codex" "skills"),
     (Join-SkillTrackerPath $PSScriptRoot ".codex" "plugins" "cache"),
-    (Join-SkillTrackerPath $userHome ".codex" "skills"),
-    (Join-SkillTrackerPath $userHome ".codex" "plugins" "cache"),
+    (Join-SkillTrackerPath $codexHome "skills"),
+    (Join-SkillTrackerPath $codexHome "plugins" "cache"),
     (Join-SkillTrackerPath $userHome ".agents" "skills"),
     (Join-SkillTrackerPath $userHome ".config" "agents" "skills"),
     (Join-SkillTrackerPath $userHome ".claude" "skills"),
@@ -94,12 +124,6 @@ $skillRootCandidates = @(
     (Join-SkillTrackerPath $userHome ".config" "gemini" "skills"),
     (Join-SkillTrackerPath $userHome ".cc-switch" "skills")
 )
-if ($env:CODEX_HOME) {
-    $skillRootCandidates += @(
-        (Join-SkillTrackerPath $env:CODEX_HOME "skills"),
-        (Join-SkillTrackerPath $env:CODEX_HOME "plugins" "cache")
-    )
-}
 $skillRoots = [System.Collections.Generic.List[string]]::new()
 $skillRootKeys = @{}
 function Add-SkillRoot {
@@ -111,7 +135,15 @@ function Add-SkillRoot {
         $skillRootKeys[$resolved] = $true
     }
 }
-if ($cfg.skills_root) { Add-SkillRoot -Path $cfg.skills_root }
+if ($cfg.skills_root) {
+    $cfg.skills_root = Resolve-ConfiguredPath -Path ([string]$cfg.skills_root)
+    Add-SkillRoot -Path $cfg.skills_root
+}
+if ($cfg.skills_roots) {
+    $cfg.skills_roots = @($cfg.skills_roots | ForEach-Object {
+        Resolve-ConfiguredPath -Path ([string]$_)
+    })
+}
 foreach ($root in @($cfg.skills_roots)) { Add-SkillRoot -Path ([string]$root) }
 if ($skillRoots.Count -eq 0) {
     foreach ($c in $skillRootCandidates) { Add-SkillRoot -Path $c }
@@ -142,27 +174,28 @@ function Get-DesktopInstallPaths {
 }
 
 $desktopToolPolicies = @{
-    # Antigravity IDE changed its Windows install layout to a directory and
-    # executable name containing spaces. Keep the legacy layout for upgrades.
-    "Antigravity" = @{ InstallPaths = @(
-        (Get-DesktopInstallPaths -DirectoryName "Antigravity IDE" -ExecutableName "Antigravity IDE.exe")
-        (Get-DesktopInstallPaths -DirectoryName "Antigravity" -ExecutableName "Antigravity.exe")
-    ); CommandNames = @("antigravity-ide", "antigravity"); ProcessNames = @("Antigravity IDE", "Antigravity") }
+    # Antigravity and AntigravityIDE are separate products and must not share
+    # an install marker or a source row. Keep each product's legacy/current
+    # executable layout inside its own policy.
+    "Antigravity"   = @{ InstallPaths = @(Get-DesktopInstallPaths -DirectoryName "Antigravity" -ExecutableName "Antigravity.exe"); CommandNames = @("antigravity"); ProcessNames = @("Antigravity") }
+    "AntigravityIDE" = @{ InstallPaths = @(Get-DesktopInstallPaths -DirectoryName "Antigravity IDE" -ExecutableName "Antigravity IDE.exe"); CommandNames = @("antigravity-ide"); ProcessNames = @("Antigravity IDE") }
     "Cursor"      = @{ InstallPaths = @(Get-DesktopInstallPaths -DirectoryName "Cursor" -ExecutableName "Cursor.exe"); CommandNames = @("cursor"); ProcessNames = @("Cursor") }
     "Windsurf"    = @{ InstallPaths = @(Get-DesktopInstallPaths -DirectoryName "Windsurf" -ExecutableName "Windsurf.exe"); CommandNames = @("windsurf"); ProcessNames = @("Windsurf") }
     "Trae"        = @{ InstallPaths = @(Get-DesktopInstallPaths -DirectoryName "Trae" -ExecutableName "Trae.exe"); CommandNames = @("trae"); ProcessNames = @("Trae") }
     "Zed"         = @{ InstallPaths = @(Get-DesktopInstallPaths -DirectoryName "Zed" -ExecutableName "Zed.exe"); CommandNames = @("zed"); ProcessNames = @("Zed") }
 }
 
+$transcriptTools = @("Antigravity", "AntigravityIDE")
 $AUTO_DETECT_TOOLS = @(
-    @{ Name="Antigravity"; Paths=@((Join-SkillTrackerPath $userHome ".gemini" "antigravity-ide" "brain")); TsField="created_at"; RequireInstall=$true; InstallPaths=$desktopToolPolicies["Antigravity"].InstallPaths; CommandNames=$desktopToolPolicies["Antigravity"].CommandNames; ProcessNames=$desktopToolPolicies["Antigravity"].ProcessNames },
+    @{ Name="Antigravity";   Paths=@((Join-SkillTrackerPath $userHome ".gemini" "antigravity" "brain")); TsField="created_at"; RequireInstall=$true; InstallPaths=$desktopToolPolicies["Antigravity"].InstallPaths; CommandNames=$desktopToolPolicies["Antigravity"].CommandNames; ProcessNames=$desktopToolPolicies["Antigravity"].ProcessNames },
+    @{ Name="AntigravityIDE"; Paths=@((Join-SkillTrackerPath $userHome ".gemini" "antigravity-ide" "brain")); TsField="created_at"; RequireInstall=$true; InstallPaths=$desktopToolPolicies["AntigravityIDE"].InstallPaths; CommandNames=$desktopToolPolicies["AntigravityIDE"].CommandNames; ProcessNames=$desktopToolPolicies["AntigravityIDE"].ProcessNames },
     @{ Name="Aider";       Paths=@((Join-SkillTrackerPath $PSScriptRoot ".aider.chat.history.md"),(Join-SkillTrackerPath $PSScriptRoot ".aider.llm.history"),(Join-SkillTrackerPath $userHome ".aider.chat.history.md"),(Join-SkillTrackerPath $userHome ".aider.llm.history")); TsField="timestamp" },
     @{ Name="Amazon Q";    Paths=@(Get-EditorGlobalStoragePaths -ExtensionIds @("amazonwebservices.amazon-q-vscode","amazonwebservices.aws-toolkit-vscode")); TsField="timestamp" },
     @{ Name="Amp";         Paths=@((Join-SkillTrackerPath $userHome ".config" "amp"),(Join-SkillTrackerPath $appData "amp"),(Join-SkillTrackerPath $localAppData "amp")); TsField="timestamp" },
     @{ Name="Augment";     Paths=@(Get-EditorGlobalStoragePaths -ExtensionIds @("augment.vscode-augment","augment.vscode-augment-nightly")); TsField="timestamp" },
     @{ Name="ClaudeCode";  Paths=@((Join-SkillTrackerPath $userHome ".claude" "projects")); TsField="timestamp" },
     @{ Name="Cline";       Paths=@(Get-EditorGlobalStoragePaths -ExtensionIds @("saoudrizwan.claude-dev","cline.cline")); TsField="timestamp" },
-    @{ Name="Codex";       Paths=@((Join-SkillTrackerPath $userHome ".codex" "archived_sessions"),(Join-SkillTrackerPath $userHome ".codex" "sessions")); TsField="timestamp" },
+    @{ Name="Codex";       Paths=@((Join-SkillTrackerPath $codexHome "archived_sessions"),(Join-SkillTrackerPath $codexHome "sessions")); TsField="timestamp" },
     @{ Name="Cursor";      Paths=@((Join-SkillTrackerPath $userHome ".cursor" "logs"),(Join-SkillTrackerPath $appData "Cursor" "logs")); TsField="timestamp"; RequireInstall=$true; InstallPaths=$desktopToolPolicies["Cursor"].InstallPaths; CommandNames=$desktopToolPolicies["Cursor"].CommandNames; ProcessNames=$desktopToolPolicies["Cursor"].ProcessNames },
     @{ Name="Windsurf";    Paths=@((Join-SkillTrackerPath $userHome ".codeium" "windsurf" "logs"),(Join-SkillTrackerPath $appData "Windsurf" "logs")); TsField="timestamp"; RequireInstall=$true; InstallPaths=$desktopToolPolicies["Windsurf"].InstallPaths; CommandNames=$desktopToolPolicies["Windsurf"].CommandNames; ProcessNames=$desktopToolPolicies["Windsurf"].ProcessNames },
     @{ Name="Continue";    Paths=@((Join-SkillTrackerPath $userHome ".continue" "sessions")); TsField="timestamp" },
@@ -241,6 +274,7 @@ function Add-SourceReport {
             files_with_hits = 0
             raw_hits        = 0
             dedup_hits      = 0
+            read_errors     = 0
             latest_log_at   = ""
             latest_hit_at   = ""
             status          = if (-not $Installed) { "missing" } elseif ($exists) { "detected" } else { "missing" }
@@ -284,7 +318,8 @@ function Refresh-ActiveSources {
     foreach ($ct in $cfg.custom_tools) {
         if (-not $ct.path) { continue }
         $customName = if ($ct.name) { [string]$ct.name } else { "CustomTool" }
-        $report = Add-SourceReport -ToolName $customName -Path ([string]$ct.path) -SourceType "custom" -Installed $true -InstallReason "configured_custom_source"
+        $customPath = Resolve-ConfiguredPath -Path ([string]$ct.path)
+        $report = Add-SourceReport -ToolName $customName -Path $customPath -SourceType "custom" -Installed $true -InstallReason "configured_custom_source"
         if ($report -and $report.detected) {
             $resolvedPath = $report.path
             $sourceKey = "$customName|$resolvedPath"
@@ -320,11 +355,74 @@ function Get-StableId {
 }
 
 $pidPath = Join-Path $cfg.output_dir ".collector.pid"
+$heartbeatPath = Join-Path $cfg.output_dir ".collector-heartbeat.json"
 $triggerPath = Join-Path $cfg.output_dir ".collector.trigger"
 $cachePath = Join-Path $cfg.output_dir ".collector-cache.json"
-$collectorCacheVersion = 3
+$collectorCacheVersion = 4
+$heartbeatMaxAgeSeconds = 90
+$heartbeatIntervalSeconds = 5
 $watcherMutex = $null
 $ownsWatcherMutex = $false
+
+$script:watcherStartedAt = ""
+$script:watcherLastSuccessfulScanAt = ""
+$script:watcherLastScanAt = ""
+$script:watcherLastError = ""
+$script:watcherNextHeartbeatAt = [DateTimeOffset]::UtcNow
+function Write-CollectorHeartbeat {
+    param(
+        [string]$Status = "idle",
+        [string]$ErrorMessage = ""
+    )
+    if (-not $Watch) { return }
+    $now = [DateTimeOffset]::UtcNow
+    if ($ErrorMessage) { $script:watcherLastError = $ErrorMessage }
+    $payload = [ordered]@{
+        version                  = 1
+        pid                      = [int]$PID
+        output_dir               = [System.IO.Path]::GetFullPath($cfg.output_dir)
+        status                   = $Status
+        started_at               = [string]$script:watcherStartedAt
+        updated_at               = $now.ToString("o")
+        last_scan_at             = [string]$script:watcherLastScanAt
+        last_successful_scan_at  = [string]$script:watcherLastSuccessfulScanAt
+        last_error               = [string]$script:watcherLastError
+    }
+    try {
+        $tempPath = "$heartbeatPath.tmp"
+        [System.IO.File]::WriteAllText($tempPath, ($payload | ConvertTo-Json -Depth 5 -Compress), [System.Text.Encoding]::UTF8)
+        Move-Item -LiteralPath $tempPath -Destination $heartbeatPath -Force
+        $script:watcherNextHeartbeatAt = $now.AddSeconds($heartbeatIntervalSeconds)
+    } catch {
+        # Heartbeat failure must not take down the collector; the launcher will
+        # still use PID/process validation and can report a stale status.
+    }
+}
+
+function Write-CollectorHeartbeatIfDue {
+    if ($Watch -and [DateTimeOffset]::UtcNow -ge $script:watcherNextHeartbeatAt) {
+        Write-CollectorHeartbeat -Status "scanning"
+    }
+}
+
+function Remove-CollectorLease {
+    if (-not $Watch) { return }
+    $pidBelongsToCurrent = $false
+    if (Test-Path -LiteralPath $pidPath -PathType Leaf) {
+        $pidBelongsToCurrent = ((Get-Content -LiteralPath $pidPath -Raw -ErrorAction SilentlyContinue).Trim() -eq [string]$PID)
+    }
+    if ($pidBelongsToCurrent) {
+        Remove-Item -LiteralPath $pidPath -Force -ErrorAction SilentlyContinue
+    }
+    $heartbeat = $null
+    if (Test-Path -LiteralPath $heartbeatPath -PathType Leaf) {
+        try { $heartbeat = Get-Content -LiteralPath $heartbeatPath -Raw -Encoding UTF8 | ConvertFrom-Json } catch { }
+    }
+    if ($heartbeat -and [string]$heartbeat.pid -eq [string]$PID) {
+        Remove-Item -LiteralPath $heartbeatPath -Force -ErrorAction SilentlyContinue
+    }
+}
+
 if ($Watch) {
     $mutexHash = Get-StableId ([System.IO.Path]::GetFullPath($cfg.output_dir).ToLowerInvariant())
     $mutexName = if ($runningOnWindows) { "Local\SkillTrackerCollector_$mutexHash" } else { "SkillTrackerCollector_$mutexHash" }
@@ -339,6 +437,8 @@ if ($Watch) {
     }
     $ownsWatcherMutex = $true
     [System.IO.File]::WriteAllText($pidPath, $pid, [System.Text.Encoding]::UTF8)
+    $script:watcherStartedAt = [DateTimeOffset]::UtcNow.ToString("o")
+    Write-CollectorHeartbeat -Status "starting"
 }
 
 # ── Load SKILL.md metadata and bounded semantic context ───────────────────────
@@ -728,13 +828,290 @@ $slashSkillRx = [System.Text.RegularExpressions.Regex]'(?m)^\s*/([A-Za-z0-9][A-Z
 $commandNameSkillRx = [System.Text.RegularExpressions.Regex]'(?is)<command-name>\s*/([A-Za-z0-9][A-Za-z0-9:_\-]*)\s*</command-name>'
 $userRequestRx = [System.Text.RegularExpressions.Regex]'(?is)<USER_REQUEST>\s*(.*?)\s*</USER_REQUEST>'
 $directSkillViewPathRx = [System.Text.RegularExpressions.Regex]'(?im)^\s*File Path:\s*`?(?:file:)?[^`\r\n]*[/\\]SKILL\.md`?\s*$'
+$directSkillViewPathExtractRx = [System.Text.RegularExpressions.Regex]'(?im)^\s*File Path:\s*`?(?:file:)?(?<path>[^`\r\n]*[/\\]SKILL\.md)`?\s*$'
 $timeRx   = [System.Text.RegularExpressions.Regex]'"(?:created_at|timestamp)"\s*:\s*"([^"]+)"'
 $unixRx   = [System.Text.RegularExpressions.Regex]'"ts"\s*:\s*(\d{9,13})'
 $epoch    = [datetime]'1970-01-01T00:00:00Z'
+$maxSignalLineChars = 131072
+$logReadChunkChars = 8192
+$logLineOverlapChars = 8192
 
 $logEntries = [System.Collections.Generic.List[PSCustomObject]]::new()
 $rawSeen = @{}
 $dedupSeen = @{}
+
+# JSONL files emitted by agent clients can contain a single very large JSON
+# record (for example, a tool result with an embedded skill inventory). Do not
+# call StreamReader.ReadLine() here: ReadLine allocates the entire record before
+# the old 128 KiB safety bound can run. The reader below keeps only a bounded
+# prefix/suffix plus the small overlap needed for regexes crossing chunks.
+function New-LogReaderState {
+    return @{
+        Buffer      = New-Object char[] $logReadChunkChars
+        BufferIndex = 0
+        BufferCount = 0
+        EndOfStream = $false
+    }
+}
+
+function New-LogLineState {
+    return @{
+        Prefix              = [System.Text.StringBuilder]::new()
+        SuffixChunks        = [System.Collections.Generic.LinkedList[string]]::new()
+        SuffixLength        = 0
+        ScanTail            = ""
+        Length              = 0
+        SawContent          = $false
+        IsGenerated         = $false
+        HasReadMarker       = $false
+        HasUserInput        = $false
+        Timestamp           = ""
+        SkillNames          = [System.Collections.Generic.List[string]]::new()
+        SkillPaths          = [System.Collections.Generic.List[PSCustomObject]]::new()
+        PathKeys            = @{}
+    }
+}
+
+function Add-LogLineSkillName {
+    param(
+        [hashtable]$State,
+        [string]$Skill
+    )
+    if ($Skill -and -not $State.SkillNames.Contains($Skill)) {
+        [void]$State.SkillNames.Add($Skill)
+    }
+}
+
+function Add-LogLineSkillPath {
+    param(
+        [hashtable]$State,
+        [string]$Skill,
+        [string]$Path
+    )
+    if (-not $Skill -or -not $Path) { return }
+    $normalizedPath = $Path.Replace('\\', '\').Trim()
+    $key = "$Skill|$normalizedPath"
+    if (-not $State.PathKeys.ContainsKey($key)) {
+        $State.PathKeys[$key] = $true
+        [void]$State.SkillPaths.Add([PSCustomObject]@{ skill = $Skill; path = $normalizedPath })
+        Add-LogLineSkillName -State $State -Skill $Skill
+    }
+}
+
+function Add-LogLineChunk {
+    param(
+        [hashtable]$State,
+        [string]$Chunk
+    )
+    if ($null -eq $Chunk -or $Chunk.Length -eq 0) { return }
+    $State.SawContent = $true
+    $State.Length += $Chunk.Length
+
+    $prefixRemaining = $maxSignalLineChars - $State.Prefix.Length
+    if ($prefixRemaining -gt 0) {
+        [void]$State.Prefix.Append($Chunk.Substring(0, [Math]::Min($prefixRemaining, $Chunk.Length)))
+    }
+    [void]$State.SuffixChunks.AddLast($Chunk)
+    $State.SuffixLength += $Chunk.Length
+    while ($State.SuffixLength -gt $maxSignalLineChars) {
+        $firstNode = $State.SuffixChunks.First
+        $excess = $State.SuffixLength - $maxSignalLineChars
+        if ($excess -ge $firstNode.Value.Length) {
+            $State.SuffixLength -= $firstNode.Value.Length
+            [void]$State.SuffixChunks.RemoveFirst()
+        } else {
+            $firstNode.Value = $firstNode.Value.Substring($excess)
+            $State.SuffixLength -= $excess
+            break
+        }
+    }
+
+    $scanText = if ($State.ScanTail) { $State.ScanTail + $Chunk } else { $Chunk }
+    $State.ScanTail = if ($scanText.Length -gt $logLineOverlapChars) {
+        $scanText.Substring($scanText.Length - $logLineOverlapChars)
+    } else {
+        $scanText
+    }
+
+    if (Test-GeneratedSkillInventoryLine -Line $scanText) {
+        $State.IsGenerated = $true
+    }
+    if ($scanText.Contains('"type":"USER_INPUT"') -or
+        $scanText.Contains('"type":"user"') -or
+        $scanText.Contains('"role":"user"')) {
+        $State.HasUserInput = $true
+    }
+    $hasSkillFileToken = $scanText.Contains('SKILL.md')
+    $hasReadMarkerToken = $scanText.Contains('[external_agent_tool_call: Read]') -or
+        $scanText.Contains('"name":"Read"') -or
+        $scanText.Contains('"name":"view_file"')
+    if ($hasSkillFileToken -and -not $State.HasReadMarker) {
+        $State.HasReadMarker = $hasReadMarkerToken -or
+            ($scanText -match '(?i)\b(Get-Content|cat|type)\b[^\r\n]*SKILL\.md')
+    } else {
+        $State.HasReadMarker = $State.HasReadMarker -or $hasReadMarkerToken
+    }
+
+    # Avoid running several backtracking regexes over every JSON chunk. Most
+    # chunks in a large transcript are ordinary text; only a chunk containing
+    # a concrete skill/path/timestamp/command token needs semantic extraction.
+    $hasCommandToken = $scanText.Contains('<command-name>') -or
+        $scanText.Contains('<USER_REQUEST>') -or
+        $scanText.Contains('"/')
+    $hasTimestampToken = $scanText.Contains('"created_at"') -or
+        $scanText.Contains('"timestamp"') -or
+        $scanText.Contains('"ts"')
+    $needsSemanticScan = $hasSkillFileToken -or $hasCommandToken -or
+        ($State.Length -gt $maxSignalLineChars -and $hasTimestampToken)
+    if ($needsSemanticScan) {
+        if (-not $State.Timestamp) {
+            $tm = $timeRx.Match($scanText)
+            if ($tm.Success) {
+                $State.Timestamp = $tm.Groups[1].Value
+            } else {
+                $um = $unixRx.Match($scanText)
+                if ($um.Success) {
+                    $unixMs = [long]$um.Groups[1].Value
+                    if ($unixMs -gt 100000000000) { $unixMs = [long]($unixMs / 1000) }
+                    $State.Timestamp = $epoch.AddSeconds($unixMs).ToString("yyyy-MM-ddTHH:mm:ssZ")
+                }
+            }
+        }
+
+        foreach ($match in $skillPathRx.Matches($scanText)) {
+            Add-LogLineSkillPath -State $State -Skill $match.Groups['skill'].Value -Path $match.Groups['path'].Value
+        }
+        foreach ($match in $directSkillViewPathExtractRx.Matches($scanText)) {
+            $path = $match.Groups['path'].Value
+            $skillDirectory = Split-Path -Parent $path
+            $skillName = Split-Path -Leaf $skillDirectory
+            Add-LogLineSkillPath -State $State -Skill $skillName -Path $path
+        }
+        if ($hasCommandToken) {
+            Add-ChunkedExplicitSkillCommands -State $State -Text $scanText
+        }
+    }
+}
+
+function Add-ChunkedExplicitSkillCommands {
+    param(
+        [hashtable]$State,
+        [string]$Text
+    )
+    if (-not $Text) { return }
+
+    foreach ($match in $commandNameSkillRx.Matches($Text)) {
+        $command = $match.Groups[1].Value
+        if ($counts.ContainsKey($command)) { Add-LogLineSkillName -State $State -Skill $command }
+    }
+    foreach ($request in $userRequestRx.Matches($Text)) {
+        foreach ($match in $slashSkillRx.Matches($request.Groups[1].Value)) {
+            $command = $match.Groups[1].Value
+            if ($counts.ContainsKey($command)) { Add-LogLineSkillName -State $State -Skill $command }
+        }
+    }
+    if ($State.HasUserInput) {
+        $structuredSlashRx = [System.Text.RegularExpressions.Regex]'(?i)"(?:text|content|message)"\s*:\s*"[^"\r\n]*?/(?<skill>[A-Za-z0-9][A-Za-z0-9:_-]*)(?=[\s"\\])'
+        foreach ($match in $structuredSlashRx.Matches($Text)) {
+            $command = $match.Groups['skill'].Value
+            if ($counts.ContainsKey($command)) { Add-LogLineSkillName -State $State -Skill $command }
+        }
+    }
+}
+
+function Complete-LogLineState {
+    param([hashtable]$State)
+
+    $isTruncated = $State.Length -gt $maxSignalLineChars
+    $suffixBuilder = [System.Text.StringBuilder]::new()
+    foreach ($suffixChunk in $State.SuffixChunks) {
+        [void]$suffixBuilder.Append($suffixChunk)
+    }
+    $suffixText = $suffixBuilder.ToString()
+    $context = if ($isTruncated) {
+        $State.Prefix.ToString() + "`n[skill-tracker truncated line context]`n" + $suffixText
+    } else {
+        $State.Prefix.ToString()
+    }
+
+    if ($isTruncated) {
+        foreach ($contextPart in @($State.Prefix.ToString(), $suffixText, $State.ScanTail)) {
+            Add-ChunkedExplicitSkillCommands -State $State -Text $contextPart
+            if (-not $State.Timestamp) {
+                $tm = $timeRx.Match($contextPart)
+                if ($tm.Success) {
+                    $State.Timestamp = $tm.Groups[1].Value
+                } else {
+                    $um = $unixRx.Match($contextPart)
+                    if ($um.Success) {
+                        $unixMs = [long]$um.Groups[1].Value
+                        if ($unixMs -gt 100000000000) { $unixMs = [long]($unixMs / 1000) }
+                        $State.Timestamp = $epoch.AddSeconds($unixMs).ToString("yyyy-MM-ddTHH:mm:ssZ")
+                    }
+                }
+            }
+        }
+        if ($State.HasReadMarker) {
+            foreach ($pathInfo in @($State.SkillPaths)) {
+                Add-LogLineSkillName -State $State -Skill ([string]$pathInfo.skill)
+            }
+        }
+    }
+
+    return [PSCustomObject]@{
+        Text          = $context
+        IsEmpty       = -not $State.SawContent
+        IsTruncated   = $isTruncated
+        IsGenerated   = [bool]$State.IsGenerated
+        Timestamp     = [string]$State.Timestamp
+        SkillNames    = @($State.SkillNames)
+        SkillPaths    = @($State.SkillPaths)
+        LineHash      = Get-StableId ("$($State.Length)|$context")
+    }
+}
+
+function Read-LogLineRecord {
+    param(
+        [System.IO.StreamReader]$Reader,
+        [hashtable]$ReaderState
+    )
+
+    $lineState = New-LogLineState
+    while ($true) {
+        if ($ReaderState.BufferIndex -ge $ReaderState.BufferCount) {
+            if ($ReaderState.EndOfStream) {
+                if (-not $lineState.SawContent) { return $null }
+                return Complete-LogLineState -State $lineState
+            }
+            $ReaderState.BufferCount = $Reader.ReadBlock($ReaderState.Buffer, 0, $ReaderState.Buffer.Length)
+            $ReaderState.BufferIndex = 0
+            Write-CollectorHeartbeatIfDue
+            if ($ReaderState.BufferCount -le 0) {
+                $ReaderState.EndOfStream = $true
+                if (-not $lineState.SawContent) { return $null }
+                return Complete-LogLineState -State $lineState
+            }
+        }
+
+        $start = $ReaderState.BufferIndex
+        $newline = [System.Array]::IndexOf(
+            $ReaderState.Buffer,
+            [char]10,
+            $start,
+            $ReaderState.BufferCount - $start
+        )
+        $ReaderState.BufferIndex = if ($newline -ge 0) { $newline } else { $ReaderState.BufferCount }
+
+        $chunkLength = $ReaderState.BufferIndex - $start
+        if ($chunkLength -gt 0) {
+            Add-LogLineChunk -State $lineState -Chunk ([string]::new($ReaderState.Buffer, $start, $chunkLength))
+        }
+        if ($newline -ge 0) {
+            $ReaderState.BufferIndex++
+            return Complete-LogLineState -State $lineState
+        }
+    }
+}
 
 function Register-DiscoveredSkillSource {
     param(
@@ -757,10 +1134,18 @@ function Register-DiscoveredSkillSource {
 function Ensure-DiscoveredSkill {
     param(
         [string]$Skill,
-        [string]$Line
+        [string]$Line,
+        [string[]]$SkillPaths = @()
     )
 
     if (-not $Skill -or $script:counts.ContainsKey($Skill)) { return }
+    foreach ($skillPath in @($SkillPaths)) {
+        if (-not $skillPath) { continue }
+        if (Test-Path -LiteralPath $skillPath -PathType Leaf) {
+            Register-DiscoveredSkillSource -Skill $Skill -SkillPath $skillPath
+            return
+        }
+    }
     foreach ($pathMatch in $skillPathRx.Matches($Line)) {
         $skillPath = $pathMatch.Groups['path'].Value.Replace('\\', '\').Trim()
         if (-not (Test-Path -LiteralPath $skillPath -PathType Leaf)) { continue }
@@ -779,7 +1164,7 @@ function Get-ToolLogFiles {
     $broadEditorTools = @("Cline", "Roo Code", "Kilo Code", "GitHub Copilot", "Sourcegraph Cody", "Amazon Q", "Augment", "Tabby", "Tabnine")
     $jsonMdTools = @("Aider", "Amp", "Goose", "opencode", "Qwen Code", "Zed", "JetBrains AI", "Junie")
     $extensions = @(".jsonl")
-    if ($ToolName -in @("Cursor", "Windsurf") -or $ToolName -in $broadEditorTools -or $ToolName -in $jsonMdTools -or $ToolName -notin @("ClaudeCode", "Codex", "Antigravity")) {
+    if ($ToolName -in @("Cursor", "Windsurf") -or $ToolName -in $broadEditorTools -or $ToolName -in $jsonMdTools -or $ToolName -notin (@("ClaudeCode", "Codex") + $transcriptTools)) {
         $extensions = @(".jsonl", ".json", ".log", ".txt")
     }
     if ($ToolName -in @("Aider", "Amp", "opencode", "Qwen Code") -or $ToolName -in $broadEditorTools) {
@@ -801,9 +1186,9 @@ function Get-ToolLogFiles {
     $cutoffUtc = if ($hasDateFilter) { (Get-Date).ToUniversalTime().AddDays(-1 * $RecentDays) } else { [DateTime]::MinValue }
     $hasLimit = $RecentFiles -gt 0
 
-    if ($ToolName -eq "Antigravity") {
+    if ($ToolName -in $transcriptTools) {
         $files = @(Get-ChildItem -Path $Root -Recurse -Filter "transcript.jsonl" -File -ErrorAction SilentlyContinue |
-            Where-Object { $_.FullName -match '\\\.system_generated\\logs\\transcript\.jsonl$' -and (-not $hasDateFilter -or $_.LastWriteTimeUtc -ge $cutoffUtc) } |
+            Where-Object { $_.FullName -match '(?i)[\\/]\.system_generated[\\/]logs[\\/]transcript\.jsonl$' -and (-not $hasDateFilter -or $_.LastWriteTimeUtc -ge $cutoffUtc) } |
             Sort-Object LastWriteTimeUtc -Descending)
         if ($hasLimit) { $files = @($files | Select-Object -First $RecentFiles) }
         return $files
@@ -849,7 +1234,7 @@ function Get-ToolLogFiles {
         Where-Object {
             ($extensions -contains $_.Extension.ToLowerInvariant()) -and
             (-not $hasDateFilter -or $_.LastWriteTimeUtc -ge $cutoffUtc) -and
-            (-not ($_.Name -eq "history.jsonl" -and $ToolName -in @("ClaudeCode", "Codex", "Antigravity"))) -and
+            (-not ($_.Name -eq "history.jsonl" -and $ToolName -in (@("ClaudeCode", "Codex") + $transcriptTools))) -and
             ($_.Name -ne "transcript_full.jsonl") -and
             ($_.Name -ne "workspace.json") -and
             ($_.Extension -notmatch '\.vscdb')
@@ -873,6 +1258,14 @@ function Test-GeneratedSkillInventoryLine {
 
 function Get-ExplicitSkillCommands {
     param([string]$Line)
+
+    $mayContainUserCommand = $Line.Contains('<command-name>') -or
+        $Line.Contains('<USER_REQUEST>') -or
+        $Line.Contains('USER_INPUT') -or
+        $Line.Contains('"type":"user"') -or
+        ($Line.Contains('"role"') -and $Line.Contains('"user"')) -or
+        ($Line.Contains('event_msg') -and $Line.Contains('user_message'))
+    if (-not $mayContainUserCommand) { return @() }
 
     $texts = [System.Collections.Generic.List[string]]::new()
     try {
@@ -991,6 +1384,7 @@ function Load-FileCache {
                 LastWriteTimeUtc = ([datetime]$entry.last_write_time_utc).ToUniversalTime()
                 Length = [long]$entry.length
                 RawHits = $rawHits
+                ReadStatus = "ok"
             }
         }
     } catch {
@@ -1008,6 +1402,7 @@ function Save-FileCache {
             last_write_time_utc = ([datetime]$entry.LastWriteTimeUtc).ToUniversalTime().ToString("o")
             length = [long]$entry.Length
             raw_hits = @($entry.RawHits)
+            read_status = if ($entry.ReadStatus) { [string]$entry.ReadStatus } else { "ok" }
         }
     }
     try {
@@ -1062,6 +1457,9 @@ foreach ($entry in @($global:fileCache.Values)) {
 }
 $firstRun = $true
 $skillFileStates = Get-SkillFilesState
+$readFailureCount = 0
+$readFailureFiles = [System.Collections.Generic.List[string]]::new()
+$retryFileKeys = @{}
 
 try {
     while ($true) {
@@ -1134,6 +1532,7 @@ try {
         if ($skillsChanged) { $changed = $true }
 
         if (-not $changed) {
+            Write-CollectorHeartbeat -Status "idle"
             Start-Sleep -Seconds 5
             continue
         }
@@ -1146,11 +1545,15 @@ try {
         }
         $nowStr = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
         Write-Host "[$nowStr] Log files updated. Re-scanning..."
+        Write-CollectorHeartbeat -Status "scanning"
     }
 
     # Reset accumulator variables for clean scan
     $cacheHits = 0
     $parsedFiles = 0
+    $readFailureCount = 0
+    $readFailureFiles.Clear()
+    $retryFileKeys = @{}
     $seenCacheKeys = @{}
     foreach ($key in $counts.Keys | Get-Unique) {
         $counts[$key] = 0
@@ -1172,6 +1575,7 @@ foreach ($src in $activeSources) {
     if ($sourceReport) {
         $sourceReport.files_scanned = $files.Count
         $sourceReport.files_with_hits = 0
+        $sourceReport.read_errors = 0
         $latestLogTimeUtc = $null
         if ($files.Count -gt 0) {
             $latestLogTimeUtc = ($files | Measure-Object -Property LastWriteTimeUtc -Maximum).Maximum
@@ -1183,7 +1587,10 @@ foreach ($src in $activeSources) {
     Write-Host "Scanning $toolName  ($($files.Count) files)..."
 
     foreach ($f in $files) {
-        if ($f.Length -gt 10485760 -or $f.Length -eq 0) { continue }
+        # Text logs are streamed line by line below. Do not skip a whole Codex
+        # rollout merely because a long project conversation exceeded 10 MiB;
+        # individual oversized lines are bounded before signal extraction.
+        if ($f.Length -eq 0) { continue }
         $sessionId = ''
         $fileHitCount = 0
         $fileLatestHitUtc = $null
@@ -1196,6 +1603,8 @@ foreach ($src in $activeSources) {
         $seenCacheKeys[$cacheKey] = $true
         $cacheEntry = $global:fileCache[$cacheKey]
         $rawHits = @()
+        $readSucceeded = $false
+        $readErrorMessage = ""
         if ($cacheEntry -and $cacheEntry.CacheVersion -eq $collectorCacheVersion -and $cacheEntry.LastWriteTimeUtc -eq $f.LastWriteTimeUtc -and $cacheEntry.Length -eq $f.Length) {
             $rawHits = $cacheEntry.RawHits
             $cacheHits++
@@ -1211,56 +1620,71 @@ foreach ($src in $activeSources) {
                     [System.IO.FileShare]::ReadWrite -bor [System.IO.FileShare]::Delete
                 )
                 $sr = [System.IO.StreamReader]::new($fs, [System.Text.Encoding]::UTF8)
-                while (-not $sr.EndOfStream) {
-                    $line = $sr.ReadLine()
-                    if (-not $line) { continue }
-                    if ($line.Length -gt 131072) { $line = $line.Substring(0, 131072) }
-                    if (Test-GeneratedSkillInventoryLine $line) { continue }
+                $readerState = New-LogReaderState
+                while ($true) {
+                    $record = Read-LogLineRecord -Reader $sr -ReaderState $readerState
+                    if ($null -eq $record) { break }
+                    Write-CollectorHeartbeatIfDue
+                    if ($record.IsEmpty -or $record.IsGenerated) { continue }
+                    $line = [string]$record.Text
                     $lineSkills = [System.Collections.Generic.List[string]]::new()
 
-                    # Claude Code exposes an explicit attribution field. Other tools are
-                    # counted only from explicit slash invocations or real skill-file reads.
-                    if ($line.Contains('"attributionSkill"')) {
-                        foreach ($m in $claudeAttributionSkillRx.Matches($line)) {
-                            [void]$lineSkills.Add($m.Groups[1].Value)
+                    if ($record.IsTruncated) {
+                        foreach ($skill in @($record.SkillNames)) {
+                            if ($skill -and -not $lineSkills.Contains([string]$skill)) {
+                                [void]$lineSkills.Add([string]$skill)
+                            }
                         }
-                    }
-
-                    foreach ($cmd in Get-ExplicitSkillCommands -Line $line) {
-                        [void]$lineSkills.Add($cmd)
-                    }
-
-                    if (Test-SkillReadLine $line) {
-                        foreach ($m in $skillFileReadRx.Matches($line)) {
-                            [void]$lineSkills.Add($m.Groups[2].Value)
+                    } else {
+                        # Claude Code exposes an explicit attribution field. Other tools are
+                        # counted only from explicit slash invocations or real skill-file reads.
+                        if ($line.Contains('"attributionSkill"')) {
+                            foreach ($m in $claudeAttributionSkillRx.Matches($line)) {
+                                [void]$lineSkills.Add($m.Groups[1].Value)
+                            }
                         }
-                        foreach ($m in $skillRx.Matches($line)) {
-                            [void]$lineSkills.Add($m.Groups[1].Value)
+
+                        foreach ($cmd in Get-ExplicitSkillCommands -Line $line) {
+                            [void]$lineSkills.Add($cmd)
+                        }
+
+                        if (Test-SkillReadLine $line) {
+                            foreach ($m in $skillFileReadRx.Matches($line)) {
+                                [void]$lineSkills.Add($m.Groups[2].Value)
+                            }
+                            foreach ($m in $skillRx.Matches($line)) {
+                                [void]$lineSkills.Add($m.Groups[1].Value)
+                            }
                         }
                     }
 
                     if ($lineSkills.Count -eq 0) { continue }
 
                     foreach ($skill in @($lineSkills | Select-Object -Unique)) {
-                        Ensure-DiscoveredSkill -Skill $skill -Line $line
+                        $skillPathsForLine = @($record.SkillPaths |
+                            Where-Object { $_.skill -eq $skill } |
+                            Select-Object -ExpandProperty path)
+                        Ensure-DiscoveredSkill -Skill $skill -Line $line -SkillPaths $skillPathsForLine
                     }
 
                     # Extract timestamp (ISO string first, then Unix epoch)
-                    $ts = ''
-                    $tm = $timeRx.Match($line)
-                    if ($tm.Success) {
-                        $ts = $tm.Groups[1].Value
-                    } else {
-                        $um = $unixRx.Match($line)
-                        if ($um.Success) {
-                            $unixMs = [long]$um.Groups[1].Value
-                            # If > 1e11 treat as milliseconds, otherwise seconds
-                            if ($unixMs -gt 100000000000) { $unixMs = [long]($unixMs / 1000) }
-                            $ts = $epoch.AddSeconds($unixMs).ToString("yyyy-MM-ddTHH:mm:ssZ")
+                    $ts = if ($record.IsTruncated) { [string]$record.Timestamp } else { '' }
+                    if (-not $ts) {
+                        $tm = $timeRx.Match($line)
+                        if ($tm.Success) {
+                            $ts = $tm.Groups[1].Value
+                        } else {
+                            $um = $unixRx.Match($line)
+                            if ($um.Success) {
+                                $unixMs = [long]$um.Groups[1].Value
+                                # If > 1e11 treat as milliseconds, otherwise seconds
+                                if ($unixMs -gt 100000000000) { $unixMs = [long]($unixMs / 1000) }
+                                $ts = $epoch.AddSeconds($unixMs).ToString("yyyy-MM-ddTHH:mm:ssZ")
+                            }
                         }
                     }
 
-                    $lineHash = Get-StableId $line
+                    $lineHash = if ($record.LineHash) { [string]$record.LineHash } else { Get-StableId $line }
                     foreach ($skill in @($lineSkills | Select-Object -Unique)) {
                         $rawHits += [PSCustomObject]@{
                             skill    = $skill
@@ -1270,15 +1694,36 @@ foreach ($src in $activeSources) {
                         }
                     }
                 }
-            } catch { } finally {
+                $readSucceeded = $true
+            } catch {
+                $readErrorMessage = [string]$_.Exception.Message
+            } finally {
                 if ($sr) { $sr.Close() }
                 elseif ($fs) { $fs.Close() }
             }
-            $global:fileCache[$cacheKey] = @{
-                CacheVersion = $collectorCacheVersion
-                LastWriteTimeUtc = $f.LastWriteTimeUtc
-                Length           = $f.Length
-                RawHits          = $rawHits
+            if ($readSucceeded) {
+                $global:fileCache[$cacheKey] = @{
+                    CacheVersion = $collectorCacheVersion
+                    LastWriteTimeUtc = $f.LastWriteTimeUtc
+                    Length           = $f.Length
+                    RawHits          = $rawHits
+                    ReadStatus       = "ok"
+                }
+            } else {
+                # A transient lock, delete, or decoding error is not an empty
+                # successful scan. Keep the previous good cache entry (if any)
+                # for this report, but leave its metadata unchanged so the next
+                # watcher cycle retries the file.
+                $readFailureCount++
+                [void]$readFailureFiles.Add($f.FullName)
+                $retryFileKeys[$cacheKey] = $true
+                if ($sourceReport) { $sourceReport.read_errors++ }
+                if ($cacheEntry -and $cacheEntry.CacheVersion -eq $collectorCacheVersion -and $cacheEntry.ReadStatus -eq "ok") {
+                    $rawHits = @($cacheEntry.RawHits)
+                } else {
+                    $rawHits = @()
+                }
+                Write-Warning "Could not read log file; will retry next scan: $($f.FullName) ($readErrorMessage)"
             }
         }
 
@@ -1478,6 +1923,7 @@ foreach ($toolName in $supportedToolNames) {
     $filesWithHits = [int](($detectedRows | Measure-Object files_with_hits -Sum).Sum)
     $raw = [int](($detectedRows | Measure-Object raw_hits -Sum).Sum)
     $dedup = [int](($detectedRows | Measure-Object dedup_hits -Sum).Sum)
+    $readErrors = [int](($detectedRows | Measure-Object read_errors -Sum).Sum)
     $status = "missing"
     if ($detectedRows.Count -gt 0) {
         if ($raw -gt 0) {
@@ -1498,6 +1944,7 @@ foreach ($toolName in $supportedToolNames) {
         files_with_hits = $filesWithHits
         raw_hits        = $raw
         dedup_hits      = $dedup
+        read_errors     = $readErrors
         latest_log_at   = if ($latestLogAt) { [string]$latestLogAt[0] } else { "" }
         latest_hit_at   = if ($latestHitAt) { [string]$latestHitAt[0] } else { "" }
     }
@@ -1507,6 +1954,7 @@ $statusCounts = [ordered]@{
     no_skill_hits = @($toolSummaries | Where-Object { $_.status -eq "no_skill_hits" }).Count
     no_log_files  = @($toolSummaries | Where-Object { $_.status -eq "no_log_files" }).Count
     missing       = @($toolSummaries | Where-Object { $_.status -eq "missing" }).Count
+    read_errors   = @($toolSummaries | Where-Object { $_.read_errors -gt 0 }).Count
 }
 $toolReportObj = [PSCustomObject]@{
     generated_at = $genAt
@@ -1518,6 +1966,8 @@ $toolReportObj = [PSCustomObject]@{
         scanned_file_count    = [int](($toolReports | Measure-Object files_scanned -Sum).Sum)
         raw_hits              = [int](($toolReports | Measure-Object raw_hits -Sum).Sum)
         dedup_hits            = [int](($toolReports | Measure-Object dedup_hits -Sum).Sum)
+        read_error_count      = $readFailureCount
+        read_error_file_count = $readFailureFiles.Count
         status_counts         = [PSCustomObject]$statusCounts
     }
     tools = $toolSummaries
@@ -1528,6 +1978,25 @@ $toolReportJsonPath = Join-Path $cfg.output_dir "tool_report.json"
 $toolReportJsPath = Join-Path $cfg.output_dir "tool_report.js"
 $toolReportJson = $toolReportObj | ConvertTo-Json -Depth 8 -Compress
 [System.IO.File]::WriteAllText($toolReportJsPath, "var TOOL_REPORT = $toolReportJson;`nvar BUILD_ID = $buildId;`n", [System.Text.Encoding]::UTF8)
+
+if ($Watch -and $retryFileKeys.Count -gt 0) {
+    # Do not let a transient read failure become the new watcher baseline.
+    # Removing failed files forces the next cycle to notice and retry them even
+    # when their mtime and length did not change after the failed read.
+    foreach ($retryKey in @($retryFileKeys.Keys)) {
+        [void]$fileStates.Remove($retryKey)
+    }
+}
+
+$script:watcherLastScanAt = [DateTimeOffset]::UtcNow.ToString("o")
+if ($readFailureCount -gt 0) {
+    $script:watcherLastError = "Could not read $readFailureCount log file(s); retry scheduled."
+    Write-CollectorHeartbeat -Status "degraded" -ErrorMessage $script:watcherLastError
+} else {
+    $script:watcherLastSuccessfulScanAt = $script:watcherLastScanAt
+    $script:watcherLastError = ""
+    Write-CollectorHeartbeat -Status "ready"
+}
 
 Write-Host ""
 Write-Host "=== Done === Total entries: $($logEntries.Count)"
@@ -1545,10 +2014,14 @@ $arr | Sort-Object count -Descending | Select-Object -First 10 |
     Write-Host "Watching for changes... (Press Ctrl+C to stop)"
     Start-Sleep -Seconds 5
 }
-} finally {
-    if ($Watch -and (Test-Path $pidPath)) {
-        Remove-Item $pidPath -Force -ErrorAction SilentlyContinue
+} catch {
+    if ($Watch) {
+        $script:watcherLastError = [string]$_.Exception.Message
+        Write-CollectorHeartbeat -Status "error" -ErrorMessage $script:watcherLastError
     }
+    throw
+} finally {
+    Remove-CollectorLease
     if ($watcherMutex) {
         if ($ownsWatcherMutex) {
             try { $watcherMutex.ReleaseMutex() } catch { }

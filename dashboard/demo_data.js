@@ -85,30 +85,32 @@ var SKILL_LOG = [
   { skill: "tdd", tool: "ClaudeCode", time: "2026-07-05T10:14:53+08:00", session: "demo-session-engineering-002", dedup: false, dedup_key: "ClaudeCode|demo-session-engineering-002|tdd|14860147" },
   { skill: "to-issues", tool: "ClaudeCode", time: "2026-07-05T10:22:11+08:00", session: "demo-session-engineering-002", dedup: true, dedup_key: "ClaudeCode|demo-session-engineering-002|to-issues|14860151" },
   { skill: "web-design-guidelines", tool: "Antigravity", time: "2026-07-05T14:18:20+08:00", session: "demo-session-design-003", dedup: true, dedup_key: "Antigravity|demo-session-design-003|web-design-guidelines|14860270" },
-  { skill: "threejs-animation", tool: "Antigravity", time: "2026-07-05T14:25:46+08:00", session: "demo-session-design-003", dedup: true, dedup_key: "Antigravity|demo-session-design-003|threejs-animation|14860273" },
+  { skill: "threejs-animation", tool: "AntigravityIDE", time: "2026-07-05T14:25:46+08:00", session: "demo-session-ide-004", dedup: true, dedup_key: "AntigravityIDE|demo-session-ide-004|threejs-animation|14860273" },
   { skill: "video-edit", tool: "Antigravity", time: "2026-07-05T15:03:12+08:00", session: "demo-session-media-004", dedup: true, dedup_key: "Antigravity|demo-session-media-004|video-edit|14860291" }
 ];
 
 var GENERATED_AT = "Demo data";
 var DEDUP_WINDOW_MINUTES = 2;
-var DETECTED_TOOLS = ["Codex", "ClaudeCode", "Antigravity"];
+var DETECTED_TOOLS = ["Codex", "ClaudeCode", "Antigravity", "AntigravityIDE"];
 var TOOL_REPORT = {
   generated_at: "Demo data",
   summary: {
-    supported_tools: ["Aider", "Amazon Q", "Amp", "Antigravity", "Augment", "ClaudeCode", "Cline", "Codex", "Continue", "Cursor", "Gemini CLI", "GitHub Copilot", "Goose", "Hermes", "JetBrains AI", "Junie", "Kilo Code", "Qwen Code", "Roo Code", "Sourcegraph Cody", "Tabby", "Tabnine", "Trae", "Windsurf", "Zed", "opencode"],
-    detected_source_count: 3,
+    supported_tools: ["Aider", "Amazon Q", "Amp", "Antigravity", "AntigravityIDE", "Augment", "ClaudeCode", "Cline", "Codex", "Continue", "Cursor", "Gemini CLI", "GitHub Copilot", "Goose", "Hermes", "JetBrains AI", "Junie", "Kilo Code", "Qwen Code", "Roo Code", "Sourcegraph Cody", "Tabby", "Tabnine", "Trae", "Windsurf", "Zed", "opencode"],
+    detected_source_count: 4,
     scanned_file_count: 8,
     raw_hits: 9,
     dedup_hits: 7,
-    status_counts: { ok: 3, no_skill_hits: 0, no_log_files: 0, missing: 23 }
+    status_counts: { ok: 4, no_skill_hits: 0, no_log_files: 0, missing: 23, read_errors: 0 }
   },
   tools: [
-    { tool: "Antigravity", status: "ok", source_count: 1, files_scanned: 2, files_with_hits: 1, raw_hits: 3, dedup_hits: 3, latest_log_at: "2026-07-07T03:20:00Z", latest_hit_at: "2026-07-07T03:18:00Z" },
-    { tool: "ClaudeCode", status: "ok", source_count: 1, files_scanned: 2, files_with_hits: 1, raw_hits: 3, dedup_hits: 2, latest_log_at: "2026-07-07T03:22:00Z", latest_hit_at: "2026-07-07T03:21:00Z" },
-    { tool: "Codex", status: "ok", source_count: 1, files_scanned: 4, files_with_hits: 2, raw_hits: 3, dedup_hits: 2, latest_log_at: "2026-07-07T03:25:00Z", latest_hit_at: "2026-07-07T03:24:00Z" }
+    { tool: "Antigravity", status: "ok", source_count: 1, files_scanned: 1, files_with_hits: 1, raw_hits: 2, dedup_hits: 2, read_errors: 0, latest_log_at: "2026-07-07T03:20:00Z", latest_hit_at: "2026-07-07T03:18:00Z" },
+    { tool: "AntigravityIDE", status: "ok", source_count: 1, files_scanned: 1, files_with_hits: 1, raw_hits: 1, dedup_hits: 1, read_errors: 0, latest_log_at: "2026-07-07T03:21:00Z", latest_hit_at: "2026-07-07T03:20:00Z" },
+    { tool: "ClaudeCode", status: "ok", source_count: 1, files_scanned: 2, files_with_hits: 1, raw_hits: 3, dedup_hits: 2, read_errors: 0, latest_log_at: "2026-07-07T03:22:00Z", latest_hit_at: "2026-07-07T03:21:00Z" },
+    { tool: "Codex", status: "ok", source_count: 1, files_scanned: 4, files_with_hits: 2, raw_hits: 3, dedup_hits: 2, read_errors: 0, latest_log_at: "2026-07-07T03:25:00Z", latest_hit_at: "2026-07-07T03:24:00Z" }
   ],
   sources: [
-    { tool: "Antigravity", path: "demo://antigravity", source: "demo", detected: true, files_scanned: 2, files_with_hits: 1, latest_log_at: "2026-07-07T03:20:00Z", latest_hit_at: "2026-07-07T03:18:00Z", raw_hits: 3, dedup_hits: 3, status: "ok", status_reason: "skill_hits_detected" },
+    { tool: "Antigravity", path: "demo://antigravity", source: "demo", detected: true, files_scanned: 1, files_with_hits: 1, latest_log_at: "2026-07-07T03:20:00Z", latest_hit_at: "2026-07-07T03:18:00Z", raw_hits: 2, dedup_hits: 2, read_errors: 0, status: "ok", status_reason: "skill_hits_detected" },
+    { tool: "AntigravityIDE", path: "demo://antigravity-ide", source: "demo", detected: true, files_scanned: 1, files_with_hits: 1, latest_log_at: "2026-07-07T03:21:00Z", latest_hit_at: "2026-07-07T03:20:00Z", raw_hits: 1, dedup_hits: 1, read_errors: 0, status: "ok", status_reason: "skill_hits_detected" },
     { tool: "Aider", path: "demo://aider", source: "demo", detected: false, files_scanned: 0, files_with_hits: 0, latest_log_at: "", latest_hit_at: "", raw_hits: 0, dedup_hits: 0, status: "missing", status_reason: "path_missing" },
     { tool: "Amazon Q", path: "demo://amazon-q", source: "demo", detected: false, files_scanned: 0, files_with_hits: 0, latest_log_at: "", latest_hit_at: "", raw_hits: 0, dedup_hits: 0, status: "missing", status_reason: "path_missing" },
     { tool: "Amp", path: "demo://amp", source: "demo", detected: false, files_scanned: 0, files_with_hits: 0, latest_log_at: "", latest_hit_at: "", raw_hits: 0, dedup_hits: 0, status: "missing", status_reason: "path_missing" },

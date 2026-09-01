@@ -30,16 +30,27 @@ try {
         type = "response_item"
         payload = [ordered]@{
             type = "custom_tool_call"
-            name = "exec"
-            input = "Get-Content -Raw '$skillFile'"
+            name = "Read"
+            # Keep the real SKILL.md read after the old 128 KiB line boundary.
+            # The collector must discover it without allocating the whole line.
+            input = ([System.String]::new([char]'x', 140000) + " Get-Content -Raw '$skillFile'")
         }
     }
     $recordLine = ($record | ConvertTo-Json -Compress)
+    $codexLogPath = Join-Path $codexLogDir "session.jsonl"
     [System.IO.File]::WriteAllText(
-        (Join-Path $codexLogDir "session.jsonl"),
+        $codexLogPath,
         $recordLine + "`n",
         [System.Text.Encoding]::UTF8
     )
+    [System.IO.File]::AppendAllText(
+        $codexLogPath,
+        [System.String]::new([char]'x', 11000000),
+        [System.Text.Encoding]::UTF8
+    )
+    if ((Get-Item -LiteralPath $codexLogPath).Length -le 10485760) {
+        throw "Codex large-log fixture did not exceed 10 MiB."
+    }
     $config = [ordered]@{
         skills_root = ""
         skills_roots = @($seedRoot)
